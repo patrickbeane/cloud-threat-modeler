@@ -41,7 +41,8 @@ Output:
 CLI gating:
 
 - optional policy gating with `--fail-on high`, `--fail-on medium`, or `--fail-on low`
-- emits the markdown report as usual, but returns exit code `3` when findings meet or exceed the threshold
+- returns exit code `3` when findings meet or exceed the threshold
+- optional `--quiet` mode suppresses markdown on stdout for CI or scripting
 - optional SARIF side output with `--sarif-output report.sarif`
 
 ## Demo Scenarios
@@ -193,6 +194,56 @@ Gate more aggressively on medium or higher findings before `terraform apply`:
 
 ```bash
 PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --fail-on medium
+```
+
+Run quietly in CI while still failing on policy violations:
+
+```bash
+PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --quiet --fail-on high
+```
+
+### GitHub Actions Example
+
+Upload SARIF and fail the workflow when high-severity findings are present:
+
+```yaml
+name: threat-model
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - run: terraform show -json tfplan > tfplan.json
+      - run: cloud-threat-modeler tfplan.json --quiet --fail-on high --sarif-output cloud-threat-modeler.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: cloud-threat-modeler.sarif
+```
+
+### Pre-Apply Example
+
+Gate `terraform apply` on medium-or-higher findings:
+
+```bash
+terraform plan -out tfplan
+terraform show -json tfplan > tfplan.json
+cloud-threat-modeler tfplan.json --quiet --fail-on medium --output threat-model.md --sarif-output threat-model.sarif
+terraform apply tfplan
 ```
 
 Run the unit tests:

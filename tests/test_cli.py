@@ -85,6 +85,28 @@ class CliTests(unittest.TestCase):
             self.assertEqual(sarif_payload["version"], "2.1.0")
             self.assertEqual(sarif_payload["runs"][0]["tool"]["driver"]["name"], "cloud-threat-modeler")
 
+    def test_cli_quiet_suppresses_stdout_but_preserves_success_exit_code(self) -> None:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = main([str(SAFE_FIXTURE_PATH), "--quiet"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual("", stdout_buffer.getvalue())
+        self.assertEqual("", stderr_buffer.getvalue())
+
+    def test_cli_quiet_still_emits_policy_gate_failure_on_stderr(self) -> None:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = main([str(FIXTURE_PATH), "--quiet", "--fail-on", "high"])
+
+        self.assertEqual(exit_code, POLICY_VIOLATION_EXIT_CODE)
+        self.assertEqual("", stdout_buffer.getvalue())
+        self.assertIn("Policy gate failed", stderr_buffer.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

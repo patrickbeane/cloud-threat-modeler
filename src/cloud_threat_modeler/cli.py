@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to write a SARIF 2.1.0 report alongside the markdown output.",
     )
     parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress markdown output to stdout. File outputs and policy gate messages are still emitted.",
+    )
+    parser.add_argument(
         "--title",
         default="Cloud Threat Model Report",
         help="Optional custom report title.",
@@ -58,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.output:
         Path(args.output).write_text(report, encoding="utf-8")
-    else:
+    elif not args.quiet:
         sys.stdout.write(report)
         if not report.endswith("\n"):
             sys.stdout.write("\n")
