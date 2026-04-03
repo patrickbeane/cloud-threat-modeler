@@ -2,6 +2,10 @@
 
 `cloud-threat-modeler` is a deterministic security engineering MVP that converts Terraform plan JSON into an explainable cloud threat model. The v1 implementation focuses on AWS and produces a markdown report that highlights trust boundaries and STRIDE-oriented findings without relying on an LLM for the core analysis.
 
+## Why This Exists
+
+Terraform plans describe intended cloud infrastructure before deployment, but they do not produce an explicit threat model. `cloud-threat-modeler` exists to close that gap by turning `terraform show -json` output into a deterministic security analysis: identifying trust boundaries, surfacing STRIDE-oriented risks, and generating a report early enough for engineers to fix design issues before infrastructure is applied.
+
 The project is intentionally shaped like a real internal platform or security tooling prototype:
 
 - deterministic parsing and rule execution
