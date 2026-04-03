@@ -26,6 +26,9 @@ class MarkdownReportRendererTests(unittest.TestCase):
         self.assertIn("## Findings", report)
         self.assertIn("### High", report)
         self.assertIn("### Medium", report)
+        self.assertIn("- Severity reasoning:", report)
+        self.assertIn("- Evidence:", report)
+        self.assertIn("security group rules", report)
         self.assertIn("## Limitations / Unsupported Resources", report)
         self.assertIn("aws_cloudwatch_log_group.processor", report)
 

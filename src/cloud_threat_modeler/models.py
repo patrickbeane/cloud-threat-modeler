@@ -154,6 +154,23 @@ class TrustBoundary:
 
 
 @dataclass(slots=True)
+class EvidenceItem:
+    key: str
+    values: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class SeverityReasoning:
+    internet_exposure: int
+    privilege_breadth: int
+    data_sensitivity: int
+    lateral_movement: int
+    blast_radius: int
+    final_score: int
+    severity: Severity
+
+
+@dataclass(slots=True)
 class Finding:
     title: str
     category: StrideCategory
@@ -163,6 +180,8 @@ class Finding:
     rationale: str
     recommended_mitigation: str
     rule_id: str
+    evidence: list[EvidenceItem] = field(default_factory=list)
+    severity_reasoning: SeverityReasoning | None = None
 
 
 @dataclass(slots=True)

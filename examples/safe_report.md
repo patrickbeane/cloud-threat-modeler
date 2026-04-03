@@ -41,21 +41,21 @@ This run identified **7 trust boundaries** and **1 findings** across **26 normal
 - Source: `aws_instance.app`
 - Target: `aws_db_instance.app`
 - Description: aws_instance.app can interact with aws_db_instance.app.
-- Rationale: Application or function workloads cross into a higher-sensitivity data plane when they reach databases or object storage.
+- Rationale: Application or function workloads cross into a higher-sensitivity data plane when database ingress security groups explicitly trust the workload security group.
 
 ### `workload-to-data-store`
 
 - Source: `aws_lambda_function.processor`
 - Target: `aws_db_instance.app`
 - Description: aws_lambda_function.processor can interact with aws_db_instance.app.
-- Rationale: Application or function workloads cross into a higher-sensitivity data plane when they reach databases or object storage.
+- Rationale: Application or function workloads cross into a higher-sensitivity data plane when database ingress security groups explicitly trust the workload security group.
 
 ### `workload-to-data-store`
 
 - Source: `aws_lambda_function.processor`
 - Target: `aws_s3_bucket.artifacts`
 - Description: aws_lambda_function.processor can interact with aws_s3_bucket.artifacts.
-- Rationale: Application or function workloads cross into a higher-sensitivity data plane when they reach databases or object storage.
+- Rationale: Application or function workloads cross into a higher-sensitivity data plane when their attached role allows S3 actions such as s3:GetObject.
 
 ### `admin-to-workload-plane`
 
@@ -77,8 +77,13 @@ No findings in this severity band.
 - STRIDE category: Elevation of Privilege
 - Affected resources: `aws_iam_policy.observability`
 - Trust boundary: `not-applicable`
+- Severity reasoning: internet_exposure +0, privilege_breadth +2, data_sensitivity +0, lateral_movement +1, blast_radius +2, final_score 5 => medium
 - Rationale: aws_iam_policy.observability contains allow statements with wildcard actions or resources. That makes the resulting access difficult to reason about and expands blast radius.
 - Recommended mitigation: Replace wildcard actions and resources with narrowly scoped permissions tied to the exact services, APIs, and ARNs required by the workload.
+- Evidence:
+  - iam actions: logs:*
+  - iam resources: *
+  - policy statements: Allow actions=[logs:*] resources=[*]
 
 ### Low
 

@@ -184,6 +184,11 @@ class AwsNormalizer(ProviderNormalizer):
                     "ami": values.get("ami"),
                     "instance_type": values.get("instance_type"),
                     "associate_public_ip_address": bool(values.get("associate_public_ip_address", False)),
+                    "public_exposure_reasons": (
+                        ["instance requests an associated public IP address"]
+                        if bool(values.get("associate_public_ip_address", False))
+                        else []
+                    ),
                     "tags": values.get("tags", {}),
                 },
             )
@@ -202,6 +207,11 @@ class AwsNormalizer(ProviderNormalizer):
                 metadata={
                     "internal": bool(values.get("internal", False)),
                     "load_balancer_type": values.get("load_balancer_type"),
+                    "public_exposure_reasons": (
+                        ["load balancer is configured as internet-facing"]
+                        if not bool(values.get("internal", False))
+                        else []
+                    ),
                 },
             )
         if resource.resource_type == "aws_db_instance":
@@ -219,6 +229,11 @@ class AwsNormalizer(ProviderNormalizer):
                 metadata={
                     "engine": values.get("engine"),
                     "publicly_accessible": bool(values.get("publicly_accessible", False)),
+                    "public_exposure_reasons": (
+                        ["database instance is marked publicly_accessible"]
+                        if bool(values.get("publicly_accessible", False))
+                        else []
+                    ),
                     "storage_encrypted": bool(values.get("storage_encrypted", False)),
                     "db_subnet_group_name": values.get("db_subnet_group_name"),
                 },
@@ -241,6 +256,10 @@ class AwsNormalizer(ProviderNormalizer):
                     "bucket": values.get("bucket"),
                     "acl": bucket_acl,
                     "policy_document": policy_document,
+                    "public_exposure_reasons": _bucket_public_exposure_reasons(
+                        bucket_acl,
+                        public_policy=public_policy,
+                    ),
                 },
             )
         if resource.resource_type == "aws_s3_bucket_public_access_block":
@@ -424,6 +443,11 @@ class AwsNormalizer(ProviderNormalizer):
                 public_via_policy
                 and not (public_access_block["block_public_policy"] or public_access_block["restrict_public_buckets"])
             )
+            bucket.metadata["public_exposure_reasons"] = _bucket_public_exposure_reasons(
+                bucket.metadata.get("acl", ""),
+                public_policy=public_via_policy,
+                public_access_block=public_access_block,
+            )
 
         subnet_route_table_ids: dict[str, list[str]] = {}
         for association_resource in resources:
@@ -487,7 +511,10 @@ class AwsNormalizer(ProviderNormalizer):
                 for security_group in attached_security_groups
                 for rule in security_group.network_rules
             )
+            resource.metadata.setdefault("public_exposure_reasons", [])
             resource.metadata["internet_ingress"] = internet_ingress
+            resource.metadata["internet_ingress_capable"] = internet_ingress
+            resource.metadata["internet_ingress_reasons"] = _internet_ingress_reasons(attached_security_groups)
             resource.metadata["public_subnet"] = (
                 any(subnet_id in public_subnet_ids for subnet_id in resource.subnet_ids)
                 if resource.subnet_ids
@@ -506,11 +533,16 @@ class AwsNormalizer(ProviderNormalizer):
             # rules so later detectors can reason over a normalized signal instead of
             # provider-specific fields.
             if resource.resource_type == "aws_instance":
+                if resource.metadata["public_subnet"] and internet_ingress:
+                    _append_unique(
+                        resource.metadata,
+                        "public_exposure_reasons",
+                        "instance is in a public subnet and attached security groups allow internet ingress",
+                    )
                 resource.public_exposure = resource.public_exposure or (
                     resource.metadata["public_subnet"] and internet_ingress
                 )
-            elif resource.resource_type == "aws_db_instance":
-                resource.public_exposure = resource.public_exposure or internet_ingress
+            resource.metadata["direct_internet_reachable"] = resource.public_exposure
 
 
 def _parse_security_group_rules(values: dict[str, Any]) -> list[SecurityGroupRule]:
@@ -592,6 +624,22 @@ def _policy_allows_public_access(policy_document: dict[str, Any]) -> bool:
         if "*" in statement.principals:
             return True
     return False
+
+
+def _bucket_public_exposure_reasons(
+    bucket_acl: str,
+    *,
+    public_policy: bool,
+    public_access_block: dict[str, bool] | None = None,
+) -> list[str]:
+    reasons: list[str] = []
+    access_block = public_access_block or {}
+    acl_is_public = bucket_acl in {"public-read", "public-read-write", "website"}
+    if acl_is_public and not (access_block.get("block_public_acls") or access_block.get("ignore_public_acls")):
+        reasons.append(f"bucket ACL `{bucket_acl}` grants public access")
+    if public_policy and not (access_block.get("block_public_policy") or access_block.get("restrict_public_buckets")):
+        reasons.append("bucket policy allows anonymous access")
+    return reasons
 
 
 def _has_internet_route(routes: list[dict[str, Any]]) -> bool:
@@ -682,6 +730,38 @@ def _append_unique(metadata: dict[str, Any], key: str, value: str | None) -> Non
     values = metadata.setdefault(key, [])
     if value not in values:
         values.append(value)
+
+
+def _internet_ingress_reasons(attached_security_groups: list[NormalizedResource]) -> list[str]:
+    reasons: list[str] = []
+    for security_group in attached_security_groups:
+        for rule in security_group.network_rules:
+            if rule.direction != "ingress" or not rule.allows_internet():
+                continue
+            reasons.append(_describe_security_group_rule(security_group, rule))
+    return reasons
+
+
+def _describe_security_group_rule(security_group: NormalizedResource, rule: SecurityGroupRule) -> str:
+    port_range = _format_port_range(rule)
+    sources = list(rule.cidr_blocks) + list(rule.ipv6_cidr_blocks)
+    if rule.referenced_security_group_ids:
+        sources.extend(rule.referenced_security_group_ids)
+    source_text = ", ".join(sorted(sources)) if sources else "unspecified sources"
+    description = f"{security_group.address} {rule.direction} {rule.protocol} {port_range} from {source_text}"
+    if rule.description:
+        return f"{description} ({rule.description})"
+    return description
+
+
+def _format_port_range(rule: SecurityGroupRule) -> str:
+    if rule.protocol == "-1":
+        return "all ports"
+    if rule.from_port is None or rule.to_port is None:
+        return "unspecified ports"
+    if rule.from_port == rule.to_port:
+        return str(rule.from_port)
+    return f"{rule.from_port}-{rule.to_port}"
 
 
 def _compact(values: list[Any]) -> list[str]:

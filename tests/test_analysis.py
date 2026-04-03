@@ -51,6 +51,18 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertEqual(findings_by_title["Database is reachable from overly permissive sources"].severity, Severity.HIGH)
         self.assertEqual(findings_by_title["Workload role carries sensitive permissions"].severity, Severity.HIGH)
 
+    def test_findings_include_structured_evidence_and_severity_reasoning(self) -> None:
+        findings_by_title = {finding.title: finding for finding in self.result.findings}
+        database_finding = findings_by_title["Database is reachable from overly permissive sources"]
+
+        evidence_by_key = {item.key: item.values for item in database_finding.evidence}
+        self.assertIn("security_group_rules", evidence_by_key)
+        self.assertIn("network_path", evidence_by_key)
+        self.assertIn("subnet_posture", evidence_by_key)
+        self.assertIsNotNone(database_finding.severity_reasoning)
+        self.assertEqual(database_finding.severity_reasoning.final_score, 6)
+        self.assertEqual(database_finding.severity_reasoning.severity, Severity.HIGH)
+
     def test_fixture_scenarios_have_expected_finding_profiles(self) -> None:
         scenarios = {
             "safe": (SAFE_FIXTURE_PATH, 1, {"medium": 1}),
@@ -144,6 +156,31 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
 
         self.assertEqual(mixed_private_subnet.metadata.get("route_table_ids"), ["rtb-private-001"])
         self.assertTrue(mixed_private_subnet.metadata.get("has_nat_gateway_egress"))
+
+    def test_database_reachability_prefers_security_group_evidence_over_same_vpc_only(self) -> None:
+        safe_result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)
+        mixed_result = self.engine.analyze_plan(FIXTURE_PATH)
+
+        safe_boundary = next(
+            boundary
+            for boundary in safe_result.trust_boundaries
+            if boundary.boundary_type == BoundaryType.WORKLOAD_TO_DATA_STORE
+            and boundary.source == "aws_instance.app"
+            and boundary.target == "aws_db_instance.app"
+        )
+        self.assertIn("explicitly trust the workload security group", safe_boundary.rationale)
+
+        mixed_db = mixed_result.inventory.get_by_address("aws_db_instance.app")
+        internet_boundaries_to_db = [
+            boundary
+            for boundary in mixed_result.trust_boundaries
+            if boundary.boundary_type == BoundaryType.INTERNET_TO_SERVICE
+            and boundary.target == "aws_db_instance.app"
+        ]
+
+        self.assertFalse(mixed_db.public_exposure)
+        self.assertTrue(mixed_db.metadata.get("internet_ingress_capable"))
+        self.assertEqual(internet_boundaries_to_db, [])
 
 
 if __name__ == "__main__":

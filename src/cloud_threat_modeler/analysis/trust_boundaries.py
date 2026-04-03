@@ -74,13 +74,14 @@ class TrustBoundaryDetector:
         for workload in workloads:
             attached_role = _resolve_role_for_workload(workload, role_index)
             for data_store in data_stores:
-                if _workload_reaches_data_store(workload, data_store, attached_role):
+                reachability_rationale = _workload_reaches_data_store(workload, data_store, attached_role, inventory)
+                if reachability_rationale:
                     add_boundary(
                         BoundaryType.WORKLOAD_TO_DATA_STORE,
                         workload.address,
                         data_store.address,
                         f"{workload.display_name} can interact with {data_store.display_name}.",
-                        "Application or function workloads cross into a higher-sensitivity data plane when they reach databases or object storage.",
+                        reachability_rationale,
                     )
             if attached_role is not None:
                 add_boundary(
@@ -143,21 +144,87 @@ def _workload_reaches_data_store(
     workload: NormalizedResource,
     data_store: NormalizedResource,
     attached_role: NormalizedResource | None,
-) -> bool:
+    inventory: ResourceInventory,
+) -> str | None:
     if data_store.resource_type == "aws_db_instance":
-        # RDS reachability is approximated as "same VPC" in v1; finer-grained network path
-        # modeling can be layered on later without changing the boundary type.
-        return bool(workload.vpc_id and data_store.vpc_id and workload.vpc_id == data_store.vpc_id)
+        return _database_reachability_rationale(workload, data_store, inventory)
     if data_store.resource_type == "aws_s3_bucket":
         if attached_role is None:
-            return False
-        # For S3, the meaningful boundary is permission-based rather than network-based.
-        return any(
-            any(action == "*" or action.startswith("s3:") for action in statement.actions)
-            for statement in attached_role.policy_statements
-            if statement.effect == "Allow"
+            return None
+        allowed_actions = sorted(
+            {
+                action
+                for statement in attached_role.policy_statements
+                if statement.effect == "Allow"
+                for action in statement.actions
+                if action == "*" or action.startswith("s3:")
+            }
         )
+        if not allowed_actions:
+            return None
+        action_text = ", ".join(allowed_actions)
+        return (
+            "Application or function workloads cross into a higher-sensitivity data plane when their "
+            f"attached role allows S3 actions such as {action_text}."
+        )
+    return None
+
+
+def _database_reachability_rationale(
+    workload: NormalizedResource,
+    data_store: NormalizedResource,
+    inventory: ResourceInventory,
+) -> str | None:
+    if workload.vpc_id and data_store.vpc_id and workload.vpc_id != data_store.vpc_id:
+        if not data_store.metadata.get("direct_internet_reachable"):
+            return None
+
+    if _database_allows_workload_security_group(workload, data_store, inventory):
+        return (
+            "Application or function workloads cross into a higher-sensitivity data plane when "
+            "database ingress security groups explicitly trust the workload security group."
+        )
+
+    if data_store.metadata.get("direct_internet_reachable") and _workload_has_general_egress_path(workload):
+        return (
+            "Application or function workloads cross into a higher-sensitivity data plane when "
+            "a directly internet-reachable database is reachable from a workload subnet with general egress."
+        )
+
+    if (not workload.security_group_ids or not data_store.security_group_ids) and (
+        workload.vpc_id and data_store.vpc_id and workload.vpc_id == data_store.vpc_id
+    ):
+        return (
+            "Application or function workloads cross into a higher-sensitivity data plane when "
+            "they share a VPC with the database and the plan does not provide tighter security-group evidence."
+        )
+    return None
+
+
+def _database_allows_workload_security_group(
+    workload: NormalizedResource,
+    data_store: NormalizedResource,
+    inventory: ResourceInventory,
+) -> bool:
+    if not workload.security_group_ids or not data_store.security_group_ids:
+        return False
+    workload_group_ids = set(workload.security_group_ids)
+    for security_group_id in data_store.security_group_ids:
+        security_group = inventory.get_by_identifier(security_group_id)
+        if security_group is None or security_group.resource_type != "aws_security_group":
+            continue
+        for rule in security_group.network_rules:
+            if rule.direction != "ingress":
+                continue
+            if workload_group_ids.intersection(rule.referenced_security_group_ids):
+                return True
     return False
+
+
+def _workload_has_general_egress_path(workload: NormalizedResource) -> bool:
+    if workload.resource_type == "aws_lambda_function" and not workload.metadata.get("vpc_enabled", True):
+        return True
+    return bool(workload.metadata.get("public_subnet") or workload.metadata.get("has_nat_gateway_egress"))
 
 
 def _parse_account_id_from_principal(principal: str) -> str | None:

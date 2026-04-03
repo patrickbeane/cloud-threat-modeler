@@ -70,11 +70,18 @@ class MarkdownReportRenderer:
                         f"- STRIDE category: {finding.category.value}",
                         f"- Affected resources: {', '.join(f'`{resource}`' for resource in finding.affected_resources)}",
                         f"- Trust boundary: `{finding.trust_boundary_id or 'not-applicable'}`",
+                        f"- Severity reasoning: {_format_severity_reasoning(finding)}",
                         f"- Rationale: {finding.rationale}",
                         f"- Recommended mitigation: {finding.recommended_mitigation}",
-                        "",
                     ]
                 )
+                if finding.evidence:
+                    lines.append("- Evidence:")
+                    for evidence_item in finding.evidence:
+                        label = evidence_item.key.replace("_", " ")
+                        values = "; ".join(evidence_item.values)
+                        lines.append(f"  - {label}: {values}")
+                lines.append("")
 
         lines.extend(
             [
@@ -91,3 +98,17 @@ class MarkdownReportRenderer:
             lines.append("- No additional limitations were recorded.")
         lines.append("")
         return "\n".join(lines)
+
+
+def _format_severity_reasoning(finding) -> str:
+    if finding.severity_reasoning is None:
+        return finding.severity.value
+    reasoning = finding.severity_reasoning
+    return (
+        f"internet_exposure +{reasoning.internet_exposure}, "
+        f"privilege_breadth +{reasoning.privilege_breadth}, "
+        f"data_sensitivity +{reasoning.data_sensitivity}, "
+        f"lateral_movement +{reasoning.lateral_movement}, "
+        f"blast_radius +{reasoning.blast_radius}, "
+        f"final_score {reasoning.final_score} => {reasoning.severity.value}"
+    )
