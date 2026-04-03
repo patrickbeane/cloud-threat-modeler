@@ -81,6 +81,60 @@
           }
         },
         {
+          "address": "aws_nat_gateway.main",
+          "mode": "managed",
+          "type": "aws_nat_gateway",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "nat-001",
+            "allocation_id": "eipalloc-001",
+            "subnet_id": "subnet-public-001",
+            "connectivity_type": "public"
+          }
+        },
+        {
+          "address": "aws_route_table.private",
+          "mode": "managed",
+          "type": "aws_route_table",
+          "name": "private",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtb-private-001",
+            "vpc_id": "vpc-001",
+            "route": [
+              {
+                "cidr_block": "0.0.0.0/0",
+                "nat_gateway_id": "nat-001"
+              }
+            ]
+          }
+        },
+        {
+          "address": "aws_route_table_association.public_app",
+          "mode": "managed",
+          "type": "aws_route_table_association",
+          "name": "public_app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtassoc-public-001",
+            "subnet_id": "subnet-public-001",
+            "route_table_id": "rtb-001"
+          }
+        },
+        {
+          "address": "aws_route_table_association.private_data",
+          "mode": "managed",
+          "type": "aws_route_table_association",
+          "name": "private_data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtassoc-private-001",
+            "subnet_id": "subnet-private-001",
+            "route_table_id": "rtb-private-001"
+          }
+        },
+        {
           "address": "aws_security_group.app",
           "mode": "managed",
           "type": "aws_security_group",

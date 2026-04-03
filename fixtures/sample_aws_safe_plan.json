@@ -98,6 +98,72 @@
           }
         },
         {
+          "address": "aws_nat_gateway.main",
+          "mode": "managed",
+          "type": "aws_nat_gateway",
+          "name": "main",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "nat-safe-001",
+            "allocation_id": "eipalloc-safe-001",
+            "subnet_id": "subnet-safe-public-001",
+            "connectivity_type": "public"
+          }
+        },
+        {
+          "address": "aws_route_table.private",
+          "mode": "managed",
+          "type": "aws_route_table",
+          "name": "private",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtb-safe-private-001",
+            "vpc_id": "vpc-safe-001",
+            "route": [
+              {
+                "cidr_block": "0.0.0.0/0",
+                "nat_gateway_id": "nat-safe-001"
+              }
+            ]
+          }
+        },
+        {
+          "address": "aws_route_table_association.public_edge",
+          "mode": "managed",
+          "type": "aws_route_table_association",
+          "name": "public_edge",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtassoc-safe-public-001",
+            "subnet_id": "subnet-safe-public-001",
+            "route_table_id": "rtb-safe-001"
+          }
+        },
+        {
+          "address": "aws_route_table_association.private_app",
+          "mode": "managed",
+          "type": "aws_route_table_association",
+          "name": "private_app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtassoc-safe-private-app-001",
+            "subnet_id": "subnet-safe-private-app-001",
+            "route_table_id": "rtb-safe-private-001"
+          }
+        },
+        {
+          "address": "aws_route_table_association.private_data",
+          "mode": "managed",
+          "type": "aws_route_table_association",
+          "name": "private_data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "rtassoc-safe-private-data-001",
+            "subnet_id": "subnet-safe-private-data-001",
+            "route_table_id": "rtb-safe-private-001"
+          }
+        },
+        {
           "address": "aws_security_group.lb",
           "mode": "managed",
           "type": "aws_security_group",

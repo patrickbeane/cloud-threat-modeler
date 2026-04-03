@@ -20,11 +20,13 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.result = self.engine.analyze_plan(FIXTURE_PATH)
 
     def test_analysis_normalizes_supported_resources_and_tracks_unsupported(self) -> None:
-        self.assertEqual(len(self.result.inventory.resources), 19)
+        self.assertEqual(len(self.result.inventory.resources), 23)
         self.assertIn("aws_cloudwatch_log_group.processor", self.result.inventory.unsupported_resources)
         resource_types = {resource.resource_type for resource in self.result.inventory.resources}
         self.assertIn("aws_security_group_rule", resource_types)
+        self.assertIn("aws_nat_gateway", resource_types)
         self.assertIn("aws_iam_role_policy_attachment", resource_types)
+        self.assertIn("aws_route_table_association", resource_types)
 
     def test_analysis_discovers_expected_trust_boundaries(self) -> None:
         boundary_types = {boundary.boundary_type for boundary in self.result.trust_boundaries}
@@ -123,6 +125,25 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertIn("aws_security_group_rule.db_from_public_app", mixed_db_group.metadata.get("standalone_rule_addresses", []))
         self.assertIn("aws_security_group_rule.db_from_internet", mixed_db_group.metadata.get("standalone_rule_addresses", []))
         self.assertEqual(len(mixed_db_group.network_rules), 3)
+
+    def test_route_table_associations_and_nat_gateways_refine_subnet_classification(self) -> None:
+        safe_result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)
+        mixed_result = self.engine.analyze_plan(FIXTURE_PATH)
+
+        safe_public_subnet = safe_result.inventory.get_by_address("aws_subnet.public_edge")
+        safe_private_subnet = safe_result.inventory.get_by_address("aws_subnet.private_app")
+        mixed_private_subnet = mixed_result.inventory.get_by_address("aws_subnet.private_data")
+
+        self.assertEqual(safe_public_subnet.metadata.get("route_table_ids"), ["rtb-safe-001"])
+        self.assertTrue(safe_public_subnet.metadata.get("is_public_subnet"))
+        self.assertFalse(safe_public_subnet.metadata.get("has_nat_gateway_egress"))
+
+        self.assertEqual(safe_private_subnet.metadata.get("route_table_ids"), ["rtb-safe-private-001"])
+        self.assertFalse(safe_private_subnet.metadata.get("is_public_subnet"))
+        self.assertTrue(safe_private_subnet.metadata.get("has_nat_gateway_egress"))
+
+        self.assertEqual(mixed_private_subnet.metadata.get("route_table_ids"), ["rtb-private-001"])
+        self.assertTrue(mixed_private_subnet.metadata.get("has_nat_gateway_egress"))
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ SUPPORTED_AWS_TYPES = {
     "aws_instance",
     "aws_security_group",
     "aws_security_group_rule",
+    "aws_nat_gateway",
     "aws_lb",
     "aws_db_instance",
     "aws_s3_bucket",
@@ -31,6 +32,7 @@ SUPPORTED_AWS_TYPES = {
     "aws_vpc",
     "aws_internet_gateway",
     "aws_route_table",
+    "aws_route_table_association",
 }
 
 
@@ -112,6 +114,20 @@ class AwsNormalizer(ProviderNormalizer):
                 vpc_id=values.get("vpc_id"),
                 metadata={"routes": _as_list(values.get("route") or values.get("routes"))},
             )
+        if resource.resource_type == "aws_route_table_association":
+            return NormalizedResource(
+                address=resource.address,
+                provider=self.provider,
+                resource_type=resource.resource_type,
+                name=resource.name,
+                category=ResourceCategory.NETWORK,
+                identifier=values.get("id") or resource.address,
+                metadata={
+                    "route_table_id": values.get("route_table_id"),
+                    "subnet_id": values.get("subnet_id"),
+                    "gateway_id": values.get("gateway_id"),
+                },
+            )
         if resource.resource_type == "aws_security_group":
             return NormalizedResource(
                 address=resource.address,
@@ -137,6 +153,20 @@ class AwsNormalizer(ProviderNormalizer):
                 identifier=values.get("id") or resource.address,
                 network_rules=[_parse_standalone_security_group_rule(values)],
                 metadata={"security_group_id": values.get("security_group_id")},
+            )
+        if resource.resource_type == "aws_nat_gateway":
+            return NormalizedResource(
+                address=resource.address,
+                provider=self.provider,
+                resource_type=resource.resource_type,
+                name=resource.name,
+                category=ResourceCategory.NETWORK,
+                identifier=values.get("id"),
+                subnet_ids=_compact([values.get("subnet_id")]),
+                metadata={
+                    "allocation_id": values.get("allocation_id"),
+                    "connectivity_type": values.get("connectivity_type", "public"),
+                },
             )
         if resource.resource_type == "aws_instance":
             return NormalizedResource(
@@ -302,6 +332,9 @@ class AwsNormalizer(ProviderNormalizer):
         security_groups = {
             resource.identifier: resource for resource in resources if resource.resource_type == "aws_security_group"
         }
+        route_tables = {
+            resource.identifier: resource for resource in resources if resource.resource_type == "aws_route_table"
+        }
         buckets = {
             key: resource
             for resource in resources
@@ -330,6 +363,11 @@ class AwsNormalizer(ProviderNormalizer):
             resource.vpc_id
             for resource in resources
             if resource.resource_type == "aws_route_table" and _has_internet_route(resource.metadata.get("routes", []))
+        }
+        nat_gateway_ids = {
+            resource.identifier
+            for resource in resources
+            if resource.resource_type == "aws_nat_gateway" and resource.identifier
         }
 
         # Standalone SG rule resources carry the same security meaning as inline rules, so fold
@@ -387,14 +425,42 @@ class AwsNormalizer(ProviderNormalizer):
                 and not (public_access_block["block_public_policy"] or public_access_block["restrict_public_buckets"])
             )
 
+        subnet_route_table_ids: dict[str, list[str]] = {}
+        for association_resource in resources:
+            if association_resource.resource_type != "aws_route_table_association":
+                continue
+            subnet_id = association_resource.metadata.get("subnet_id")
+            route_table_id = association_resource.metadata.get("route_table_id")
+            if not subnet_id or not route_table_id:
+                continue
+            subnet_route_table_ids.setdefault(str(subnet_id), []).append(str(route_table_id))
+
         public_subnet_ids = set()
         for subnet in subnets.values():
-            # v1 intentionally uses a simple heuristic: a subnet is "public" when it both
-            # auto-assigns public IPs and lives in a VPC that has an IGW-backed default route.
-            is_public = bool(subnet.metadata.get("map_public_ip_on_launch")) and subnet.vpc_id in vpcs_with_igw.intersection(
-                vpcs_with_public_routes
+            associated_route_table_ids = subnet_route_table_ids.get(subnet.identifier or "", [])
+            has_public_route = any(
+                route_table_id in route_tables and _has_internet_route(route_tables[route_table_id].metadata.get("routes", []))
+                for route_table_id in associated_route_table_ids
             )
+            has_nat_route = any(
+                route_table_id in route_tables
+                and _has_nat_gateway_route(route_tables[route_table_id].metadata.get("routes", []), nat_gateway_ids)
+                for route_table_id in associated_route_table_ids
+            )
+            if associated_route_table_ids:
+                # Prefer explicit associations when Terraform provides them because they are
+                # more precise than inferring subnet posture from VPC-wide route presence.
+                is_public = has_public_route
+            else:
+                # Fall back to the original heuristic when route table associations are absent.
+                is_public = bool(subnet.metadata.get("map_public_ip_on_launch")) and subnet.vpc_id in vpcs_with_igw.intersection(
+                    vpcs_with_public_routes
+                )
+                has_nat_route = False
             subnet.metadata["is_public_subnet"] = is_public
+            subnet.metadata["route_table_ids"] = associated_route_table_ids
+            subnet.metadata["has_public_route"] = has_public_route
+            subnet.metadata["has_nat_gateway_egress"] = has_nat_route
             if is_public and subnet.identifier:
                 public_subnet_ids.add(subnet.identifier)
 
@@ -422,7 +488,20 @@ class AwsNormalizer(ProviderNormalizer):
                 for rule in security_group.network_rules
             )
             resource.metadata["internet_ingress"] = internet_ingress
-            resource.metadata["public_subnet"] = any(subnet_id in public_subnet_ids for subnet_id in resource.subnet_ids)
+            resource.metadata["public_subnet"] = (
+                any(subnet_id in public_subnet_ids for subnet_id in resource.subnet_ids)
+                if resource.subnet_ids
+                else resource.metadata.get("public_subnet", False)
+            )
+            resource.metadata["has_nat_gateway_egress"] = (
+                any(
+                    subnets[subnet_id].metadata.get("has_nat_gateway_egress")
+                    for subnet_id in resource.subnet_ids
+                    if subnet_id in subnets
+                )
+                if resource.subnet_ids
+                else resource.metadata.get("has_nat_gateway_egress", False)
+            )
             # Public exposure is inferred conservatively from network placement and ingress
             # rules so later detectors can reason over a normalized signal instead of
             # provider-specific fields.
@@ -520,6 +599,20 @@ def _has_internet_route(routes: list[dict[str, Any]]) -> bool:
         destination = route.get("cidr_block") or route.get("destination_cidr_block")
         gateway_id = route.get("gateway_id")
         if destination == "0.0.0.0/0" and isinstance(gateway_id, str) and gateway_id.startswith("igw-"):
+            return True
+    return False
+
+
+def _has_nat_gateway_route(routes: list[dict[str, Any]], nat_gateway_ids: set[str]) -> bool:
+    for route in routes:
+        destination = route.get("cidr_block") or route.get("destination_cidr_block")
+        nat_gateway_id = route.get("nat_gateway_id")
+        gateway_id = route.get("gateway_id")
+        if destination != "0.0.0.0/0":
+            continue
+        if isinstance(nat_gateway_id, str) and nat_gateway_id in nat_gateway_ids:
+            return True
+        if isinstance(gateway_id, str) and gateway_id in nat_gateway_ids:
             return True
     return False
 

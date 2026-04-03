@@ -2,12 +2,12 @@
 
 - Analyzed file: `sample_aws_safe_plan.json`
 - Provider: `aws`
-- Normalized resources: `21`
+- Normalized resources: `26`
 - Unsupported resources: `0`
 
 ## Summary
 
-This run identified **7 trust boundaries** and **1 findings** across **21 normalized resources**.
+This run identified **7 trust boundaries** and **1 findings** across **26 normalized resources**.
 
 - High severity findings: `0`
 - Medium severity findings: `1`
@@ -87,6 +87,6 @@ No findings in this severity band.
 ## Limitations / Unsupported Resources
 
 - AWS support is intentionally limited to a curated v1 resource set rather than the full Terraform AWS provider.
-- Subnet public/private classification uses Terraform plan attributes plus route-table heuristics and does not model every association resource.
+- Subnet public/private classification prefers explicit route table associations and NAT or internet routes when present, but it does not model main-route-table inheritance or every routing edge case.
 - IAM analysis focuses on inline role policies, standalone policy documents, role-policy attachments, and trust policies; it does not yet build a full attachment graph.
 - The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or resource-based policies beyond scoped S3 public-access checks.
