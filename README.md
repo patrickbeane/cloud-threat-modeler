@@ -1,11 +1,12 @@
 # cloud-threat-modeler
 
-`cloud-threat-modeler` converts Terraform plan JSON into deterministic cloud threat models, trust boundaries, and STRIDE-oriented findings for AWS infrastructure before deployment.
+`cloud-threat-modeler` converts Terraform plan JSON into deterministic cloud threat models, trust boundaries, STRIDE-oriented findings, and observed protective controls for AWS infrastructure before deployment.
 
 ## Highlights
 
 - deterministic Terraform plan analysis with no LLM in the core pipeline
 - trust-boundary detection plus STRIDE-oriented findings
+- informational controls observed for clear mitigating signals
 - markdown and SARIF 2.1.0 output
 - CI policy gating with `--fail-on low|medium|high`
 - automation-friendly `--quiet` mode and non-zero exit behavior
@@ -101,6 +102,8 @@ terraform apply tfplan
 The repo includes several ready-to-run Terraform plan fixtures:
 
 - `sample_aws_alb_ec2_rds_plan.json`: public ALB, private EC2 app tier, and private encrypted RDS to demonstrate restraint on a common web architecture
+- `sample_aws_cross_account_trust_unconstrained_plan.json`: minimal cross-account assume-role trust without narrowing conditions to exercise the IAM trust finding path
+- `sample_aws_cross_account_trust_constrained_plan.json`: similar cross-account trust narrowed by `ExternalId`, `SourceArn`, and `SourceAccount` so the report surfaces the control instead of the finding
 - `sample_aws_lambda_deploy_role_plan.json`: private Lambda deployment path with scoped S3 access and deliberate cross-account trust to exercise IAM and trust findings without public-network noise
 - `sample_aws_safe_plan.json`: mostly well-segmented environment with one deliberate IAM hygiene issue
 - `sample_aws_plan.json`: mixed case with public exposure, permissive database reachability, risky IAM, and cross-account trust
@@ -117,7 +120,7 @@ Pipeline:
 1. Parse the Terraform plan into raw resource records.
 2. Normalize supported AWS resources into a provider-agnostic internal model.
 3. Detect trust boundaries such as internet-to-service, public-to-private segmentation, workload-to-data-store access, control-plane-to-workload relationships, and cross-account trust.
-4. Evaluate deterministic STRIDE-oriented rules.
+4. Evaluate deterministic STRIDE-oriented rules and observe clear risk-reducing controls.
 5. Render markdown and optionally SARIF output.
 
 The engine is intentionally simple and explainable:
@@ -144,11 +147,13 @@ Current rules include:
 - workload roles with sensitive permissions
 - missing segmentation between public workloads and private data tiers
 - trust relationships that expand blast radius
+- cross-account or broad trust without narrowing conditions
 
 Outputs include:
 
 - summary counts and discovered trust boundaries
 - findings grouped by severity with rationale, mitigation, evidence, and severity reasoning
+- controls observed when the engine sees clear mitigating signals such as S3 public access blocks, narrowed trust, or private encrypted RDS
 - markdown for human review
 - SARIF 2.1.0 for scanner-compatible integrations
 
@@ -182,6 +187,8 @@ Unsupported resources are skipped and called out in the report.
 .
 ├── fixtures/
 │   ├── sample_aws_alb_ec2_rds_plan.json
+│   ├── sample_aws_cross_account_trust_constrained_plan.json
+│   ├── sample_aws_cross_account_trust_unconstrained_plan.json
 │   ├── sample_aws_lambda_deploy_role_plan.json
 │   ├── sample_aws_nightmare_plan.json
 │   ├── sample_aws_plan.json
@@ -228,6 +235,10 @@ Unsupported resources are skipped and called out in the report.
 - Realistic ALB / EC2 / RDS:
   [`fixtures/sample_aws_alb_ec2_rds_plan.json`](fixtures/sample_aws_alb_ec2_rds_plan.json),
   [`examples/alb_ec2_rds_report.md`](examples/alb_ec2_rds_report.md)
+- Cross-account trust, unconstrained:
+  [`fixtures/sample_aws_cross_account_trust_unconstrained_plan.json`](fixtures/sample_aws_cross_account_trust_unconstrained_plan.json)
+- Cross-account trust, narrowed:
+  [`fixtures/sample_aws_cross_account_trust_constrained_plan.json`](fixtures/sample_aws_cross_account_trust_constrained_plan.json)
 - Lambda deploy-role:
   [`fixtures/sample_aws_lambda_deploy_role_plan.json`](fixtures/sample_aws_lambda_deploy_role_plan.json),
   [`examples/lambda_deploy_role_report.md`](examples/lambda_deploy_role_report.md)
