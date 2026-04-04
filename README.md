@@ -32,6 +32,19 @@ Gate a plan in CI and emit SARIF alongside the markdown report:
 cloud-threat-modeler tfplan.json --quiet --fail-on high --output threat-model.md --sarif-output threat-model.sarif
 ```
 
+Example finding excerpt:
+
+```markdown
+#### Database is reachable from overly permissive sources
+
+- STRIDE category: Information Disclosure
+- Trust boundary: `workload-to-data-store:aws_instance.app->aws_db_instance.app`
+- Severity reasoning: internet_exposure +2, data_sensitivity +2, lateral_movement +1, blast_radius +1, final_score 6 => high
+- Evidence:
+  - security group rules: aws_security_group.db ingress tcp 5432 from 0.0.0.0/0
+  - network path: database trusts security groups attached to internet-exposed workloads
+```
+
 Expected outcome on a failing plan:
 
 ```text
@@ -41,6 +54,8 @@ Policy gate failed: 3 finding(s) meet or exceed `high` (3 high).
 ## CI Usage
 
 GitHub Actions example with SARIF upload and high-severity gating:
+
+Policy gating returns exit code `3` when findings meet or exceed the requested threshold.
 
 ```yaml
 name: threat-model
@@ -91,7 +106,7 @@ The repo includes several ready-to-run Terraform plan fixtures:
 - `sample_aws_plan.json`: mixed case with public exposure, permissive database reachability, risky IAM, and cross-account trust
 - `sample_aws_nightmare_plan.json`: deliberately broken environment with stacked public access, public storage, wildcard IAM, risky workload roles, and blast-radius expansion
 
-## How It Works
+## Detection Model
 
 Input:
 
@@ -136,7 +151,6 @@ Outputs include:
 - findings grouped by severity with rationale, mitigation, evidence, and severity reasoning
 - markdown for human review
 - SARIF 2.1.0 for scanner-compatible integrations
-- exit code `3` when `--fail-on` thresholds are violated
 
 ## Supported AWS Resources
 
@@ -208,16 +222,21 @@ Unsupported resources are skipped and called out in the report.
 
 ## Sample Assets
 
-- Safe fixture: [`fixtures/sample_aws_safe_plan.json`](fixtures/sample_aws_safe_plan.json)
-- Safe report: [`examples/safe_report.md`](examples/safe_report.md)
-- ALB + EC2 + RDS fixture: [`fixtures/sample_aws_alb_ec2_rds_plan.json`](fixtures/sample_aws_alb_ec2_rds_plan.json)
-- ALB + EC2 + RDS report: [`examples/alb_ec2_rds_report.md`](examples/alb_ec2_rds_report.md)
-- Lambda deploy-role fixture: [`fixtures/sample_aws_lambda_deploy_role_plan.json`](fixtures/sample_aws_lambda_deploy_role_plan.json)
-- Lambda deploy-role report: [`examples/lambda_deploy_role_report.md`](examples/lambda_deploy_role_report.md)
-- Mixed fixture: [`fixtures/sample_aws_plan.json`](fixtures/sample_aws_plan.json)
-- Mixed report: [`examples/sample_report.md`](examples/sample_report.md)
-- Nightmare fixture: [`fixtures/sample_aws_nightmare_plan.json`](fixtures/sample_aws_nightmare_plan.json)
-- Nightmare report: [`examples/nightmare_report.md`](examples/nightmare_report.md)
+- Safe:
+  [`fixtures/sample_aws_safe_plan.json`](fixtures/sample_aws_safe_plan.json),
+  [`examples/safe_report.md`](examples/safe_report.md)
+- Realistic ALB / EC2 / RDS:
+  [`fixtures/sample_aws_alb_ec2_rds_plan.json`](fixtures/sample_aws_alb_ec2_rds_plan.json),
+  [`examples/alb_ec2_rds_report.md`](examples/alb_ec2_rds_report.md)
+- Lambda deploy-role:
+  [`fixtures/sample_aws_lambda_deploy_role_plan.json`](fixtures/sample_aws_lambda_deploy_role_plan.json),
+  [`examples/lambda_deploy_role_report.md`](examples/lambda_deploy_role_report.md)
+- Mixed:
+  [`fixtures/sample_aws_plan.json`](fixtures/sample_aws_plan.json),
+  [`examples/sample_report.md`](examples/sample_report.md)
+- Nightmare:
+  [`fixtures/sample_aws_nightmare_plan.json`](fixtures/sample_aws_nightmare_plan.json),
+  [`examples/nightmare_report.md`](examples/nightmare_report.md)
 
 ## Testing
 
