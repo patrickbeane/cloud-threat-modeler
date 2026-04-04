@@ -15,6 +15,12 @@ SAFE_FIXTURE_PATH = FIXTURES_DIR / "sample_aws_safe_plan.json"
 NIGHTMARE_FIXTURE_PATH = FIXTURES_DIR / "sample_aws_nightmare_plan.json"
 ALB_EC2_RDS_FIXTURE_PATH = FIXTURES_DIR / "sample_aws_alb_ec2_rds_plan.json"
 LAMBDA_DEPLOY_ROLE_FIXTURE_PATH = FIXTURES_DIR / "sample_aws_lambda_deploy_role_plan.json"
+CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH = (
+    FIXTURES_DIR / "sample_aws_cross_account_trust_unconstrained_plan.json"
+)
+CROSS_ACCOUNT_TRUST_CONSTRAINED_FIXTURE_PATH = (
+    FIXTURES_DIR / "sample_aws_cross_account_trust_constrained_plan.json"
+)
 
 
 class CloudThreatModelerAnalysisTests(unittest.TestCase):
@@ -43,6 +49,7 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         findings_by_title = {finding.title: finding for finding in self.result.findings}
         expected_titles = {
             "Internet-exposed compute service permits overly broad ingress",
+            "Cross-account or broad role trust lacks narrowing conditions",
             "Database is reachable from overly permissive sources",
             "Object storage is publicly accessible",
             "IAM policy grants wildcard privileges",
@@ -84,13 +91,14 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
     def test_fixture_scenarios_have_expected_finding_profiles(self) -> None:
         scenarios = {
             "safe": (SAFE_FIXTURE_PATH, 1, {"medium": 1}),
-            "mixed": (FIXTURE_PATH, 8, {"high": 3, "medium": 5}),
-            "nightmare": (NIGHTMARE_FIXTURE_PATH, 14, {"high": 5, "medium": 9}),
+            "mixed": (FIXTURE_PATH, 9, {"high": 3, "medium": 6}),
+            "nightmare": (NIGHTMARE_FIXTURE_PATH, 16, {"high": 5, "medium": 11}),
         }
 
         expected_titles = {
             "safe": {"IAM policy grants wildcard privileges": 1},
             "mixed": {
+                "Cross-account or broad role trust lacks narrowing conditions": 1,
                 "Database is reachable from overly permissive sources": 1,
                 "Private data tier directly trusts the public application tier": 1,
                 "Workload role carries sensitive permissions": 1,
@@ -100,6 +108,7 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
                 "Role trust relationship expands blast radius": 1,
             },
             "nightmare": {
+                "Cross-account or broad role trust lacks narrowing conditions": 2,
                 "Database is reachable from overly permissive sources": 1,
                 "Database storage encryption is disabled": 1,
                 "Private data tier directly trusts the public application tier": 1,
@@ -120,6 +129,74 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
                 self.assertEqual(len(result.findings), expected_count)
                 self.assertEqual(dict(severity_counts), expected_severities)
                 self.assertEqual(dict(title_counts), expected_titles[name])
+
+    def test_unconstrained_cross_account_trust_without_narrowing_conditions_is_detected(self) -> None:
+        result = self.engine.analyze_plan(CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH)
+        severity_counts = Counter(finding.severity.value for finding in result.findings)
+        title_counts = Counter(finding.title for finding in result.findings)
+
+        self.assertEqual(len(result.inventory.resources), 2)
+        self.assertEqual(dict(severity_counts), {"medium": 2})
+        self.assertEqual(
+            dict(title_counts),
+            {
+                "Cross-account or broad role trust lacks narrowing conditions": 1,
+                "Role trust relationship expands blast radius": 1,
+            },
+        )
+
+        trust_finding = next(
+            finding
+            for finding in result.findings
+            if finding.title == "Cross-account or broad role trust lacks narrowing conditions"
+        )
+        evidence_by_key = {item.key: item.values for item in trust_finding.evidence}
+        self.assertEqual(
+            evidence_by_key["trust_principals"],
+            ["arn:aws:iam::444455556666:role/github-actions-deployer"],
+        )
+        self.assertEqual(
+            evidence_by_key["trust_scope"],
+            ["principal belongs to foreign account 444455556666"],
+        )
+        self.assertEqual(
+            evidence_by_key["trust_narrowing"],
+            [
+                "supported narrowing conditions present: false",
+                "supported narrowing condition keys: none",
+            ],
+        )
+        self.assertEqual(trust_finding.severity, Severity.MEDIUM)
+        self.assertIsNotNone(trust_finding.severity_reasoning)
+        self.assertEqual(trust_finding.severity_reasoning.final_score, 4)
+
+    def test_constrained_cross_account_trust_skips_missing_narrowing_rule(self) -> None:
+        result = self.engine.analyze_plan(CROSS_ACCOUNT_TRUST_CONSTRAINED_FIXTURE_PATH)
+        severity_counts = Counter(finding.severity.value for finding in result.findings)
+        title_counts = Counter(finding.title for finding in result.findings)
+        role = result.inventory.get_by_address("aws_iam_role.deployer")
+
+        self.assertEqual(len(result.inventory.resources), 2)
+        self.assertEqual(dict(severity_counts), {"medium": 1})
+        self.assertEqual(
+            dict(title_counts),
+            {"Role trust relationship expands blast radius": 1},
+        )
+        self.assertNotIn(
+            "Cross-account or broad role trust lacks narrowing conditions",
+            title_counts,
+        )
+        self.assertIsNotNone(role)
+        external_statement = next(
+            statement
+            for statement in role.metadata.get("trust_statements", [])
+            if "arn:aws:iam::444455556666:role/github-actions-deployer" in statement["principals"]
+        )
+        self.assertEqual(
+            external_statement["narrowing_condition_keys"],
+            ["aws:SourceAccount", "aws:SourceArn", "sts:ExternalId"],
+        )
+        self.assertTrue(external_statement["has_narrowing_conditions"])
 
     def test_safe_fixture_public_access_block_suppresses_bucket_exposure(self) -> None:
         result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)
@@ -231,18 +308,19 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertEqual(boundary_types[BoundaryType.PUBLIC_TO_PRIVATE], 2)
         self.assertEqual(boundary_types[BoundaryType.WORKLOAD_TO_DATA_STORE], 1)
 
-    def test_realistic_lambda_deploy_role_fixture_surfaces_two_medium_findings(self) -> None:
+    def test_realistic_lambda_deploy_role_fixture_surfaces_three_medium_findings(self) -> None:
         result = self.engine.analyze_plan(LAMBDA_DEPLOY_ROLE_FIXTURE_PATH)
         boundary_types = Counter(boundary.boundary_type for boundary in result.trust_boundaries)
         severity_counts = Counter(finding.severity.value for finding in result.findings)
         title_counts = Counter(finding.title for finding in result.findings)
 
         self.assertEqual(len(result.inventory.resources), 13)
-        self.assertEqual(len(result.findings), 2)
-        self.assertEqual(dict(severity_counts), {"medium": 2})
+        self.assertEqual(len(result.findings), 3)
+        self.assertEqual(dict(severity_counts), {"medium": 3})
         self.assertEqual(
             dict(title_counts),
             {
+                "Cross-account or broad role trust lacks narrowing conditions": 1,
                 "Role trust relationship expands blast radius": 1,
                 "Workload role carries sensitive permissions": 1,
             },

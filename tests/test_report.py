@@ -15,6 +15,7 @@ SAFE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_safe_plan.json"
 NIGHTMARE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_nightmare_plan.json"
 ALB_EC2_RDS_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_alb_ec2_rds_plan.json"
 LAMBDA_DEPLOY_ROLE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_lambda_deploy_role_plan.json"
+CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_cross_account_trust_unconstrained_plan.json"
 EXAMPLES_DIR = ROOT / "examples"
 
 
@@ -32,9 +33,20 @@ class MarkdownReportRendererTests(unittest.TestCase):
         self.assertIn("### Medium", report)
         self.assertIn("- Severity reasoning:", report)
         self.assertIn("- Evidence:", report)
+        self.assertIn("Cross-account or broad role trust lacks narrowing conditions", report)
+        self.assertIn("trust narrowing", report)
         self.assertIn("security group rules", report)
         self.assertIn("## Limitations / Unsupported Resources", report)
         self.assertIn("aws_cloudwatch_log_group.processor", report)
+
+    def test_report_renders_unconstrained_trust_evidence(self) -> None:
+        engine = CloudThreatModeler()
+        result = engine.analyze_plan(CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH)
+        report = MarkdownReportRenderer().render(result)
+
+        self.assertIn("Cross-account or broad role trust lacks narrowing conditions", report)
+        self.assertIn("supported narrowing conditions present: false", report)
+        self.assertIn("supported narrowing condition keys: none", report)
 
     def test_checked_in_example_reports_match_renderer_output(self) -> None:
         engine = CloudThreatModeler()
@@ -80,6 +92,18 @@ class SarifReportRendererTests(unittest.TestCase):
         self.assertEqual(database_result["properties"]["severity"], "high")
         self.assertTrue(database_result["properties"]["evidence"])
         self.assertEqual(database_result["properties"]["severity_reasoning"]["final_score"], 6)
+
+        trust_result = next(
+            sarif_result
+            for sarif_result in run["results"]
+            if sarif_result["ruleId"] == "aws-role-trust-missing-narrowing"
+        )
+        self.assertEqual(trust_result["level"], "warning")
+        self.assertEqual(
+            trust_result["message"]["text"],
+            "Cross-account or broad role trust lacks narrowing conditions",
+        )
+        self.assertTrue(trust_result["properties"]["evidence"])
 
     def test_app_can_render_sarif_report(self) -> None:
         engine = CloudThreatModeler()

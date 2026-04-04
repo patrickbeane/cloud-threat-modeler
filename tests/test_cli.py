@@ -60,7 +60,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(exit_code, POLICY_VIOLATION_EXIT_CODE)
             self.assertTrue(output_path.exists())
             self.assertIn("Policy gate failed", stderr_buffer.getvalue())
-            self.assertIn("5 medium", stderr_buffer.getvalue())
+            self.assertIn("6 medium", stderr_buffer.getvalue())
 
     def test_cli_can_write_sarif_alongside_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

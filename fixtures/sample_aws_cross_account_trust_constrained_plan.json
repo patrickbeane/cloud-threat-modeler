@@ -1,0 +1,38 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.8.5",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_role.deployer",
+          "mode": "managed",
+          "type": "aws_iam_role",
+          "name": "deployer",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "release-deployer-role",
+            "name": "release-deployer-role",
+            "arn": "arn:aws:iam::111122223333:role/release-deployer-role",
+            "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}},{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"AWS\":\"arn:aws:iam::444455556666:role/github-actions-deployer\"},\"Condition\":{\"StringEquals\":{\"sts:ExternalId\":\"github-actions-release\",\"aws:SourceAccount\":\"444455556666\"},\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:codebuild:us-east-1:444455556666:project/release-*\"}}}]}"
+          }
+        },
+        {
+          "address": "aws_lambda_function.deployer",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "deployer",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "id": "release-deployer",
+            "function_name": "release-deployer",
+            "arn": "arn:aws:lambda:us-east-1:111122223333:function:release-deployer",
+            "role": "arn:aws:iam::111122223333:role/release-deployer-role",
+            "handler": "handler.main",
+            "runtime": "python3.12"
+          }
+        }
+      ]
+    }
+  }
+}

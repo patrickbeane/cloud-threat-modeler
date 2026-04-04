@@ -40,6 +40,7 @@ class StrideRuleEngine:
         findings.extend(self._detect_workload_role_risk(inventory, boundary_index))
         findings.extend(self._detect_missing_segmentation(inventory, boundary_index))
         findings.extend(self._detect_trust_expansion(inventory, boundary_index))
+        findings.extend(self._detect_unconstrained_trust(inventory, boundary_index))
 
         severity_order = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
         findings.sort(key=lambda finding: (severity_order[finding.severity], finding.title))
@@ -574,6 +575,72 @@ class StrideRuleEngine:
                 )
         return findings
 
+    def _detect_unconstrained_trust(
+        self,
+        inventory: ResourceInventory,
+        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+    ) -> list[Finding]:
+        findings: list[Finding] = []
+        primary_account_id = inventory.metadata.get("primary_account_id")
+        seen: set[tuple[str, str]] = set()
+        for role in inventory.by_type("aws_iam_role"):
+            for trust_statement in role.metadata.get("trust_statements", []):
+                narrowing_condition_keys = trust_statement.get("narrowing_condition_keys", [])
+                if narrowing_condition_keys:
+                    continue
+                for principal in trust_statement.get("principals", []):
+                    if principal.endswith(".amazonaws.com"):
+                        continue
+                    scope_description = _describe_unconstrained_trust_scope(principal, primary_account_id)
+                    if scope_description is None:
+                        continue
+                    finding_key = (role.address, principal)
+                    if finding_key in seen:
+                        continue
+                    seen.add(finding_key)
+                    account_id = _parse_account_id(principal)
+                    severity_reasoning = _build_severity_reasoning(
+                        internet_exposure=False,
+                        privilege_breadth=2 if principal == "*" or _is_root_principal(principal) else 1,
+                        data_sensitivity=0,
+                        lateral_movement=1,
+                        blast_radius=2 if principal == "*" or (account_id and account_id != primary_account_id) else 1,
+                    )
+                    boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
+                    findings.append(
+                        Finding(
+                            title="Cross-account or broad role trust lacks narrowing conditions",
+                            category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                            severity=severity_reasoning.severity,
+                            affected_resources=[role.address],
+                            trust_boundary_id=boundary.identifier if boundary else None,
+                            rule_id="aws-role-trust-missing-narrowing",
+                            rationale=(
+                                f"{role.display_name} trusts {principal} without supported narrowing conditions such as "
+                                "`sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role "
+                                "path dependent on a broad or external principal match alone."
+                            ),
+                            recommended_mitigation=(
+                                "Keep the trusted principal as specific as possible and add supported assume-role "
+                                "conditions such as `ExternalId`, `SourceArn`, or `SourceAccount` when crossing "
+                                "accounts or trusting broad principals."
+                            ),
+                            evidence=_collect_evidence(
+                                _evidence_item("trust_principals", [principal]),
+                                _evidence_item("trust_scope", [scope_description]),
+                                _evidence_item(
+                                    "trust_narrowing",
+                                    [
+                                        "supported narrowing conditions present: false",
+                                        "supported narrowing condition keys: none",
+                                    ],
+                                ),
+                            ),
+                            severity_reasoning=severity_reasoning,
+                        )
+                    )
+        return findings
+
 
 def _attached_security_groups(resource: NormalizedResource, inventory: ResourceInventory) -> list[NormalizedResource]:
     security_groups = []
@@ -717,6 +784,25 @@ def _describe_trust_principal(principal: str, primary_account_id: str | None) ->
     if account_id:
         return f"trust principal belongs to account {account_id}"
     return f"trust policy includes principal {principal}"
+
+
+def _describe_unconstrained_trust_scope(principal: str, primary_account_id: str | None) -> str | None:
+    if principal == "*":
+        return "principal is wildcard"
+    account_id = _parse_account_id(principal)
+    if account_id and primary_account_id and account_id != primary_account_id:
+        if _is_root_principal(principal):
+            return f"principal is foreign account root {account_id}"
+        return f"principal belongs to foreign account {account_id}"
+    if _is_root_principal(principal):
+        if account_id:
+            return f"principal is account root {account_id}"
+        return "principal is account root"
+    return None
+
+
+def _is_root_principal(principal: str) -> bool:
+    return principal.startswith("arn:") and principal.endswith(":root")
 
 
 def _subnet_posture(resource: NormalizedResource | None, inventory: ResourceInventory) -> list[str]:

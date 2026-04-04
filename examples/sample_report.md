@@ -7,10 +7,10 @@
 
 ## Summary
 
-This run identified **9 trust boundaries** and **8 findings** across **23 normalized resources**.
+This run identified **9 trust boundaries** and **9 findings** across **23 normalized resources**.
 
 - High severity findings: `3`
-- Medium severity findings: `5`
+- Medium severity findings: `6`
 - Low severity findings: `0`
 
 ## Discovered Trust Boundaries
@@ -121,6 +121,19 @@ This run identified **9 trust boundaries** and **8 findings** across **23 normal
   - policy statements: Allow actions=[s3:*, kms:Decrypt, iam:PassRole, sts:AssumeRole] resources=[*]
 
 ### Medium
+
+#### Cross-account or broad role trust lacks narrowing conditions
+
+- STRIDE category: Elevation of Privilege
+- Affected resources: `aws_iam_role.workload`
+- Trust boundary: `cross-account-or-role-access:arn:aws:iam::999988887777:root->aws_iam_role.workload`
+- Severity reasoning: internet_exposure +0, privilege_breadth +2, data_sensitivity +0, lateral_movement +1, blast_radius +2, final_score 5 => medium
+- Rationale: aws_iam_role.workload trusts arn:aws:iam::999988887777:root without supported narrowing conditions such as `sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role path dependent on a broad or external principal match alone.
+- Recommended mitigation: Keep the trusted principal as specific as possible and add supported assume-role conditions such as `ExternalId`, `SourceArn`, or `SourceAccount` when crossing accounts or trusting broad principals.
+- Evidence:
+  - trust principals: arn:aws:iam::999988887777:root
+  - trust scope: principal is foreign account root 999988887777
+  - trust narrowing: supported narrowing conditions present: false; supported narrowing condition keys: none
 
 #### IAM policy grants wildcard privileges
 

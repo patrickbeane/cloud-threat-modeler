@@ -7,10 +7,10 @@
 
 ## Summary
 
-This run identified **19 trust boundaries** and **14 findings** across **25 normalized resources**.
+This run identified **19 trust boundaries** and **16 findings** across **25 normalized resources**.
 
 - High severity findings: `5`
-- Medium severity findings: `9`
+- Medium severity findings: `11`
 - Low severity findings: `0`
 
 ## Discovered Trust Boundaries
@@ -215,6 +215,32 @@ This run identified **19 trust boundaries** and **14 findings** across **25 norm
   - policy statements: Allow actions=[iam:*, iam:PassRole, s3:*] resources=[*]
 
 ### Medium
+
+#### Cross-account or broad role trust lacks narrowing conditions
+
+- STRIDE category: Elevation of Privilege
+- Affected resources: `aws_iam_role.app`
+- Trust boundary: `cross-account-or-role-access:*->aws_iam_role.app`
+- Severity reasoning: internet_exposure +0, privilege_breadth +2, data_sensitivity +0, lateral_movement +1, blast_radius +2, final_score 5 => medium
+- Rationale: aws_iam_role.app trusts * without supported narrowing conditions such as `sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role path dependent on a broad or external principal match alone.
+- Recommended mitigation: Keep the trusted principal as specific as possible and add supported assume-role conditions such as `ExternalId`, `SourceArn`, or `SourceAccount` when crossing accounts or trusting broad principals.
+- Evidence:
+  - trust principals: *
+  - trust scope: principal is wildcard
+  - trust narrowing: supported narrowing conditions present: false; supported narrowing condition keys: none
+
+#### Cross-account or broad role trust lacks narrowing conditions
+
+- STRIDE category: Elevation of Privilege
+- Affected resources: `aws_iam_role.pipeline`
+- Trust boundary: `cross-account-or-role-access:arn:aws:iam::444455556666:root->aws_iam_role.pipeline`
+- Severity reasoning: internet_exposure +0, privilege_breadth +2, data_sensitivity +0, lateral_movement +1, blast_radius +2, final_score 5 => medium
+- Rationale: aws_iam_role.pipeline trusts arn:aws:iam::444455556666:root without supported narrowing conditions such as `sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role path dependent on a broad or external principal match alone.
+- Recommended mitigation: Keep the trusted principal as specific as possible and add supported assume-role conditions such as `ExternalId`, `SourceArn`, or `SourceAccount` when crossing accounts or trusting broad principals.
+- Evidence:
+  - trust principals: arn:aws:iam::444455556666:root
+  - trust scope: principal is foreign account root 444455556666
+  - trust narrowing: supported narrowing conditions present: false; supported narrowing condition keys: none
 
 #### Database storage encryption is disabled
 
