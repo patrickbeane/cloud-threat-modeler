@@ -83,6 +83,26 @@ class MarkdownReportRenderer:
                         lines.append(f"  - {label}: {values}")
                 lines.append("")
 
+        if result.observations:
+            lines.extend(["## Controls Observed", ""])
+            for observation in result.observations:
+                lines.extend(
+                    [
+                        f"### {observation.title}",
+                        "",
+                        f"- Category: `{observation.category or 'informational'}`",
+                        f"- Affected resources: {', '.join(f'`{resource}`' for resource in observation.affected_resources)}",
+                        f"- Rationale: {observation.rationale}",
+                    ]
+                )
+                if observation.evidence:
+                    lines.append("- Evidence:")
+                    for evidence_item in observation.evidence:
+                        label = evidence_item.key.replace("_", " ")
+                        values = "; ".join(evidence_item.values)
+                        lines.append(f"  - {label}: {values}")
+                lines.append("")
+
         lines.extend(
             [
                 "## Limitations / Unsupported Resources",

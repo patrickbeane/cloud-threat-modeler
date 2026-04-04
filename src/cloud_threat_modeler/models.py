@@ -185,6 +185,16 @@ class Finding:
 
 
 @dataclass(slots=True)
+class Observation:
+    title: str
+    observation_id: str
+    affected_resources: list[str]
+    rationale: str
+    evidence: list[EvidenceItem] = field(default_factory=list)
+    category: str | None = None
+
+
+@dataclass(slots=True)
 class AnalysisResult:
     title: str
     analyzed_file: str
@@ -192,4 +202,5 @@ class AnalysisResult:
     inventory: ResourceInventory
     trust_boundaries: list[TrustBoundary]
     findings: list[Finding]
+    observations: list[Observation] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)

@@ -197,6 +197,62 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
             ["aws:SourceAccount", "aws:SourceArn", "sts:ExternalId"],
         )
         self.assertTrue(external_statement["has_narrowing_conditions"])
+        self.assertEqual(len(result.observations), 1)
+        trust_observation = result.observations[0]
+        self.assertEqual(
+            trust_observation.title,
+            "Cross-account or broad role trust is narrowed by assume-role conditions",
+        )
+        self.assertEqual(trust_observation.category, "iam")
+        trust_evidence = {item.key: item.values for item in trust_observation.evidence}
+        self.assertEqual(
+            trust_evidence["trust_principals"],
+            ["arn:aws:iam::444455556666:role/github-actions-deployer"],
+        )
+        self.assertEqual(
+            trust_evidence["trust_narrowing"],
+            [
+                "supported narrowing conditions present: true",
+                "supported narrowing condition keys: aws:SourceAccount, aws:SourceArn, sts:ExternalId",
+            ],
+        )
+
+    def test_safe_fixture_emits_observations_for_s3_block_and_private_encrypted_rds(self) -> None:
+        result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)
+        observation_titles = [observation.title for observation in result.observations]
+        observations_by_title = {observation.title: observation for observation in result.observations}
+
+        self.assertEqual(
+            observation_titles,
+            [
+                "RDS instance is private and storage encrypted",
+                "S3 public access is reduced by a public access block",
+            ],
+        )
+
+        bucket_observation = observations_by_title["S3 public access is reduced by a public access block"]
+        bucket_evidence = {item.key: item.values for item in bucket_observation.evidence}
+        self.assertEqual(
+            bucket_evidence["mitigated_public_access"],
+            [
+                "bucket ACL `public-read` would otherwise grant public access",
+                "bucket policy would otherwise allow anonymous access",
+            ],
+        )
+        self.assertIn("block_public_acls is true", bucket_evidence["control_posture"])
+        self.assertIn("block_public_policy is true", bucket_evidence["control_posture"])
+
+        database_observation = observations_by_title["RDS instance is private and storage encrypted"]
+        database_evidence = {item.key: item.values for item in database_observation.evidence}
+        self.assertEqual(
+            database_evidence["database_posture"],
+            [
+                "publicly_accessible is false",
+                "storage_encrypted is true",
+                "no attached security group allows internet ingress",
+                "engine is postgres",
+            ],
+        )
 
     def test_safe_fixture_public_access_block_suppresses_bucket_exposure(self) -> None:
         result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)

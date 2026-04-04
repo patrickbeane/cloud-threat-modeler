@@ -6,6 +6,7 @@ from cloud_threat_modeler.models import (
     Finding,
     IAMPolicyStatement,
     NormalizedResource,
+    Observation,
     ResourceInventory,
     SecurityGroupRule,
     Severity,
@@ -45,6 +46,14 @@ class StrideRuleEngine:
         severity_order = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
         findings.sort(key=lambda finding: (severity_order[finding.severity], finding.title))
         return findings
+
+    def observe_controls(self, inventory: ResourceInventory) -> list[Observation]:
+        observations: list[Observation] = []
+        observations.extend(self._observe_bucket_public_access_blocks(inventory))
+        observations.extend(self._observe_narrowed_trust(inventory))
+        observations.extend(self._observe_private_encrypted_databases(inventory))
+        observations.sort(key=lambda observation: ((observation.category or ""), observation.title, observation.observation_id))
+        return observations
 
     def _detect_public_compute_exposure(
         self,
@@ -641,6 +650,133 @@ class StrideRuleEngine:
                     )
         return findings
 
+    def _observe_bucket_public_access_blocks(self, inventory: ResourceInventory) -> list[Observation]:
+        observations: list[Observation] = []
+        access_block_index = {
+            access_block.metadata.get("bucket"): access_block
+            for access_block in inventory.by_type("aws_s3_bucket_public_access_block")
+        }
+        for bucket in inventory.by_type("aws_s3_bucket"):
+            access_block = bucket.metadata.get("public_access_block")
+            if not access_block or bucket.public_exposure:
+                continue
+            mitigation_signals: list[str] = []
+            acl = bucket.metadata.get("acl", "")
+            if acl in {"public-read", "public-read-write", "website"}:
+                mitigation_signals.append(f"bucket ACL `{acl}` would otherwise grant public access")
+            if _policy_allows_public_access(bucket.metadata.get("policy_document", {})):
+                mitigation_signals.append("bucket policy would otherwise allow anonymous access")
+            if not mitigation_signals:
+                continue
+            affected_resources = [bucket.address]
+            access_block_resource = access_block_index.get(bucket.metadata.get("bucket"))
+            if access_block_resource is not None:
+                affected_resources.append(access_block_resource.address)
+            observations.append(
+                Observation(
+                    title="S3 public access is reduced by a public access block",
+                    observation_id="aws-s3-public-access-block-observed",
+                    category="data-protection",
+                    affected_resources=affected_resources,
+                    rationale=(
+                        f"{bucket.display_name} includes public-looking ACL or policy signals, but an attached "
+                        "public access block materially reduces that exposure."
+                    ),
+                    evidence=_collect_evidence(
+                        _evidence_item("mitigated_public_access", mitigation_signals),
+                        _evidence_item(
+                            "control_posture",
+                            [
+                                f"{key} is {str(value).lower()}"
+                                for key, value in sorted(access_block.items())
+                                if value
+                            ],
+                        ),
+                    ),
+                )
+            )
+        return observations
+
+    def _observe_narrowed_trust(self, inventory: ResourceInventory) -> list[Observation]:
+        observations: list[Observation] = []
+        primary_account_id = inventory.metadata.get("primary_account_id")
+        seen: set[tuple[str, str]] = set()
+        for role in inventory.by_type("aws_iam_role"):
+            for trust_statement in role.metadata.get("trust_statements", []):
+                narrowing_condition_keys = trust_statement.get("narrowing_condition_keys", [])
+                if not narrowing_condition_keys:
+                    continue
+                for principal in trust_statement.get("principals", []):
+                    if principal.endswith(".amazonaws.com"):
+                        continue
+                    scope_description = _describe_unconstrained_trust_scope(principal, primary_account_id)
+                    if scope_description is None:
+                        continue
+                    observation_key = (role.address, principal)
+                    if observation_key in seen:
+                        continue
+                    seen.add(observation_key)
+                    observations.append(
+                        Observation(
+                            title="Cross-account or broad role trust is narrowed by assume-role conditions",
+                            observation_id="aws-role-trust-narrowed",
+                            category="iam",
+                            affected_resources=[role.address],
+                            rationale=(
+                                f"{role.display_name} trusts {principal}, but supported assume-role conditions narrow "
+                                "when that trust can be exercised."
+                            ),
+                            evidence=_collect_evidence(
+                                _evidence_item("trust_principals", [principal]),
+                                _evidence_item("trust_scope", [scope_description]),
+                                _evidence_item(
+                                    "trust_narrowing",
+                                    [
+                                        "supported narrowing conditions present: true",
+                                        "supported narrowing condition keys: " + ", ".join(narrowing_condition_keys),
+                                    ],
+                                ),
+                            ),
+                        )
+                    )
+        return observations
+
+    def _observe_private_encrypted_databases(self, inventory: ResourceInventory) -> list[Observation]:
+        observations: list[Observation] = []
+        for database in inventory.by_type("aws_db_instance"):
+            if not bool(database.metadata.get("storage_encrypted", False)):
+                continue
+            if bool(database.metadata.get("publicly_accessible", False)):
+                continue
+            if bool(database.metadata.get("direct_internet_reachable")):
+                continue
+            if bool(database.metadata.get("internet_ingress_capable")):
+                continue
+            posture_signals = [
+                "publicly_accessible is false",
+                "storage_encrypted is true",
+                "no attached security group allows internet ingress",
+            ]
+            engine = database.metadata.get("engine")
+            if engine:
+                posture_signals.append(f"engine is {engine}")
+            observations.append(
+                Observation(
+                    title="RDS instance is private and storage encrypted",
+                    observation_id="aws-rds-private-encrypted",
+                    category="data-protection",
+                    affected_resources=[database.address],
+                    rationale=(
+                        f"{database.display_name} is kept off direct internet paths and has storage encryption enabled, "
+                        "which reduces straightforward data exposure risk."
+                    ),
+                    evidence=_collect_evidence(
+                        _evidence_item("database_posture", posture_signals),
+                    ),
+                )
+            )
+        return observations
+
 
 def _attached_security_groups(resource: NormalizedResource, inventory: ResourceInventory) -> list[NormalizedResource]:
     security_groups = []
@@ -755,6 +891,40 @@ def _evidence_item(key: str, values: list[str]) -> EvidenceItem | None:
     if not deduped_values:
         return None
     return EvidenceItem(key=key, values=deduped_values)
+
+
+def _policy_allows_public_access(policy_document: dict) -> bool:
+    for statement in _policy_statements(policy_document):
+        if statement.effect != "Allow":
+            continue
+        if "*" in statement.principals:
+            return True
+    return False
+
+
+def _policy_statements(policy_document: dict) -> list[IAMPolicyStatement]:
+    statements: list[IAMPolicyStatement] = []
+    raw_statements = policy_document.get("Statement", [])
+    if isinstance(raw_statements, dict):
+        raw_statements = [raw_statements]
+    for statement in raw_statements:
+        principal = statement.get("Principal")
+        principals: list[str] = []
+        if isinstance(principal, str):
+            principals = [principal]
+        elif isinstance(principal, dict):
+            for value in principal.values():
+                if isinstance(value, list):
+                    principals.extend(str(item) for item in value)
+                elif value is not None:
+                    principals.append(str(value))
+        statements.append(
+            IAMPolicyStatement(
+                effect=str(statement.get("Effect", "Allow")),
+                principals=principals,
+            )
+        )
+    return statements
 
 
 def _describe_security_group_rule(security_group: NormalizedResource, rule: SecurityGroupRule) -> str:

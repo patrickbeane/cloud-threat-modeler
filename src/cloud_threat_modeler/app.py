@@ -32,6 +32,7 @@ class CloudThreatModeler:
         inventory = self.aws_normalizer.normalize(terraform_plan.resources)
         trust_boundaries = self.boundary_detector.detect(inventory)
         findings = self.rule_engine.evaluate(inventory, trust_boundaries)
+        observations = self.rule_engine.observe_controls(inventory)
         return AnalysisResult(
             title=title,
             analyzed_file=Path(terraform_plan.source_path).name,
@@ -39,6 +40,7 @@ class CloudThreatModeler:
             inventory=inventory,
             trust_boundaries=trust_boundaries,
             findings=findings,
+            observations=observations,
             limitations=list(DEFAULT_LIMITATIONS),
         )
 

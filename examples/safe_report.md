@@ -89,6 +89,25 @@ No findings in this severity band.
 
 No findings in this severity band.
 
+## Controls Observed
+
+### RDS instance is private and storage encrypted
+
+- Category: `data-protection`
+- Affected resources: `aws_db_instance.app`
+- Rationale: aws_db_instance.app is kept off direct internet paths and has storage encryption enabled, which reduces straightforward data exposure risk.
+- Evidence:
+  - database posture: publicly_accessible is false; storage_encrypted is true; no attached security group allows internet ingress; engine is postgres
+
+### S3 public access is reduced by a public access block
+
+- Category: `data-protection`
+- Affected resources: `aws_s3_bucket.artifacts`, `aws_s3_bucket_public_access_block.artifacts`
+- Rationale: aws_s3_bucket.artifacts includes public-looking ACL or policy signals, but an attached public access block materially reduces that exposure.
+- Evidence:
+  - mitigated public access: bucket ACL `public-read` would otherwise grant public access; bucket policy would otherwise allow anonymous access
+  - control posture: block_public_acls is true; block_public_policy is true; ignore_public_acls is true; restrict_public_buckets is true
+
 ## Limitations / Unsupported Resources
 
 - AWS support is intentionally limited to a curated v1 resource set rather than the full Terraform AWS provider.

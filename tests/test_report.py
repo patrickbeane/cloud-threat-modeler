@@ -16,6 +16,7 @@ NIGHTMARE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_nightmare_plan.json"
 ALB_EC2_RDS_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_alb_ec2_rds_plan.json"
 LAMBDA_DEPLOY_ROLE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_lambda_deploy_role_plan.json"
 CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_cross_account_trust_unconstrained_plan.json"
+CROSS_ACCOUNT_TRUST_CONSTRAINED_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_cross_account_trust_constrained_plan.json"
 EXAMPLES_DIR = ROOT / "examples"
 
 
@@ -47,6 +48,26 @@ class MarkdownReportRendererTests(unittest.TestCase):
         self.assertIn("Cross-account or broad role trust lacks narrowing conditions", report)
         self.assertIn("supported narrowing conditions present: false", report)
         self.assertIn("supported narrowing condition keys: none", report)
+
+    def test_report_renders_controls_observed_section(self) -> None:
+        engine = CloudThreatModeler()
+        safe_report = MarkdownReportRenderer().render(engine.analyze_plan(SAFE_FIXTURE_PATH))
+        constrained_trust_report = MarkdownReportRenderer().render(
+            engine.analyze_plan(CROSS_ACCOUNT_TRUST_CONSTRAINED_FIXTURE_PATH)
+        )
+
+        self.assertIn("## Controls Observed", safe_report)
+        self.assertIn("S3 public access is reduced by a public access block", safe_report)
+        self.assertIn("RDS instance is private and storage encrypted", safe_report)
+        self.assertIn("## Controls Observed", constrained_trust_report)
+        self.assertIn(
+            "Cross-account or broad role trust is narrowed by assume-role conditions",
+            constrained_trust_report,
+        )
+        self.assertIn(
+            "supported narrowing condition keys: aws:SourceAccount, aws:SourceArn, sts:ExternalId",
+            constrained_trust_report,
+        )
 
     def test_checked_in_example_reports_match_renderer_output(self) -> None:
         engine = CloudThreatModeler()
