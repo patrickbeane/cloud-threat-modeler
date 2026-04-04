@@ -1,19 +1,97 @@
 # cloud-threat-modeler
 
-`cloud-threat-modeler` is a deterministic security engineering MVP that converts Terraform plan JSON into an explainable cloud threat model. The v1 implementation focuses on AWS and produces a markdown report that highlights trust boundaries and STRIDE-oriented findings without relying on an LLM for the core analysis.
+`cloud-threat-modeler` converts Terraform plan JSON into deterministic cloud threat models, trust boundaries, and STRIDE-oriented findings for AWS infrastructure before deployment.
 
-## Why This Exists
+## Highlights
 
-Terraform plans describe intended cloud infrastructure before deployment, but they do not produce an explicit threat model. `cloud-threat-modeler` exists to close that gap by turning `terraform show -json` output into a deterministic security analysis: identifying trust boundaries, surfacing STRIDE-oriented risks, and generating a report early enough for engineers to fix design issues before infrastructure is applied.
+- deterministic Terraform plan analysis with no LLM in the core pipeline
+- trust-boundary detection plus STRIDE-oriented findings
+- markdown and SARIF 2.1.0 output
+- CI policy gating with `--fail-on low|medium|high`
+- automation-friendly `--quiet` mode and non-zero exit behavior
+- AWS-first normalization with a provider boundary for future expansion
 
-The project is intentionally shaped like a real internal platform or security tooling prototype:
+## Quickstart
 
-- deterministic parsing and rule execution
-- clear separation between ingestion, normalization, boundary discovery, rules, and reporting
-- AWS-first design with provider interfaces so GCP support can be added later without tearing up the core pipeline
-- sample fixtures and generated reports so the repo is immediately demoable
+Run directly from source:
 
-## What It Does
+```bash
+PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json
+```
+
+Install the CLI locally:
+
+```bash
+python3 -m pip install -e .
+cloud-threat-modeler fixtures/sample_aws_plan.json --output threat-model.md
+```
+
+Gate a plan in CI and emit SARIF alongside the markdown report:
+
+```bash
+cloud-threat-modeler tfplan.json --quiet --fail-on high --output threat-model.md --sarif-output threat-model.sarif
+```
+
+Expected outcome on a failing plan:
+
+```text
+Policy gate failed: 3 finding(s) meet or exceed `high` (3 high).
+```
+
+## CI Usage
+
+GitHub Actions example with SARIF upload and high-severity gating:
+
+```yaml
+name: threat-model
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - run: terraform plan -out tfplan
+      - run: terraform show -json tfplan > tfplan.json
+      - run: cloud-threat-modeler tfplan.json --quiet --fail-on high --sarif-output cloud-threat-modeler.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: cloud-threat-modeler.sarif
+```
+
+Pre-apply gating example:
+
+```bash
+terraform plan -out tfplan
+terraform show -json tfplan > tfplan.json
+cloud-threat-modeler tfplan.json --quiet --fail-on medium --output threat-model.md --sarif-output threat-model.sarif
+terraform apply tfplan
+```
+
+## Demo Scenarios
+
+The repo includes several ready-to-run Terraform plan fixtures:
+
+- `sample_aws_alb_ec2_rds_plan.json`: public ALB, private EC2 app tier, and private encrypted RDS to demonstrate restraint on a common web architecture
+- `sample_aws_lambda_deploy_role_plan.json`: private Lambda deployment path with scoped S3 access and deliberate cross-account trust to exercise IAM and trust findings without public-network noise
+- `sample_aws_safe_plan.json`: mostly well-segmented environment with one deliberate IAM hygiene issue
+- `sample_aws_plan.json`: mixed case with public exposure, permissive database reachability, risky IAM, and cross-account trust
+- `sample_aws_nightmare_plan.json`: deliberately broken environment with stacked public access, public storage, wildcard IAM, risky workload roles, and blast-radius expansion
+
+## How It Works
 
 Input:
 
@@ -25,67 +103,42 @@ Pipeline:
 2. Normalize supported AWS resources into a provider-agnostic internal model.
 3. Detect trust boundaries such as internet-to-service, public-to-private segmentation, workload-to-data-store access, control-plane-to-workload relationships, and cross-account trust.
 4. Evaluate deterministic STRIDE-oriented rules.
-5. Render a polished markdown report.
+5. Render markdown and optionally SARIF output.
 
-Output:
+The engine is intentionally simple and explainable:
 
-- title
-- analyzed file name
-- summary
-- discovered trust boundaries
-- findings grouped by severity
-- rationale and recommended mitigation for each finding
-- limitations and unsupported resources
-- optional SARIF 2.1.0 output for scanner-compatible integrations
+- trust boundaries model crossings that matter for review rather than a full graph engine
+- rules operate on normalized infrastructure facts, not raw Terraform JSON
+- severity uses a small additive model across internet exposure, privilege breadth, data sensitivity, lateral movement, and blast radius
 
-CLI gating:
+Current trust boundary types:
 
-- optional policy gating with `--fail-on high`, `--fail-on medium`, or `--fail-on low`
-- returns exit code `3` when findings meet or exceed the threshold
-- optional `--quiet` mode suppresses markdown on stdout for CI or scripting
-- optional SARIF side output with `--sarif-output report.sarif`
+- `internet-to-service`
+- `public-subnet-to-private-subnet`
+- `workload-to-data-store`
+- `cross-account-or-role-access`
+- `admin-to-workload-plane`
 
-## Demo Scenarios
+Current rules include:
 
-The repo includes several ready-to-run Terraform plan fixtures:
+- internet-exposed compute with overly broad ingress
+- databases reachable from public or otherwise permissive sources
+- unencrypted RDS storage
+- public S3 exposure
+- wildcard IAM privileges
+- workload roles with sensitive permissions
+- missing segmentation between public workloads and private data tiers
+- trust relationships that expand blast radius
 
-- `sample_aws_alb_ec2_rds_plan.json`: a realistic web-tier baseline with a public ALB, private EC2 app tier, and private encrypted RDS so the engine can demonstrate restraint on a common architecture.
-- `sample_aws_lambda_deploy_role_plan.json`: a realistic private Lambda deployment path with scoped S3 access, a VPC-attached deployer function, and deliberate cross-account trust so the engine can exercise IAM and trust-boundary findings without broad network noise.
-- `sample_aws_safe_plan.json`: a mostly well-segmented environment with one deliberate IAM hygiene issue so the engine shows restraint.
-- `sample_aws_plan.json`: a realistic middle case with public exposure, permissive database reachability, risky IAM, and cross-account trust.
-- `sample_aws_nightmare_plan.json`: a deliberately broken environment with stacked public access, public storage, wildcard IAM, risky workload roles, and blast-radius expansion.
+Outputs include:
 
-## Repo Layout
+- summary counts and discovered trust boundaries
+- findings grouped by severity with rationale, mitigation, evidence, and severity reasoning
+- markdown for human review
+- SARIF 2.1.0 for scanner-compatible integrations
+- exit code `3` when `--fail-on` thresholds are violated
 
-```text
-.
-├── fixtures/
-│   ├── sample_aws_nightmare_plan.json
-│   ├── sample_aws_plan.json
-│   └── sample_aws_safe_plan.json
-├── examples/
-│   ├── nightmare_report.md
-│   ├── sample_report.md
-│   └── safe_report.md
-├── src/
-│   └── cloud_threat_modeler/
-│       ├── analysis/
-│       │   ├── stride_rules.py
-│       │   └── trust_boundaries.py
-│       ├── input/
-│       │   └── terraform_plan.py
-│       ├── providers/
-│       │   ├── base.py
-│       │   └── aws/normalizer.py
-│       ├── reporting/
-│       │   └── markdown.py
-│       ├── app.py
-│       ├── cli.py
-│       └── models.py
-└── tests/
-```
-
-## Supported AWS Resources In v1
+## Supported AWS Resources
 
 The MVP intentionally supports a focused resource set:
 
@@ -109,173 +162,49 @@ The MVP intentionally supports a focused resource set:
 
 Unsupported resources are skipped and called out in the report.
 
-## Detection Model
+## Repo Layout
 
-The engine uses deterministic heuristics instead of AI-generated reasoning.
-
-### Trust boundary detection
-
-- `internet-to-service`: resources that are directly public or appear reachable from the internet
-- `public-subnet-to-private-subnet`: VPCs containing both public and private subnet trust zones
-- `workload-to-data-store`: workloads that can reach RDS or S3
-- `cross-account-or-role-access`: IAM trust policies that admit additional principals
-- `admin-to-workload-plane`: workloads that inherit privileges from IAM roles
-
-### STRIDE-oriented rules
-
-Current rules cover:
-
-- internet-exposed compute with overly broad ingress
-- databases reachable from public or otherwise permissive sources
-- public S3 exposure
-- wildcard IAM privileges
-- workload roles with sensitive permissions
-- missing segmentation between public workloads and private data tiers
-- trust relationships that expand blast radius
-
-### Severity model
-
-Severity is intentionally simple and explainable. Each finding scores a few concrete signals:
-
-- internet exposure
-- privilege breadth
-- data sensitivity proxy
-- lateral movement potential
-- blast radius
-
-The resulting score maps to `low`, `medium`, or `high`.
-
-## Design Notes
-
-### Trust boundary modeling
-
-The engine models trust boundaries as deterministic crossings between distinct security zones in Terraform-described infrastructure. In v1, those zones include internet-to-service exposure, public-to-private subnet transitions, workload-to-data-store access, cross-account or cross-role trust, and control-plane-to-workload relationships through IAM roles. The goal is not to build a perfect network graph, but to identify the boundaries that matter most for security review and map findings back to those crossings in an explainable way.
-
-### Severity approach
-
-Severity is intentionally simple and explainable in v1. Findings are scored from a small set of concrete signals: internet exposure, privilege breadth, data sensitivity proxy, lateral movement potential, and blast radius. That keeps the model deterministic and easy to reason about, while still separating low-signal hygiene issues from genuinely risky exposure paths. The scoring is designed to be readable and adjustable rather than pretending to be a full risk engine.
-
-## How To Run It
-
-### Option 1: run directly from source
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json
+```text
+.
+├── fixtures/
+│   ├── sample_aws_alb_ec2_rds_plan.json
+│   ├── sample_aws_lambda_deploy_role_plan.json
+│   ├── sample_aws_nightmare_plan.json
+│   ├── sample_aws_plan.json
+│   └── sample_aws_safe_plan.json
+├── examples/
+│   ├── alb_ec2_rds_report.md
+│   ├── lambda_deploy_role_report.md
+│   ├── nightmare_report.md
+│   ├── sample_report.md
+│   └── safe_report.md
+├── src/
+│   └── cloud_threat_modeler/
+│       ├── analysis/
+│       │   ├── stride_rules.py
+│       │   └── trust_boundaries.py
+│       ├── input/
+│       │   └── terraform_plan.py
+│       ├── providers/
+│       │   ├── base.py
+│       │   └── aws/normalizer.py
+│       ├── reporting/
+│       │   ├── markdown.py
+│       │   └── sarif.py
+│       ├── app.py
+│       ├── cli.py
+│       └── models.py
+└── tests/
 ```
-
-### Option 2: install the CLI locally
-
-```bash
-python3 -m pip install -e .
-cloud-threat-modeler fixtures/sample_aws_plan.json --output examples/sample_report.md
-```
-
-## Example Usage
-
-Generate the included demo report:
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --output examples/sample_report.md
-```
-
-Generate markdown plus SARIF for CI or scanner upload:
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --output examples/sample_report.md --sarif-output report.sarif
-```
-
-Fail a CI job when high-severity findings are present:
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --fail-on high
-```
-
-Gate more aggressively on medium or higher findings before `terraform apply`:
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --fail-on medium
-```
-
-Run quietly in CI while still failing on policy violations:
-
-```bash
-PYTHONPATH=src python3 -m cloud_threat_modeler fixtures/sample_aws_plan.json --quiet --fail-on high
-```
-
-### GitHub Actions Example
-
-Upload SARIF and fail the workflow when high-severity findings are present:
-
-```yaml
-name: threat-model
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: python -m pip install -e .
-      - run: terraform show -json tfplan > tfplan.json
-      - run: cloud-threat-modeler tfplan.json --quiet --fail-on high --sarif-output cloud-threat-modeler.sarif
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: cloud-threat-modeler.sarif
-```
-
-### Pre-Apply Example
-
-Gate `terraform apply` on medium-or-higher findings:
-
-```bash
-terraform plan -out tfplan
-terraform show -json tfplan > tfplan.json
-cloud-threat-modeler tfplan.json --quiet --fail-on medium --output threat-model.md --sarif-output threat-model.sarif
-terraform apply tfplan
-```
-
-Run the unit tests:
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
-```
-
-## How AWS Detection Works
-
-The AWS normalizer converts Terraform resources into a shared internal model that captures:
-
-- network placement
-- security group rules, including standalone `aws_security_group_rule` resources
-- route-aware subnet posture using `aws_route_table_association`, `aws_route_table`, and `aws_nat_gateway`
-- IAM policy statements
-- effective role permissions from `aws_iam_role_policy_attachment`
-- trust policy principals
-- public exposure hints
-- S3 public-access suppression from `aws_s3_bucket_public_access_block`
-- workload-to-role relationships
-
-The rule engine then evaluates those normalized resources instead of reasoning directly over raw Terraform JSON. That keeps the analysis explainable and makes future providers easier to add.
 
 ## Limitations
 
 - AWS only in v1
 - deliberately incomplete Terraform resource coverage
-- subnet classification uses explicit route table associations when available, but does not model main-route-table inheritance or every routing edge case
-- IAM attachment analysis is partial and focuses on inline policies, standalone policies, role-policy attachments, and trust policies
+- subnet classification prefers explicit route table associations when available, but does not model main-route-table inheritance or every routing edge case
+- IAM analysis focuses on inline policies, standalone policies, role-policy attachments, and trust policies rather than a full attachment graph
 - no runtime validation, cloud API calls, or drift detection
-- no architecture diagrams, frontend, or graph visualization in v1
+- no architecture diagrams or graph visualization
 
 ## Sample Assets
 
@@ -289,3 +218,11 @@ The rule engine then evaluates those normalized resources instead of reasoning d
 - Mixed report: [`examples/sample_report.md`](examples/sample_report.md)
 - Nightmare fixture: [`fixtures/sample_aws_nightmare_plan.json`](fixtures/sample_aws_nightmare_plan.json)
 - Nightmare report: [`examples/nightmare_report.md`](examples/nightmare_report.md)
+
+## Testing
+
+Run the unit tests:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+```
