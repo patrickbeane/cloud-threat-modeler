@@ -1,4 +1,4 @@
-# cloud-threat-modeler
+# Cloud Threat Modeler & Policy Gate
 
 `cloud-threat-modeler` converts Terraform plan JSON into deterministic cloud threat models, trust boundaries, STRIDE-oriented findings, and observed protective controls for AWS infrastructure before deployment.
 
