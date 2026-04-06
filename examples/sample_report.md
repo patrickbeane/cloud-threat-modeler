@@ -171,7 +171,7 @@ This run identified **9 trust boundaries** and **9 findings** across **23 normal
 - Recommended mitigation: Restrict ingress to expected client ports, remove direct administrative exposure, and place management access behind a controlled bastion, VPN, or SSM Session Manager.
 - Evidence:
   - security group rules: aws_security_group.app ingress tcp 22 from 0.0.0.0/0 (SSH from internet)
-  - public exposure reasons: instance requests an associated public IP address; instance is in a public subnet and attached security groups allow internet ingress
+  - public exposure reasons: instance has a public IP path and attached security groups allow internet ingress
   - subnet posture: aws_instance.app sits in public subnet aws_subnet.public_app with an internet route
 
 #### Object storage is publicly accessible

@@ -7,7 +7,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from cloud_threat_modeler.cli import POLICY_VIOLATION_EXIT_CODE, main
+from cloud_threat_modeler.cli import INPUT_ERROR_EXIT_CODE, POLICY_VIOLATION_EXIT_CODE, main
 
 
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "sample_aws_plan.json"
@@ -106,6 +106,22 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, POLICY_VIOLATION_EXIT_CODE)
         self.assertEqual("", stdout_buffer.getvalue())
         self.assertIn("Policy gate failed", stderr_buffer.getvalue())
+
+    def test_cli_rejects_non_plan_json_with_input_error_exit_code(self) -> None:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            invalid_plan_path = Path(tmp_dir) / "not-a-plan.json"
+            invalid_plan_path.write_text('{"planned_values":{"root_module":{"resources":[]}}}', encoding="utf-8")
+
+            with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+                exit_code = main([str(invalid_plan_path), "--quiet"])
+
+        self.assertEqual(exit_code, INPUT_ERROR_EXIT_CODE)
+        self.assertEqual("", stdout_buffer.getvalue())
+        self.assertIn("Input error:", stderr_buffer.getvalue())
+        self.assertIn("missing `terraform_version`", stderr_buffer.getvalue())
 
 
 if __name__ == "__main__":

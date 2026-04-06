@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -329,6 +331,123 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertEqual(mixed_private_subnet.metadata.get("route_table_ids"), ["rtb-private-001"])
         self.assertTrue(mixed_private_subnet.metadata.get("has_nat_gateway_egress"))
 
+    def test_public_ip_without_internet_ingress_does_not_create_internet_boundary(self) -> None:
+        payload = {
+            "format_version": "1.2",
+            "terraform_version": "1.8.5",
+            "planned_values": {
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": "aws_vpc.main",
+                            "mode": "managed",
+                            "type": "aws_vpc",
+                            "name": "main",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {"id": "vpc-1"},
+                        },
+                        {
+                            "address": "aws_subnet.public",
+                            "mode": "managed",
+                            "type": "aws_subnet",
+                            "name": "public",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "subnet-1",
+                                "vpc_id": "vpc-1",
+                                "cidr_block": "10.0.1.0/24",
+                                "map_public_ip_on_launch": True,
+                            },
+                        },
+                        {
+                            "address": "aws_internet_gateway.main",
+                            "mode": "managed",
+                            "type": "aws_internet_gateway",
+                            "name": "main",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {"id": "igw-1", "vpc_id": "vpc-1"},
+                        },
+                        {
+                            "address": "aws_route_table.public",
+                            "mode": "managed",
+                            "type": "aws_route_table",
+                            "name": "public",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "rtb-1",
+                                "vpc_id": "vpc-1",
+                                "route": [{"cidr_block": "0.0.0.0/0", "gateway_id": "igw-1"}],
+                            },
+                        },
+                        {
+                            "address": "aws_route_table_association.public",
+                            "mode": "managed",
+                            "type": "aws_route_table_association",
+                            "name": "public",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "assoc-1",
+                                "subnet_id": "subnet-1",
+                                "route_table_id": "rtb-1",
+                            },
+                        },
+                        {
+                            "address": "aws_security_group.web",
+                            "mode": "managed",
+                            "type": "aws_security_group",
+                            "name": "web",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "sg-1",
+                                "vpc_id": "vpc-1",
+                                "ingress": [],
+                                "egress": [{"protocol": "-1", "from_port": 0, "to_port": 0, "cidr_blocks": ["0.0.0.0/0"]}],
+                            },
+                        },
+                        {
+                            "address": "aws_instance.web",
+                            "mode": "managed",
+                            "type": "aws_instance",
+                            "name": "web",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "i-1",
+                                "subnet_id": "subnet-1",
+                                "vpc_security_group_ids": ["sg-1"],
+                                "associate_public_ip_address": True,
+                            },
+                        },
+                    ]
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            plan_path = Path(tmp_dir) / "plan.json"
+            plan_path.write_text(json.dumps(payload), encoding="utf-8")
+            result = self.engine.analyze_plan(plan_path)
+
+        instance = result.inventory.get_by_address("aws_instance.web")
+        internet_boundaries = [
+            boundary
+            for boundary in result.trust_boundaries
+            if boundary.boundary_type == BoundaryType.INTERNET_TO_SERVICE
+            and boundary.target == "aws_instance.web"
+        ]
+
+        self.assertIsNotNone(instance)
+        self.assertTrue(instance.public_access_configured)
+        self.assertTrue(instance.metadata.get("public_subnet"))
+        self.assertFalse(instance.metadata.get("internet_ingress_capable"))
+        self.assertFalse(instance.public_exposure)
+        self.assertEqual(instance.metadata.get("public_access_reasons"), ["instance requests an associated public IP address"])
+        self.assertEqual(instance.metadata.get("public_exposure_reasons"), [])
+        self.assertEqual(internet_boundaries, [])
+        self.assertNotIn(
+            "Internet-exposed compute service permits overly broad ingress",
+            {finding.title for finding in result.findings},
+        )
+
     def test_database_reachability_prefers_security_group_evidence_over_same_vpc_only(self) -> None:
         safe_result = self.engine.analyze_plan(SAFE_FIXTURE_PATH)
         mixed_result = self.engine.analyze_plan(FIXTURE_PATH)
@@ -386,6 +505,48 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertEqual(boundary_types[BoundaryType.WORKLOAD_TO_DATA_STORE], 1)
         self.assertEqual(boundary_types[BoundaryType.CONTROL_TO_WORKLOAD], 1)
         self.assertEqual(boundary_types[BoundaryType.CROSS_ACCOUNT_OR_ROLE], 1)
+
+    def test_same_account_specific_role_trust_does_not_emit_trust_expansion_findings(self) -> None:
+        payload = {
+            "format_version": "1.2",
+            "terraform_version": "1.8.5",
+            "planned_values": {
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": "aws_iam_role.target",
+                            "mode": "managed",
+                            "type": "aws_iam_role",
+                            "name": "target",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "values": {
+                                "id": "target",
+                                "name": "target",
+                                "arn": "arn:aws:iam::111122223333:role/target",
+                                "assume_role_policy": {
+                                    "Version": "2012-10-17",
+                                    "Statement": [
+                                        {
+                                            "Effect": "Allow",
+                                            "Action": "sts:AssumeRole",
+                                            "Principal": {"AWS": "arn:aws:iam::111122223333:role/deployer"},
+                                        }
+                                    ],
+                                },
+                            },
+                        }
+                    ]
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            plan_path = Path(tmp_dir) / "plan.json"
+            plan_path.write_text(json.dumps(payload), encoding="utf-8")
+            result = self.engine.analyze_plan(plan_path)
+
+        self.assertEqual(result.trust_boundaries[0].boundary_type, BoundaryType.CROSS_ACCOUNT_OR_ROLE)
+        self.assertEqual(result.findings, [])
 
 
 class AwsNormalizerTrustConditionTests(unittest.TestCase):

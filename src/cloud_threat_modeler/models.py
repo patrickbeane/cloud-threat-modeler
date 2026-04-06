@@ -110,6 +110,7 @@ class NormalizedResource:
     attached_role_arns: list[str] = field(default_factory=list)
     network_rules: list[SecurityGroupRule] = field(default_factory=list)
     policy_statements: list[IAMPolicyStatement] = field(default_factory=list)
+    public_access_configured: bool = False
     public_exposure: bool = False
     data_sensitivity: str = "standard"
     metadata: dict[str, Any] = field(default_factory=dict)

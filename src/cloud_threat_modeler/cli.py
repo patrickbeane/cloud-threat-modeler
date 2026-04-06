@@ -5,9 +5,11 @@ import sys
 from pathlib import Path
 
 from cloud_threat_modeler.app import CloudThreatModeler
+from cloud_threat_modeler.input.terraform_plan import TerraformPlanLoadError
 from cloud_threat_modeler.models import Severity
 
 
+INPUT_ERROR_EXIT_CODE = 2
 POLICY_VIOLATION_EXIT_CODE = 3
 SEVERITY_RANK = {
     Severity.LOW: 0,
@@ -57,7 +59,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     engine = CloudThreatModeler()
-    result = engine.analyze_plan(args.plan, title=args.title)
+    try:
+        result = engine.analyze_plan(args.plan, title=args.title)
+    except TerraformPlanLoadError as exc:
+        sys.stderr.write(f"Input error: {exc}\n")
+        return INPUT_ERROR_EXIT_CODE
+
     report = engine.report_renderer.render(result)
     sarif_report = engine.sarif_renderer.render(result) if args.sarif_output else None
 

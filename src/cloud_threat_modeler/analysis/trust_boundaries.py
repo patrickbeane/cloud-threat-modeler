@@ -40,7 +40,7 @@ class TrustBoundaryDetector:
         role_index = _role_index(resources)
 
         for resource in resources:
-            if resource.public_exposure and resource.resource_type in {
+            if resource.metadata.get("direct_internet_reachable") and resource.resource_type in {
                 "aws_instance",
                 "aws_lb",
                 "aws_db_instance",

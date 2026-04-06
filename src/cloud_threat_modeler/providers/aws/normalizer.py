@@ -175,6 +175,7 @@ class AwsNormalizer(ProviderNormalizer):
                 },
             )
         if resource.resource_type == "aws_instance":
+            public_ip_requested = bool(values.get("associate_public_ip_address", False))
             return NormalizedResource(
                 address=resource.address,
                 provider=self.provider,
@@ -185,20 +186,22 @@ class AwsNormalizer(ProviderNormalizer):
                 arn=values.get("arn"),
                 subnet_ids=_compact([values.get("subnet_id")]),
                 security_group_ids=_as_list(values.get("vpc_security_group_ids")),
-                public_exposure=bool(values.get("associate_public_ip_address", False)),
+                public_access_configured=public_ip_requested,
                 metadata={
                     "ami": values.get("ami"),
                     "instance_type": values.get("instance_type"),
-                    "associate_public_ip_address": bool(values.get("associate_public_ip_address", False)),
-                    "public_exposure_reasons": (
+                    "associate_public_ip_address": public_ip_requested,
+                    "public_access_reasons": (
                         ["instance requests an associated public IP address"]
-                        if bool(values.get("associate_public_ip_address", False))
+                        if public_ip_requested
                         else []
                     ),
+                    "public_exposure_reasons": [],
                     "tags": values.get("tags", {}),
                 },
             )
         if resource.resource_type == "aws_lb":
+            internet_facing = not bool(values.get("internal", False))
             return NormalizedResource(
                 address=resource.address,
                 provider=self.provider,
@@ -209,18 +212,20 @@ class AwsNormalizer(ProviderNormalizer):
                 arn=values.get("arn"),
                 subnet_ids=_as_list(values.get("subnets")),
                 security_group_ids=_as_list(values.get("security_groups")),
-                public_exposure=not bool(values.get("internal", False)),
+                public_access_configured=internet_facing,
                 metadata={
-                    "internal": bool(values.get("internal", False)),
+                    "internal": not internet_facing,
                     "load_balancer_type": values.get("load_balancer_type"),
-                    "public_exposure_reasons": (
+                    "public_access_reasons": (
                         ["load balancer is configured as internet-facing"]
-                        if not bool(values.get("internal", False))
+                        if internet_facing
                         else []
                     ),
+                    "public_exposure_reasons": [],
                 },
             )
         if resource.resource_type == "aws_db_instance":
+            publicly_accessible = bool(values.get("publicly_accessible", False))
             return NormalizedResource(
                 address=resource.address,
                 provider=self.provider,
@@ -230,16 +235,17 @@ class AwsNormalizer(ProviderNormalizer):
                 identifier=values.get("id") or values.get("identifier"),
                 arn=values.get("arn"),
                 security_group_ids=_as_list(values.get("vpc_security_group_ids")),
-                public_exposure=bool(values.get("publicly_accessible", False)),
+                public_access_configured=publicly_accessible,
                 data_sensitivity="sensitive",
                 metadata={
                     "engine": values.get("engine"),
-                    "publicly_accessible": bool(values.get("publicly_accessible", False)),
-                    "public_exposure_reasons": (
+                    "publicly_accessible": publicly_accessible,
+                    "public_access_reasons": (
                         ["database instance is marked publicly_accessible"]
-                        if bool(values.get("publicly_accessible", False))
+                        if publicly_accessible
                         else []
                     ),
+                    "public_exposure_reasons": [],
                     "storage_encrypted": bool(values.get("storage_encrypted", False)),
                     "db_subnet_group_name": values.get("db_subnet_group_name"),
                 },
@@ -248,6 +254,7 @@ class AwsNormalizer(ProviderNormalizer):
             policy_document = _load_json_document(values.get("policy"))
             bucket_acl = values.get("acl", "")
             public_policy = _policy_allows_public_access(policy_document)
+            public_access_configured = bucket_acl in {"public-read", "public-read-write", "website"} or public_policy
             return NormalizedResource(
                 address=resource.address,
                 provider=self.provider,
@@ -256,12 +263,17 @@ class AwsNormalizer(ProviderNormalizer):
                 category=ResourceCategory.DATA,
                 identifier=values.get("bucket") or values.get("id"),
                 arn=values.get("arn"),
-                public_exposure=bucket_acl in {"public-read", "public-read-write", "website"} or public_policy,
+                public_access_configured=public_access_configured,
+                public_exposure=public_access_configured,
                 data_sensitivity="sensitive",
                 metadata={
                     "bucket": values.get("bucket"),
                     "acl": bucket_acl,
                     "policy_document": policy_document,
+                    "public_access_reasons": _bucket_public_exposure_reasons(
+                        bucket_acl,
+                        public_policy=public_policy,
+                    ),
                     "public_exposure_reasons": _bucket_public_exposure_reasons(
                         bucket_acl,
                         public_policy=public_policy,
@@ -444,6 +456,10 @@ class AwsNormalizer(ProviderNormalizer):
             bucket.metadata["public_access_block"] = public_access_block
             public_via_acl = bucket.metadata.get("acl") in {"public-read", "public-read-write", "website"}
             public_via_policy = _policy_allows_public_access(bucket.metadata.get("policy_document", {}))
+            bucket.metadata["public_access_reasons"] = _bucket_public_exposure_reasons(
+                bucket.metadata.get("acl", ""),
+                public_policy=public_via_policy,
+            )
             bucket.public_exposure = (
                 public_via_acl and not (public_access_block["block_public_acls"] or public_access_block["ignore_public_acls"])
             ) or (
@@ -518,7 +534,9 @@ class AwsNormalizer(ProviderNormalizer):
                 for security_group in attached_security_groups
                 for rule in security_group.network_rules
             )
+            resource.metadata.setdefault("public_access_reasons", [])
             resource.metadata.setdefault("public_exposure_reasons", [])
+            resource.metadata["public_access_configured"] = resource.public_access_configured
             resource.metadata["internet_ingress"] = internet_ingress
             resource.metadata["internet_ingress_capable"] = internet_ingress
             resource.metadata["internet_ingress_reasons"] = _internet_ingress_reasons(attached_security_groups)
@@ -540,15 +558,49 @@ class AwsNormalizer(ProviderNormalizer):
             # rules so later detectors can reason over a normalized signal instead of
             # provider-specific fields.
             if resource.resource_type == "aws_instance":
-                if resource.metadata["public_subnet"] and internet_ingress:
+                resource.public_exposure = bool(
+                    resource.public_access_configured
+                    and resource.metadata["public_subnet"]
+                    and internet_ingress
+                )
+                if resource.public_exposure:
                     _append_unique(
                         resource.metadata,
                         "public_exposure_reasons",
-                        "instance is in a public subnet and attached security groups allow internet ingress",
+                        "instance has a public IP path and attached security groups allow internet ingress",
                     )
-                resource.public_exposure = resource.public_exposure or (
-                    resource.metadata["public_subnet"] and internet_ingress
+            elif resource.resource_type == "aws_db_instance":
+                resource.public_exposure = bool(
+                    resource.public_access_configured and (internet_ingress or not attached_security_groups)
                 )
+                if resource.public_exposure and internet_ingress:
+                    _append_unique(
+                        resource.metadata,
+                        "public_exposure_reasons",
+                        "database is marked publicly_accessible and attached security groups allow internet ingress",
+                    )
+                elif resource.public_exposure and not attached_security_groups:
+                    _append_unique(
+                        resource.metadata,
+                        "public_exposure_reasons",
+                        "database is marked publicly_accessible and no attached security groups provide ingress evidence",
+                    )
+            elif resource.resource_type == "aws_lb":
+                resource.public_exposure = bool(
+                    resource.public_access_configured and (internet_ingress or not attached_security_groups)
+                )
+                if resource.public_exposure and internet_ingress:
+                    _append_unique(
+                        resource.metadata,
+                        "public_exposure_reasons",
+                        "load balancer is internet-facing and attached security groups allow internet ingress",
+                    )
+                elif resource.public_exposure:
+                    _append_unique(
+                        resource.metadata,
+                        "public_exposure_reasons",
+                        "load balancer is configured as internet-facing",
+                    )
             resource.metadata["direct_internet_reachable"] = resource.public_exposure
 
 

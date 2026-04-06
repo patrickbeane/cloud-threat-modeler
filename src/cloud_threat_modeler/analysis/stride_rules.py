@@ -547,6 +547,9 @@ class StrideRuleEngine:
             for principal in role.metadata.get("trust_principals", []):
                 if principal.endswith(".amazonaws.com"):
                     continue
+                scope_description = _describe_unconstrained_trust_scope(principal, primary_account_id)
+                if scope_description is None:
+                    continue
                 account_id = _parse_account_id(principal)
                 severity_reasoning = _build_severity_reasoning(
                     internet_exposure=False,

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cloud_threat_modeler.input.terraform_plan import load_terraform_plan
+from cloud_threat_modeler.input.terraform_plan import TerraformPlanLoadError, load_terraform_plan
 
 
 class TerraformPlanParserTests(unittest.TestCase):
@@ -49,6 +49,27 @@ class TerraformPlanParserTests(unittest.TestCase):
         self.assertEqual(plan.terraform_version, "1.8.5")
         self.assertEqual(len(plan.resources), 2)
         self.assertEqual(plan.resources[1].address, "module.app.aws_instance.web")
+
+    def test_parser_rejects_invalid_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            plan_path = Path(tmp_dir) / "plan.json"
+            plan_path.write_text("{", encoding="utf-8")
+
+            with self.assertRaises(TerraformPlanLoadError) as context:
+                load_terraform_plan(plan_path)
+
+        self.assertIn("Failed to parse Terraform plan JSON", str(context.exception))
+
+    def test_parser_rejects_non_plan_json_shape(self) -> None:
+        payload = {"planned_values": {"root_module": {"resources": []}}}
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            plan_path = Path(tmp_dir) / "plan.json"
+            plan_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            with self.assertRaises(TerraformPlanLoadError) as context:
+                load_terraform_plan(plan_path)
+
+        self.assertIn("missing `terraform_version`", str(context.exception))
 
 
 if __name__ == "__main__":

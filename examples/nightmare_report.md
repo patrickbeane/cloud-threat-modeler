@@ -302,7 +302,7 @@ This run identified **19 trust boundaries** and **16 findings** across **25 norm
 - Recommended mitigation: Restrict ingress to expected client ports, remove direct administrative exposure, and place management access behind a controlled bastion, VPN, or SSM Session Manager.
 - Evidence:
   - security group rules: aws_security_group.frontend ingress tcp 0-65535 from 0.0.0.0/0 (Everything from the internet)
-  - public exposure reasons: instance requests an associated public IP address; instance is in a public subnet and attached security groups allow internet ingress
+  - public exposure reasons: instance has a public IP path and attached security groups allow internet ingress
   - subnet posture: aws_instance.frontend sits in public subnet aws_subnet.public_web with an internet route
 
 #### Internet-exposed compute service permits overly broad ingress
@@ -315,7 +315,7 @@ This run identified **19 trust boundaries** and **16 findings** across **25 norm
 - Recommended mitigation: Restrict ingress to expected client ports, remove direct administrative exposure, and place management access behind a controlled bastion, VPN, or SSM Session Manager.
 - Evidence:
   - security group rules: aws_security_group.admin ingress tcp 3389 from 0.0.0.0/0 (RDP from internet)
-  - public exposure reasons: instance requests an associated public IP address; instance is in a public subnet and attached security groups allow internet ingress
+  - public exposure reasons: instance has a public IP path and attached security groups allow internet ingress
   - subnet posture: aws_instance.admin sits in public subnet aws_subnet.public_web with an internet route
 
 #### Object storage is publicly accessible
