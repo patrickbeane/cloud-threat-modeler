@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from cloud_threat_modeler.app import CloudThreatModeler
+from cloud_threat_modeler.filtering import FindingFilterLoadError, render_baseline
 from cloud_threat_modeler.input.terraform_plan import TerraformPlanLoadError
 from cloud_threat_modeler.models import Severity
 
@@ -30,13 +31,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to write the markdown report. If omitted, the report is printed to stdout.",
     )
     parser.add_argument(
+        "--json-output",
+        help="Optional path to write a machine-readable JSON report alongside the markdown output.",
+    )
+    parser.add_argument(
         "--sarif-output",
         help="Optional path to write a SARIF 2.1.0 report alongside the markdown output.",
     )
     parser.add_argument(
+        "--suppressions",
+        help="Optional path to a JSON suppressions file used to exclude matching findings from reports and policy gating.",
+    )
+    parser.add_argument(
+        "--baseline",
+        help="Optional path to a JSON baseline file used to exclude previously accepted findings from reports and policy gating.",
+    )
+    parser.add_argument(
+        "--baseline-output",
+        help="Optional path to write a baseline JSON snapshot for the current unsuppressed findings.",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
-        help="Suppress markdown output to stdout. File outputs and policy gate messages are still emitted.",
+        help="Suppress markdown output to stdout. File outputs, JSON outputs, and policy gate messages are still emitted.",
     )
     parser.add_argument(
         "--title",
@@ -60,12 +77,21 @@ def main(argv: list[str] | None = None) -> int:
 
     engine = CloudThreatModeler()
     try:
-        result = engine.analyze_plan(args.plan, title=args.title)
-    except TerraformPlanLoadError as exc:
+        raw_result = engine.analyze_plan(args.plan, title=args.title)
+        unsuppressed_result = engine.filter_findings(raw_result, suppressions_path=args.suppressions)
+        if args.baseline_output:
+            Path(args.baseline_output).write_text(render_baseline(unsuppressed_result.findings), encoding="utf-8")
+        result = engine.filter_findings(
+            raw_result,
+            suppressions_path=args.suppressions,
+            baseline_path=args.baseline,
+        )
+    except (TerraformPlanLoadError, FindingFilterLoadError) as exc:
         sys.stderr.write(f"Input error: {exc}\n")
         return INPUT_ERROR_EXIT_CODE
 
     report = engine.report_renderer.render(result)
+    json_report = engine.json_renderer.render(result) if args.json_output else None
     sarif_report = engine.sarif_renderer.render(result) if args.sarif_output else None
 
     if args.output:
@@ -74,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(report)
         if not report.endswith("\n"):
             sys.stdout.write("\n")
+    if args.json_output and json_report is not None:
+        Path(args.json_output).write_text(json_report, encoding="utf-8")
     if args.sarif_output and sarif_report is not None:
         Path(args.sarif_output).write_text(sarif_report, encoding="utf-8")
 

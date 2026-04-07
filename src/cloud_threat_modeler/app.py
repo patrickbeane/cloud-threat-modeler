@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from cloud_threat_modeler.analysis.stride_rules import StrideRuleEngine
+from cloud_threat_modeler.filtering import apply_finding_filters
 from cloud_threat_modeler.analysis.trust_boundaries import TrustBoundaryDetector
 from cloud_threat_modeler.input.terraform_plan import load_terraform_plan
 from cloud_threat_modeler.models import AnalysisResult
 from cloud_threat_modeler.providers.aws.normalizer import AwsNormalizer
+from cloud_threat_modeler.reporting.json_report import JsonReportRenderer
 from cloud_threat_modeler.reporting.markdown import MarkdownReportRenderer
 from cloud_threat_modeler.reporting.sarif import SarifReportRenderer
 
@@ -24,6 +26,7 @@ class CloudThreatModeler:
         self.aws_normalizer = AwsNormalizer()
         self.boundary_detector = TrustBoundaryDetector()
         self.rule_engine = StrideRuleEngine()
+        self.json_renderer = JsonReportRenderer()
         self.report_renderer = MarkdownReportRenderer()
         self.sarif_renderer = SarifReportRenderer()
 
@@ -44,9 +47,26 @@ class CloudThreatModeler:
             limitations=list(DEFAULT_LIMITATIONS),
         )
 
+    def filter_findings(
+        self,
+        result: AnalysisResult,
+        *,
+        suppressions_path: str | Path | None = None,
+        baseline_path: str | Path | None = None,
+    ) -> AnalysisResult:
+        return apply_finding_filters(
+            result,
+            suppressions_path=suppressions_path,
+            baseline_path=baseline_path,
+        )
+
     def render_markdown_report(self, plan_path: str | Path, title: str = "Cloud Threat Model Report") -> str:
         result = self.analyze_plan(plan_path, title=title)
         return self.report_renderer.render(result)
+
+    def render_json_report(self, plan_path: str | Path, title: str = "Cloud Threat Model Report") -> str:
+        result = self.analyze_plan(plan_path, title=title)
+        return self.json_renderer.render(result)
 
     def render_sarif_report(self, plan_path: str | Path, title: str = "Cloud Threat Model Report") -> str:
         result = self.analyze_plan(plan_path, title=title)

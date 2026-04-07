@@ -204,4 +204,7 @@ class AnalysisResult:
     trust_boundaries: list[TrustBoundary]
     findings: list[Finding]
     observations: list[Observation] = field(default_factory=list)
+    suppressed_findings: list[Finding] = field(default_factory=list)
+    baselined_findings: list[Finding] = field(default_factory=list)
+    filter_summary: dict[str, Any] = field(default_factory=dict)
     limitations: list[str] = field(default_factory=list)

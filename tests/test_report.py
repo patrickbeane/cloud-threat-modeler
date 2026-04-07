@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 from cloud_threat_modeler.app import CloudThreatModeler
+from cloud_threat_modeler.filtering import apply_finding_filters, render_baseline
+from cloud_threat_modeler.reporting.json_report import JsonReportRenderer
 from cloud_threat_modeler.reporting.markdown import MarkdownReportRenderer
 from cloud_threat_modeler.reporting.sarif import SarifReportRenderer
 
@@ -85,6 +88,40 @@ class MarkdownReportRendererTests(unittest.TestCase):
                 actual = report_path.read_text(encoding="utf-8")
                 self.assertEqual(actual, expected)
 
+    def test_report_surfaces_suppressed_and_baselined_counts_when_filters_apply(self) -> None:
+        engine = CloudThreatModeler()
+        raw_result = engine.analyze_plan(FIXTURE_PATH)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            suppressions_path = Path(tmp_dir) / "suppressions.json"
+            baseline_path = Path(tmp_dir) / "baseline.json"
+            suppressions_path.write_text(
+                json.dumps(
+                    {
+                        "version": "1.0",
+                        "suppressions": [
+                            {
+                                "rule_id": "aws-database-permissive-ingress",
+                                "reason": "Accepted for test coverage.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            unsuppressed_result = apply_finding_filters(raw_result, suppressions_path=suppressions_path)
+            baseline_path.write_text(render_baseline(unsuppressed_result.findings[:2]), encoding="utf-8")
+            filtered_result = apply_finding_filters(
+                raw_result,
+                suppressions_path=suppressions_path,
+                baseline_path=baseline_path,
+            )
+
+        report = MarkdownReportRenderer().render(filtered_result)
+        self.assertIn("- Active findings after filters:", report)
+        self.assertIn("- Suppressed findings: `1`", report)
+        self.assertIn("- Baselined findings: `2`", report)
+
 
 class SarifReportRendererTests(unittest.TestCase):
     def test_sarif_report_contains_rules_results_and_finding_metadata(self) -> None:
@@ -133,6 +170,58 @@ class SarifReportRendererTests(unittest.TestCase):
 
         self.assertEqual(payload["version"], "2.1.0")
         self.assertEqual(payload["runs"][0]["tool"]["driver"]["name"], "cloud-threat-modeler")
+
+
+class JsonReportRendererTests(unittest.TestCase):
+    def test_json_report_contains_inventory_findings_and_filter_summary(self) -> None:
+        engine = CloudThreatModeler()
+        result = engine.analyze_plan(FIXTURE_PATH)
+        report = JsonReportRenderer().render(result)
+        payload = json.loads(report)
+
+        self.assertEqual(payload["version"], "1.0")
+        self.assertEqual(payload["tool"]["name"], "cloud-threat-modeler")
+        self.assertEqual(payload["summary"]["active_findings"], 9)
+        self.assertEqual(payload["summary"]["total_findings"], 9)
+        self.assertEqual(payload["inventory"]["provider"], "aws")
+        self.assertEqual(len(payload["findings"]), 9)
+        self.assertTrue(payload["findings"][0]["fingerprint"].startswith("sha256:"))
+
+    def test_json_report_includes_suppressed_and_baselined_findings(self) -> None:
+        engine = CloudThreatModeler()
+        raw_result = engine.analyze_plan(FIXTURE_PATH)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            suppressions_path = Path(tmp_dir) / "suppressions.json"
+            baseline_path = Path(tmp_dir) / "baseline.json"
+            suppressions_path.write_text(
+                json.dumps(
+                    {
+                        "version": "1.0",
+                        "suppressions": [
+                            {
+                                "rule_id": "aws-database-permissive-ingress",
+                                "reason": "Accepted for test coverage.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            unsuppressed_result = apply_finding_filters(raw_result, suppressions_path=suppressions_path)
+            baseline_path.write_text(render_baseline(unsuppressed_result.findings[:2]), encoding="utf-8")
+            filtered_result = apply_finding_filters(
+                raw_result,
+                suppressions_path=suppressions_path,
+                baseline_path=baseline_path,
+            )
+
+        payload = json.loads(JsonReportRenderer().render(filtered_result))
+        self.assertEqual(payload["summary"]["total_findings"], 9)
+        self.assertEqual(payload["summary"]["suppressed_findings"], 1)
+        self.assertEqual(payload["summary"]["baselined_findings"], 2)
+        self.assertEqual(len(payload["suppressed_findings"]), 1)
+        self.assertEqual(len(payload["baselined_findings"]), 2)
 
 
 if __name__ == "__main__":

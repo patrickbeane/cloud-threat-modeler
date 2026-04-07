@@ -23,13 +23,31 @@ class MarkdownReportRenderer:
                 f"**{len(result.findings)} findings** across **{len(result.inventory.resources)} normalized resources**."
             ),
             "",
-            f"- High severity findings: `{severity_counts.get('high', 0)}`",
-            f"- Medium severity findings: `{severity_counts.get('medium', 0)}`",
-            f"- Low severity findings: `{severity_counts.get('low', 0)}`",
-            "",
-            "## Discovered Trust Boundaries",
-            "",
         ]
+
+        filter_summary = result.filter_summary or {}
+        suppressed_count = int(filter_summary.get("suppressed_findings", 0) or 0)
+        baselined_count = int(filter_summary.get("baselined_findings", 0) or 0)
+        lines.extend(
+            [
+                f"- High severity findings: `{severity_counts.get('high', 0)}`",
+                f"- Medium severity findings: `{severity_counts.get('medium', 0)}`",
+                f"- Low severity findings: `{severity_counts.get('low', 0)}`",
+            ]
+        )
+        if suppressed_count or baselined_count:
+            lines.extend(
+                [
+                f"- Active findings after filters: `{filter_summary.get('active_findings', len(result.findings))}`",
+                f"- Suppressed findings: `{suppressed_count}`",
+                f"- Baselined findings: `{baselined_count}`",
+                ]
+            )
+            if filter_summary.get("suppressions_path"):
+                lines.append(f"- Suppressions file: `{filter_summary['suppressions_path']}`")
+            if filter_summary.get("baseline_path"):
+                lines.append(f"- Baseline file: `{filter_summary['baseline_path']}`")
+        lines.extend(["", "## Discovered Trust Boundaries", ""])
 
         if result.trust_boundaries:
             for boundary in result.trust_boundaries:
