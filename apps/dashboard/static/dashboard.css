@@ -318,6 +318,11 @@ h2 {
   align-items: end;
 }
 
+.report-hero h1 {
+  font-size: clamp(1.35rem, 2.2vw, 2.4rem);
+  line-height: 1.05;
+}
+
 .report-jump-nav {
   display: flex;
   flex-wrap: wrap;
