@@ -33,14 +33,38 @@ DOCS_CHROME_HIDE_STYLE = """
   .swagger-ui section.models {
     display: none !important;
   }
+
+  a[href$="/openapi.json"],
+  a[href="openapi.json"],
+  .swagger-ui a[href$="/openapi.json"],
+  .swagger-ui a[href="openapi.json"] {
+    display: none !important;
+  }
 </style>
 """
 DOCS_LINK_CLEANUP_SCRIPT = """
 <script>
-  window.addEventListener("load", () => {
+  const hideOpenApiChrome = () => {
     for (const link of document.querySelectorAll('a[href$="/openapi.json"], a[href="openapi.json"]')) {
-      link.style.display = "none";
+      const container = link.closest("div, span, p, section, article, li") || link;
+      container.style.display = "none";
     }
+
+    for (const node of document.querySelectorAll("div, span, p, small, code")) {
+      const text = (node.textContent || "").trim();
+      if (text === "/openapi.json" || text.endsWith(" /openapi.json") || text.includes("->") && text.includes("/openapi.json")) {
+        node.style.display = "none";
+      }
+    }
+  };
+
+  window.addEventListener("load", () => {
+    hideOpenApiChrome();
+    const observer = new MutationObserver(() => hideOpenApiChrome());
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.setTimeout(() => hideOpenApiChrome(), 250);
+    window.setTimeout(() => hideOpenApiChrome(), 1000);
+    window.setTimeout(() => hideOpenApiChrome(), 2000);
   });
 </script>
 """
