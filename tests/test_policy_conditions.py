@@ -5,11 +5,13 @@ import unittest
 from cloud_threat_modeler.analysis.policy_conditions import (
     assess_principal,
     describe_trust_narrowing,
+    resource_policy_statement_has_effective_narrowing,
     trust_statement_has_supported_narrowing,
+    trust_statement_has_effective_narrowing,
     trust_statement_narrowing_conditions,
     trust_statement_narrowing_keys,
 )
-from cloud_threat_modeler.models import IAMPolicyCondition
+from cloud_threat_modeler.models import IAMPolicyCondition, IAMPolicyStatement
 
 
 class PolicyConditionsTests(unittest.TestCase):
@@ -83,6 +85,7 @@ class PolicyConditionsTests(unittest.TestCase):
                 "supported narrowing condition keys: aws:SourceAccount, aws:SourceArn, sts:ExternalId",
             ],
         )
+        self.assertTrue(trust_statement_has_effective_narrowing(trust_statement))
 
     def test_trust_statement_helpers_fall_back_to_key_only_metadata(self) -> None:
         trust_statement = {
@@ -95,6 +98,54 @@ class PolicyConditionsTests(unittest.TestCase):
             trust_statement_narrowing_conditions(trust_statement),
             [IAMPolicyCondition(operator="", key="aws:SourceArn", values=[])],
         )
+
+    def test_source_account_alone_is_not_effective_narrowing(self) -> None:
+        trust_statement = {
+            "principals": ["arn:aws:iam::444455556666:role/deployer"],
+            "narrowing_condition_keys": ["aws:SourceAccount"],
+            "narrowing_conditions": [
+                {
+                    "operator": "StringEquals",
+                    "key": "aws:SourceAccount",
+                    "values": ["444455556666"],
+                }
+            ],
+            "has_narrowing_conditions": True,
+        }
+        resource_statement = IAMPolicyStatement(
+            effect="Allow",
+            principals=["*"],
+            conditions=[
+                IAMPolicyCondition(
+                    operator="StringEquals",
+                    key="aws:SourceAccount",
+                    values=["111122223333"],
+                )
+            ],
+        )
+
+        self.assertFalse(trust_statement_has_effective_narrowing(trust_statement))
+        self.assertFalse(resource_policy_statement_has_effective_narrowing(resource_statement))
+
+    def test_source_arn_is_effective_resource_policy_narrowing(self) -> None:
+        statement = IAMPolicyStatement(
+            effect="Allow",
+            principals=["*"],
+            conditions=[
+                IAMPolicyCondition(
+                    operator="ArnEquals",
+                    key="aws:SourceArn",
+                    values=["arn:aws:sns:us-east-1:111122223333:events"],
+                ),
+                IAMPolicyCondition(
+                    operator="StringEquals",
+                    key="aws:SourceAccount",
+                    values=["111122223333"],
+                ),
+            ],
+        )
+
+        self.assertTrue(resource_policy_statement_has_effective_narrowing(statement))
 
 
 if __name__ == "__main__":

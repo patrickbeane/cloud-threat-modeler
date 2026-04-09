@@ -3,6 +3,8 @@ from __future__ import annotations
 from cloud_threat_modeler.analysis.policy_conditions import (
     assess_principal,
     describe_trust_narrowing,
+    resource_policy_statement_has_effective_narrowing,
+    trust_statement_has_effective_narrowing,
     trust_statement_has_supported_narrowing,
 )
 from cloud_threat_modeler.analysis.rule_registry import get_rule
@@ -69,6 +71,8 @@ class StrideRuleEngine:
                 continue
             for statement in resource.policy_statements:
                 if statement.effect != "Allow" or not statement.principals:
+                    continue
+                if resource_policy_statement_has_effective_narrowing(statement):
                     continue
                 for principal in statement.principals:
                     assessment = assess_principal(principal, primary_account_id)
@@ -581,41 +585,49 @@ class StrideRuleEngine:
     ) -> list[Finding]:
         findings: list[Finding] = []
         primary_account_id = inventory.metadata.get("primary_account_id")
+        seen: set[tuple[str, str]] = set()
         for role in inventory.by_type("aws_iam_role"):
-            for principal in role.metadata.get("trust_principals", []):
-                assessment = assess_principal(principal, primary_account_id)
-                if assessment.is_service:
+            for trust_statement in role.metadata.get("trust_statements", []):
+                if trust_statement_has_effective_narrowing(trust_statement):
                     continue
-                if assessment.scope_description is None:
-                    continue
-                severity_reasoning = _build_severity_reasoning(
-                    internet_exposure=False,
-                    privilege_breadth=2 if assessment.is_wildcard else 1,
-                    data_sensitivity=0,
-                    lateral_movement=2,
-                    blast_radius=2 if assessment.is_wildcard or assessment.is_foreign_account else 1,
-                )
-                boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
-                findings.append(
-                    _build_finding(
-                        rule_id="aws-role-trust-expansion",
-                        severity=severity_reasoning.severity,
-                        affected_resources=[role.address],
-                        trust_boundary_id=boundary.identifier if boundary else None,
-                        rationale=(
-                            f"{role.display_name} can be assumed by {principal}. Broad or foreign-account trust "
-                            "relationships increase the chance that compromise in one identity domain spills into another."
-                        ),
-                        evidence=_collect_evidence(
-                            _evidence_item("trust_principals", [principal]),
-                            _evidence_item(
-                                "trust_path",
-                                [assessment.trust_path_description],
-                            ),
-                        ),
-                        severity_reasoning=severity_reasoning,
+                for principal in trust_statement.get("principals", []):
+                    assessment = assess_principal(principal, primary_account_id)
+                    if assessment.is_service:
+                        continue
+                    if assessment.scope_description is None:
+                        continue
+                    finding_key = (role.address, principal)
+                    if finding_key in seen:
+                        continue
+                    seen.add(finding_key)
+                    severity_reasoning = _build_severity_reasoning(
+                        internet_exposure=False,
+                        privilege_breadth=2 if assessment.is_wildcard else 1,
+                        data_sensitivity=0,
+                        lateral_movement=2,
+                        blast_radius=2 if assessment.is_wildcard or assessment.is_foreign_account else 1,
                     )
-                )
+                    boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
+                    findings.append(
+                        _build_finding(
+                            rule_id="aws-role-trust-expansion",
+                            severity=severity_reasoning.severity,
+                            affected_resources=[role.address],
+                            trust_boundary_id=boundary.identifier if boundary else None,
+                            rationale=(
+                                f"{role.display_name} can be assumed by {principal}. Broad or foreign-account trust "
+                                "relationships increase the chance that compromise in one identity domain spills into another."
+                            ),
+                            evidence=_collect_evidence(
+                                _evidence_item("trust_principals", [principal]),
+                                _evidence_item(
+                                    "trust_path",
+                                    [assessment.trust_path_description],
+                                ),
+                            ),
+                            severity_reasoning=severity_reasoning,
+                        )
+                    )
         return findings
 
     def _detect_unconstrained_trust(
@@ -722,7 +734,7 @@ class StrideRuleEngine:
         seen: set[tuple[str, str]] = set()
         for role in inventory.by_type("aws_iam_role"):
             for trust_statement in role.metadata.get("trust_statements", []):
-                if not trust_statement_has_supported_narrowing(trust_statement):
+                if not trust_statement_has_effective_narrowing(trust_statement):
                     continue
                 for principal in trust_statement.get("principals", []):
                     assessment = assess_principal(principal, primary_account_id)

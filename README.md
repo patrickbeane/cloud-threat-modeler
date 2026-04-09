@@ -14,6 +14,7 @@ The engine is intentionally small and explainable: no LLMs in the core path, no 
 - trust-boundary detection plus STRIDE-oriented findings
 - IAM graph resolution for inline policies, role attachments, and EC2 instance profiles present in the plan
 - resource-policy analysis for sensitive data services and invoke/publish/queue surfaces
+- condition-aware narrowing for trust and resource policies using supported source constraints
 - informational controls observed for clear mitigating signals
 - machine-readable JSON output with stable finding fingerprints
 - markdown and SARIF 2.1.0 output
@@ -329,6 +330,7 @@ Unsupported resources are skipped and called out in the report.
 - deliberately incomplete Terraform resource coverage
 - subnet classification prefers explicit route table associations when available, but does not model main-route-table inheritance or every routing edge case
 - IAM analysis focuses on inline policies, standalone policies, role-policy attachments, and trust policies rather than a full attachment graph
+- supported condition narrowing is intentionally focused on keys such as `SourceArn`, `SourceAccount`, and `ExternalId` rather than every service-specific authorization condition
 - no runtime validation, cloud API calls, or drift detection
 - no architecture diagrams or graph visualization
 

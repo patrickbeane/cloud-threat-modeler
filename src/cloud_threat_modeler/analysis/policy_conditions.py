@@ -5,6 +5,9 @@ from typing import Any, Mapping
 
 from cloud_threat_modeler.models import IAMPolicyCondition
 
+EFFECTIVE_TRUST_NARROWING_KEYS = frozenset({"sts:ExternalId", "aws:SourceArn", "aws:SourceAccount"})
+EFFECTIVE_RESOURCE_POLICY_NARROWING_KEYS = frozenset({"aws:SourceArn", "aws:SourceAccount"})
+
 
 @dataclass(frozen=True, slots=True)
 class PrincipalAssessment:
@@ -106,6 +109,13 @@ def trust_statement_has_supported_narrowing(trust_statement: Mapping[str, Any]) 
     return bool(trust_statement_narrowing_keys(trust_statement))
 
 
+def trust_statement_has_effective_narrowing(trust_statement: Mapping[str, Any]) -> bool:
+    return _has_effective_narrowing(
+        trust_statement_narrowing_conditions(trust_statement),
+        EFFECTIVE_TRUST_NARROWING_KEYS,
+    )
+
+
 def describe_trust_narrowing(trust_statement: Mapping[str, Any]) -> list[str]:
     keys = trust_statement_narrowing_keys(trust_statement)
     if keys:
@@ -117,6 +127,34 @@ def describe_trust_narrowing(trust_statement: Mapping[str, Any]) -> list[str]:
         "supported narrowing conditions present: false",
         "supported narrowing condition keys: none",
     ]
+
+
+def resource_policy_statement_narrowing_conditions(statement: Any) -> list[IAMPolicyCondition]:
+    raw_conditions = getattr(statement, "conditions", [])
+    if not isinstance(raw_conditions, list):
+        return []
+
+    narrowed: list[IAMPolicyCondition] = []
+    for raw_condition in raw_conditions:
+        if not isinstance(raw_condition, IAMPolicyCondition):
+            continue
+        if raw_condition.key not in EFFECTIVE_RESOURCE_POLICY_NARROWING_KEYS:
+            continue
+        narrowed.append(
+            IAMPolicyCondition(
+                operator=raw_condition.operator,
+                key=raw_condition.key,
+                values=list(raw_condition.values),
+            )
+        )
+    return narrowed
+
+
+def resource_policy_statement_has_effective_narrowing(statement: Any) -> bool:
+    return _has_effective_narrowing(
+        resource_policy_statement_narrowing_conditions(statement),
+        EFFECTIVE_RESOURCE_POLICY_NARROWING_KEYS,
+    )
 
 
 def _parse_account_id(principal: str) -> str | None:
@@ -150,3 +188,11 @@ def _coerce_string_list(value: Any) -> list[str]:
         if text and text not in parsed_values:
             parsed_values.append(text)
     return parsed_values
+
+
+def _has_effective_narrowing(
+    conditions: list[IAMPolicyCondition],
+    effective_keys: frozenset[str],
+) -> bool:
+    keys = {condition.key for condition in conditions if condition.key in effective_keys}
+    return "sts:ExternalId" in keys or "aws:SourceArn" in keys

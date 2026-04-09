@@ -180,13 +180,14 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         role = result.inventory.get_by_address("aws_iam_role.deployer")
 
         self.assertEqual(len(result.inventory.resources), 2)
-        self.assertEqual(dict(severity_counts), {"medium": 1})
-        self.assertEqual(
-            dict(title_counts),
-            {"Role trust relationship expands blast radius": 1},
-        )
+        self.assertEqual(dict(severity_counts), {})
+        self.assertEqual(dict(title_counts), {})
         self.assertNotIn(
             "Cross-account or broad role trust lacks narrowing conditions",
+            title_counts,
+        )
+        self.assertNotIn(
+            "Role trust relationship expands blast radius",
             title_counts,
         )
         self.assertIsNotNone(role)
@@ -1049,6 +1050,100 @@ class AwsCoverageExpansionTests(unittest.TestCase):
         self.assertEqual(title_counts["Service resource policy allows public or cross-account access"], 1)
         self.assertIn("aws_secretsmanager_secret_policy.app", secret.metadata.get("resource_policy_source_addresses", []))
         self.assertIn("aws_lambda_permission.public_invoke", lambda_function.metadata.get("resource_policy_source_addresses", []))
+
+    def test_resource_policy_findings_are_narrowed_by_source_arn_conditions(self) -> None:
+        result = self._analyze_payload(
+            {
+                "format_version": "1.2",
+                "terraform_version": "1.8.5",
+                "planned_values": {
+                    "root_module": {
+                        "resources": [
+                            {
+                                "address": "aws_sqs_queue.jobs",
+                                "mode": "managed",
+                                "type": "aws_sqs_queue",
+                                "name": "jobs",
+                                "provider_name": "registry.terraform.io/hashicorp/aws",
+                                "values": {
+                                    "id": "https://sqs.us-east-1.amazonaws.com/111122223333/jobs",
+                                    "name": "jobs",
+                                    "arn": "arn:aws:sqs:us-east-1:111122223333:jobs",
+                                    "policy": {
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                            {
+                                                "Effect": "Allow",
+                                                "Principal": {"AWS": "*"},
+                                                "Action": "sqs:SendMessage",
+                                                "Resource": "*",
+                                                "Condition": {
+                                                    "ArnEquals": {
+                                                        "aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:events"
+                                                    },
+                                                    "StringEquals": {
+                                                        "aws:SourceAccount": "111122223333"
+                                                    },
+                                                },
+                                            }
+                                        ],
+                                    },
+                                },
+                            }
+                        ]
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(result.findings, [])
+
+    def test_resource_policy_findings_remain_when_only_source_account_is_present(self) -> None:
+        result = self._analyze_payload(
+            {
+                "format_version": "1.2",
+                "terraform_version": "1.8.5",
+                "planned_values": {
+                    "root_module": {
+                        "resources": [
+                            {
+                                "address": "aws_sqs_queue.jobs",
+                                "mode": "managed",
+                                "type": "aws_sqs_queue",
+                                "name": "jobs",
+                                "provider_name": "registry.terraform.io/hashicorp/aws",
+                                "values": {
+                                    "id": "https://sqs.us-east-1.amazonaws.com/111122223333/jobs",
+                                    "name": "jobs",
+                                    "arn": "arn:aws:sqs:us-east-1:111122223333:jobs",
+                                    "policy": {
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                            {
+                                                "Effect": "Allow",
+                                                "Principal": {"AWS": "*"},
+                                                "Action": "sqs:SendMessage",
+                                                "Resource": "*",
+                                                "Condition": {
+                                                    "StringEquals": {
+                                                        "aws:SourceAccount": "111122223333"
+                                                    },
+                                                },
+                                            }
+                                        ],
+                                    },
+                                },
+                            }
+                        ]
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(
+            [finding.title for finding in result.findings],
+            ["Service resource policy allows public or cross-account access"],
+        )
 
     def test_normalizer_supports_bucket_policy_queue_and_topic_policies(self) -> None:
         inventory = AwsNormalizer().normalize(
