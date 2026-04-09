@@ -54,7 +54,7 @@
       <div class="note-block">
         <p>The dashboard intentionally avoids copying analysis logic into the web layer.</p>
         <pre><code>python3 -m pip install -e '.[dashboard]'
-uvicorn apps.dashboard.main:app --reload</code></pre>
+uvicorn apps.dashboard.main:app --reload --port 8001</code></pre>
       </div>
       <div class="note-block">
         <p>For deployment, run `uvicorn` behind `systemd` and proxy with Caddy or another reverse proxy.</p>

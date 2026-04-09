@@ -83,7 +83,7 @@ python3 -m pip install -e '.[dashboard]'
 Run the dashboard locally from the repo root:
 
 ```bash
-uvicorn apps.dashboard.main:app --reload
+uvicorn apps.dashboard.main:app --reload --port 8001
 ```
 
 Useful routes:
@@ -96,7 +96,7 @@ Useful routes:
 Deployment notes:
 
 - a `systemd` unit example lives at `apps/dashboard/deploy/cloud-threat-modeler-dashboard.service`
-- the service binds `uvicorn` to `127.0.0.1:8000` and sets `PYTHONPATH` to the repo `src/` directory
+- the service binds `uvicorn` to `127.0.0.1:8001` and sets `PYTHONPATH` to the repo `src/` directory
 - a simple Caddy reverse-proxy example lives at `apps/dashboard/deploy/Caddyfile.example`
 
 ## Example Output
