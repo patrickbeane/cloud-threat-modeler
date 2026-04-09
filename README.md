@@ -19,6 +19,7 @@ The engine is intentionally small and explainable: no LLMs in the core path, no 
 - markdown and SARIF 2.1.0 output
 - CI policy gating with `--fail-on low|medium|high`
 - suppressions and baselines to focus gating on active new findings
+- repo-level TOML config for default gating, rule selection, and severity overrides
 - automation-friendly `--quiet` mode and non-zero exit behavior
 - AWS-first normalization with a provider boundary for future expansion
 
@@ -54,6 +55,13 @@ Capture the current unsuppressed findings as a baseline and later gate only on n
 ```bash
 cloud-threat-modeler tfplan.json --quiet --baseline-output baseline.json
 cloud-threat-modeler tfplan.json --quiet --fail-on high --baseline baseline.json
+```
+
+Use a checked-in repo config so CI and local runs share the same defaults:
+
+```bash
+cloud-threat-modeler tfplan.json --quiet
+cloud-threat-modeler tfplan.json --config ./cloud-threat-modeler.toml --json-output threat-model.json
 ```
 
 ## Example Output
@@ -209,6 +217,38 @@ cloud-threat-modeler tfplan.json --quiet --baseline-output baseline.json
 cloud-threat-modeler tfplan.json --quiet --baseline baseline.json --fail-on high
 ```
 
+## Repo Config
+
+The CLI auto-discovers `cloud-threat-modeler.toml` from the current working directory or the plan file directory. You can also pass it explicitly with `--config`.
+
+CLI flags still win over config values when both are present.
+
+Example:
+
+```toml
+version = "1.0"
+title = "Platform Threat Model"
+fail_on = "high"
+baseline = ".cloud-threat-modeler/baseline.json"
+suppressions = ".cloud-threat-modeler/suppressions.json"
+
+[rules]
+disable = ["aws-role-trust-expansion"]
+
+[rules.severity_overrides]
+aws-iam-wildcard-permissions = "low"
+```
+
+Supported config keys:
+
+- `title`
+- `fail_on`
+- `baseline`
+- `suppressions`
+- `rules.enable`
+- `rules.disable`
+- `rules.severity_overrides`
+
 ## Supported AWS Resources
 
 The MVP intentionally supports a focused resource set:
@@ -263,6 +303,7 @@ Unsupported resources are skipped and called out in the report.
 ├── src/
 │   └── cloud_threat_modeler/
 │       ├── analysis/
+│       │   ├── rule_registry.py
 │       │   ├── stride_rules.py
 │       │   └── trust_boundaries.py
 │       ├── input/
@@ -271,10 +312,12 @@ Unsupported resources are skipped and called out in the report.
 │       │   ├── base.py
 │       │   └── aws/normalizer.py
 │       ├── reporting/
+│       │   ├── json_report.py
 │       │   ├── markdown.py
 │       │   └── sarif.py
 │       ├── app.py
 │       ├── cli.py
+│       ├── config.py
 │       └── models.py
 └── tests/
 ```

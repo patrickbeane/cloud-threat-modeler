@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from cloud_threat_modeler import __version__
+from cloud_threat_modeler.analysis.rule_registry import get_rule
 from cloud_threat_modeler.models import AnalysisResult, EvidenceItem, Finding, Severity
 
 
@@ -54,17 +55,23 @@ class SarifReportRenderer:
         for rule_id in sorted(findings_by_rule):
             rule_findings = findings_by_rule[rule_id]
             representative = rule_findings[0]
+            metadata = get_rule(rule_id)
             default_level = SARIF_LEVELS[_highest_severity(rule_findings)]
             rules.append(
                 {
                     "id": rule_id,
-                    "name": representative.title,
-                    "shortDescription": {"text": representative.title},
+                    "name": metadata.title,
+                    "shortDescription": {"text": metadata.title},
                     "fullDescription": {"text": representative.rationale},
-                    "help": {"text": representative.recommended_mitigation},
+                    "help": {"text": metadata.recommended_mitigation},
                     "defaultConfiguration": {"level": default_level},
                     "properties": {
-                        "tags": [representative.category.value, representative.severity.value, *SARIF_TAGS],
+                        "tags": [
+                            representative.category.value,
+                            representative.severity.value,
+                            *metadata.tags,
+                            *SARIF_TAGS,
+                        ],
                     },
                 }
             )
@@ -124,6 +131,11 @@ def _serialize_severity_reasoning(finding: Finding) -> dict[str, object] | None:
         "blast_radius": finding.severity_reasoning.blast_radius,
         "final_score": finding.severity_reasoning.final_score,
         "severity": finding.severity_reasoning.severity.value,
+        "computed_severity": (
+            finding.severity_reasoning.computed_severity.value
+            if finding.severity_reasoning.computed_severity is not None
+            else None
+        ),
     }
 
 

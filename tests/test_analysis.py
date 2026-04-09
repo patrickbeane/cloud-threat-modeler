@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cloud_threat_modeler.analysis.rule_registry import DEFAULT_RULE_REGISTRY, RulePolicy
 from cloud_threat_modeler.app import CloudThreatModeler
 from cloud_threat_modeler.models import BoundaryType, Severity, TerraformResource
 from cloud_threat_modeler.providers.aws.normalizer import AwsNormalizer
@@ -505,6 +506,30 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
         self.assertEqual(boundary_types[BoundaryType.WORKLOAD_TO_DATA_STORE], 1)
         self.assertEqual(boundary_types[BoundaryType.CONTROL_TO_WORKLOAD], 1)
         self.assertEqual(boundary_types[BoundaryType.CROSS_ACCOUNT_OR_ROLE], 1)
+
+    def test_rule_policy_can_disable_rules_and_override_severity(self) -> None:
+        enabled_rule_ids = DEFAULT_RULE_REGISTRY.default_enabled_rule_ids()
+        enabled_rule_ids.remove("aws-database-permissive-ingress")
+        engine = CloudThreatModeler(
+            rule_policy=RulePolicy(
+                enabled_rule_ids=frozenset(enabled_rule_ids),
+                severity_overrides={"aws-workload-role-sensitive-permissions": Severity.LOW},
+            )
+        )
+
+        result = engine.analyze_plan(FIXTURE_PATH)
+        finding_titles = {finding.title for finding in result.findings}
+        workload_finding = next(
+            finding
+            for finding in result.findings
+            if finding.rule_id == "aws-workload-role-sensitive-permissions"
+        )
+
+        self.assertNotIn("Database is reachable from overly permissive sources", finding_titles)
+        self.assertEqual(workload_finding.severity, Severity.LOW)
+        self.assertIsNotNone(workload_finding.severity_reasoning)
+        self.assertEqual(workload_finding.severity_reasoning.severity, Severity.LOW)
+        self.assertEqual(workload_finding.severity_reasoning.computed_severity, Severity.HIGH)
 
     def test_same_account_specific_role_trust_does_not_emit_trust_expansion_findings(self) -> None:
         payload = {

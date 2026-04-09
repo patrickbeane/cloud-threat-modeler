@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from cloud_threat_modeler.analysis.rule_registry import RulePolicy, apply_rule_policy
 from cloud_threat_modeler.analysis.stride_rules import StrideRuleEngine
 from cloud_threat_modeler.filtering import apply_finding_filters
 from cloud_threat_modeler.analysis.trust_boundaries import TrustBoundaryDetector
@@ -23,19 +24,20 @@ DEFAULT_LIMITATIONS = [
 
 
 class CloudThreatModeler:
-    def __init__(self) -> None:
+    def __init__(self, *, rule_policy: RulePolicy | None = None) -> None:
         self.aws_normalizer = AwsNormalizer()
         self.boundary_detector = TrustBoundaryDetector()
         self.rule_engine = StrideRuleEngine()
         self.json_renderer = JsonReportRenderer()
         self.report_renderer = MarkdownReportRenderer()
         self.sarif_renderer = SarifReportRenderer()
+        self.rule_policy = rule_policy
 
     def analyze_plan(self, plan_path: str | Path, title: str = "Cloud Threat Model Report") -> AnalysisResult:
         terraform_plan = load_terraform_plan(plan_path)
         inventory = self.aws_normalizer.normalize(terraform_plan.resources)
         trust_boundaries = self.boundary_detector.detect(inventory)
-        findings = self.rule_engine.evaluate(inventory, trust_boundaries)
+        findings = apply_rule_policy(self.rule_engine.evaluate(inventory, trust_boundaries), self.rule_policy)
         observations = self.rule_engine.observe_controls(inventory)
         return AnalysisResult(
             title=title,

@@ -169,6 +169,7 @@ class SeverityReasoning:
     blast_radius: int
     final_score: int
     severity: Severity
+    computed_severity: Severity | None = None
 
 
 @dataclass(slots=True)

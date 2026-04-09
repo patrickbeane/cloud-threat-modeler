@@ -181,7 +181,7 @@ This run identified **9 trust boundaries** and **9 findings** across **23 normal
 - Trust boundary: `internet-to-service:internet->aws_s3_bucket.assets`
 - Severity reasoning: internet_exposure +2, privilege_breadth +0, data_sensitivity +2, lateral_movement +0, blast_radius +1, final_score 5 => medium
 - Rationale: aws_s3_bucket.assets appears to be public through ACLs or bucket policy. Public object access is a common source of unintended data disclosure.
-- Recommended mitigation: Use private bucket ACLs, block public access, and grant object access through scoped IAM roles or signed requests instead of anonymous principals.
+- Recommended mitigation: Remove public ACL or bucket policy access, enable an S3 public access block, and serve content through a controlled CDN or origin access pattern when public distribution is required.
 - Evidence:
   - public exposure reasons: bucket ACL `public-read` grants public access; bucket policy allows anonymous access
 

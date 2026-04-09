@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cloud_threat_modeler.analysis.rule_registry import get_rule
 from cloud_threat_modeler.models import (
     BoundaryType,
     EvidenceItem,
@@ -11,7 +12,6 @@ from cloud_threat_modeler.models import (
     SecurityGroupRule,
     Severity,
     SeverityReasoning,
-    StrideCategory,
     TrustBoundary,
 )
 
@@ -92,16 +92,11 @@ class StrideRuleEngine:
                     )
                     boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, resource.address))
                     findings.append(
-                        Finding(
-                            title=(
-                                "Sensitive resource policy allows public or cross-account access"
+                        _build_finding(
+                            rule_id=(
+                                "aws-sensitive-resource-policy-external-access"
                                 if sensitive_resource
-                                else "Service resource policy allows public or cross-account access"
-                            ),
-                            category=(
-                                StrideCategory.INFORMATION_DISCLOSURE
-                                if sensitive_resource
-                                else StrideCategory.ELEVATION_OF_PRIVILEGE
+                                else "aws-service-resource-policy-external-access"
                             ),
                             severity=severity_reasoning.severity,
                             affected_resources=[
@@ -109,18 +104,9 @@ class StrideRuleEngine:
                                 *resource.metadata.get("resource_policy_source_addresses", []),
                             ],
                             trust_boundary_id=boundary.identifier if boundary else None,
-                            rule_id=(
-                                "aws-sensitive-resource-policy-external-access"
-                                if sensitive_resource
-                                else "aws-service-resource-policy-external-access"
-                            ),
                             rationale=(
                                 f"{resource.display_name} allows {principal} through a resource policy. "
                                 "Broad or foreign-account principals expand who can invoke, read, decrypt, or consume this resource."
-                            ),
-                            recommended_mitigation=(
-                                "Limit resource policies to exact service principals or workload roles, avoid wildcard "
-                                "and account-root principals, and require source-account or source-ARN constraints where supported."
                             ),
                             evidence=_collect_evidence(
                                 _evidence_item("trust_principals", [principal]),
@@ -174,21 +160,15 @@ class StrideRuleEngine:
             )
             boundary = boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", resource.address))
             findings.append(
-                Finding(
-                    title="Internet-exposed compute service permits overly broad ingress",
-                    category=StrideCategory.SPOOFING,
+                _build_finding(
+                    rule_id="aws-public-compute-broad-ingress",
                     severity=severity_reasoning.severity,
                     affected_resources=[resource.address, *[sg.address for sg in attached_security_groups]],
                     trust_boundary_id=boundary.identifier if boundary else None,
-                    rule_id="aws-public-compute-broad-ingress",
                     rationale=(
                         f"{resource.display_name} is reachable from the internet and at least one attached "
                         "security group allows administrative access or all ports from 0.0.0.0/0. "
                         "That broad ingress raises the chance of unauthenticated probing and credential attacks."
-                    ),
-                    recommended_mitigation=(
-                        "Restrict ingress to expected client ports, remove direct administrative exposure, "
-                        "and place management access behind a controlled bastion, VPN, or SSM Session Manager."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item(
@@ -285,21 +265,15 @@ class StrideRuleEngine:
             if public_tier_rules:
                 path_signals.append("database trusts security groups attached to internet-exposed workloads")
             findings.append(
-                Finding(
-                    title="Database is reachable from overly permissive sources",
-                    category=StrideCategory.INFORMATION_DISCLOSURE,
+                _build_finding(
+                    rule_id="aws-database-permissive-ingress",
                     severity=severity_reasoning.severity,
                     affected_resources=[database.address, *[sg.address for sg in attached_security_groups]],
                     trust_boundary_id=boundary.identifier if boundary else None,
-                    rule_id="aws-database-permissive-ingress",
                     rationale=(
                         f"{database.display_name} is a sensitive data store, but "
                         f"{_join_clauses(path_signals)}. "
                         "That weakens the expected separation between the workload tier and the data tier."
-                    ),
-                    recommended_mitigation=(
-                        "Keep databases off public paths, allow ingress only from narrowly scoped application "
-                        "security groups, and enforce authentication plus encryption independently of network policy."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item(
@@ -350,20 +324,14 @@ class StrideRuleEngine:
                 blast_radius=1,
             )
             findings.append(
-                Finding(
-                    title="Database storage encryption is disabled",
-                    category=StrideCategory.INFORMATION_DISCLOSURE,
+                _build_finding(
+                    rule_id="aws-rds-storage-encryption-disabled",
                     severity=severity_reasoning.severity,
                     affected_resources=[database.address],
                     trust_boundary_id=None,
-                    rule_id="aws-rds-storage-encryption-disabled",
                     rationale=(
                         f"{database.display_name} stores sensitive data, but `storage_encrypted` is disabled. "
                         "That weakens data-at-rest protections for underlying storage, snapshots, and backup handling."
-                    ),
-                    recommended_mitigation=(
-                        "Enable RDS storage encryption with a managed KMS key, enforce encryption by default in "
-                        "database modules, and migrate plaintext instances to encrypted replacements where needed."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item(
@@ -397,20 +365,14 @@ class StrideRuleEngine:
                 blast_radius=1,
             )
             findings.append(
-                Finding(
-                    title="Object storage is publicly accessible",
-                    category=StrideCategory.INFORMATION_DISCLOSURE,
+                _build_finding(
+                    rule_id="aws-s3-public-access",
                     severity=severity_reasoning.severity,
                     affected_resources=[bucket.address],
                     trust_boundary_id=boundary.identifier if boundary else None,
-                    rule_id="aws-s3-public-access",
                     rationale=(
                         f"{bucket.display_name} appears to be public through ACLs or bucket policy. "
                         "Public object access is a common source of unintended data disclosure."
-                    ),
-                    recommended_mitigation=(
-                        "Use private bucket ACLs, block public access, and grant object access through scoped IAM "
-                        "roles or signed requests instead of anonymous principals."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item("public_exposure_reasons", bucket.metadata.get("public_exposure_reasons", [])),
@@ -455,20 +417,14 @@ class StrideRuleEngine:
                 blast_radius=2,
             )
             findings.append(
-                Finding(
-                    title="IAM policy grants wildcard privileges",
-                    category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                _build_finding(
+                    rule_id="aws-iam-wildcard-permissions",
                     severity=severity_reasoning.severity,
                     affected_resources=[policy_resource.address],
                     trust_boundary_id=None,
-                    rule_id="aws-iam-wildcard-permissions",
                     rationale=(
                         f"{policy_resource.display_name} contains allow statements with wildcard actions or "
                         "resources. That makes the resulting access difficult to reason about and expands blast radius."
-                    ),
-                    recommended_mitigation=(
-                        "Replace wildcard actions and resources with narrowly scoped permissions tied to the exact "
-                        "services, APIs, and ARNs required by the workload."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item("iam_actions", wildcard_actions),
@@ -506,21 +462,15 @@ class StrideRuleEngine:
                 blast_radius=2,
             )
             findings.append(
-                Finding(
-                    title="Workload role carries sensitive permissions",
-                    category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                _build_finding(
+                    rule_id="aws-workload-role-sensitive-permissions",
                     severity=severity_reasoning.severity,
                     affected_resources=[workload.address, role.address],
                     trust_boundary_id=boundary.identifier if boundary else None,
-                    rule_id="aws-workload-role-sensitive-permissions",
                     rationale=(
                         f"{workload.display_name} inherits sensitive privileges from {role.display_name}, including "
                         f"{', '.join(sorted(sensitive_actions))}. If the workload is compromised, those credentials "
                         "can be reused for privilege escalation, data access, or role chaining."
-                    ),
-                    recommended_mitigation=(
-                        "Split high-privilege actions into separate roles, scope permissions to named resources, "
-                        "and remove role-passing or cross-role permissions from general application identities."
                     ),
                     evidence=_collect_evidence(
                         _evidence_item("iam_actions", sorted(sensitive_actions)),
@@ -582,20 +532,14 @@ class StrideRuleEngine:
                     blast_radius=1,
                 )
                 findings.append(
-                    Finding(
-                        title="Private data tier directly trusts the public application tier",
-                        category=StrideCategory.TAMPERING,
+                    _build_finding(
+                        rule_id="aws-missing-tier-segmentation",
                         severity=severity_reasoning.severity,
                         affected_resources=[database.address, *exposed_workloads, security_group.address],
                         trust_boundary_id=public_private_boundary.identifier if public_private_boundary else None,
-                        rule_id="aws-missing-tier-segmentation",
                         rationale=(
                             f"{database.display_name} accepts traffic from security groups attached to internet-facing "
                             "workloads. A compromise of the public tier can therefore move laterally into the private data tier."
-                        ),
-                        recommended_mitigation=(
-                            "Introduce tighter tier segmentation with dedicated security groups, narrow ingress to "
-                            "specific services and ports, and keep the data tier reachable only through controlled application paths."
                         ),
                         evidence=_collect_evidence(
                             _evidence_item(
@@ -650,20 +594,14 @@ class StrideRuleEngine:
                 )
                 boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
                 findings.append(
-                    Finding(
-                        title="Role trust relationship expands blast radius",
-                        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                    _build_finding(
+                        rule_id="aws-role-trust-expansion",
                         severity=severity_reasoning.severity,
                         affected_resources=[role.address],
                         trust_boundary_id=boundary.identifier if boundary else None,
-                        rule_id="aws-role-trust-expansion",
                         rationale=(
                             f"{role.display_name} can be assumed by {principal}. Broad or foreign-account trust "
                             "relationships increase the chance that compromise in one identity domain spills into another."
-                        ),
-                        recommended_mitigation=(
-                            "Limit trust policies to the exact service principals or roles required, prefer role ARNs "
-                            "over account root where possible, and add conditions such as `ExternalId` or source ARN checks."
                         ),
                         evidence=_collect_evidence(
                             _evidence_item("trust_principals", [principal]),
@@ -710,22 +648,15 @@ class StrideRuleEngine:
                     )
                     boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
                     findings.append(
-                        Finding(
-                            title="Cross-account or broad role trust lacks narrowing conditions",
-                            category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                        _build_finding(
+                            rule_id="aws-role-trust-missing-narrowing",
                             severity=severity_reasoning.severity,
                             affected_resources=[role.address],
                             trust_boundary_id=boundary.identifier if boundary else None,
-                            rule_id="aws-role-trust-missing-narrowing",
                             rationale=(
                                 f"{role.display_name} trusts {principal} without supported narrowing conditions such as "
                                 "`sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role "
                                 "path dependent on a broad or external principal match alone."
-                            ),
-                            recommended_mitigation=(
-                                "Keep the trusted principal as specific as possible and add supported assume-role "
-                                "conditions such as `ExternalId`, `SourceArn`, or `SourceAccount` when crossing "
-                                "accounts or trusting broad principals."
                             ),
                             evidence=_collect_evidence(
                                 _evidence_item("trust_principals", [principal]),
@@ -934,6 +865,31 @@ def _parse_account_id(principal: str) -> str | None:
     if len(parts) < 5:
         return None
     return parts[4] or None
+
+
+def _build_finding(
+    *,
+    rule_id: str,
+    severity: Severity,
+    affected_resources: list[str],
+    trust_boundary_id: str | None,
+    rationale: str,
+    evidence: list[EvidenceItem],
+    severity_reasoning: SeverityReasoning | None = None,
+) -> Finding:
+    rule = get_rule(rule_id)
+    return Finding(
+        title=rule.title,
+        category=rule.category,
+        severity=severity,
+        affected_resources=affected_resources,
+        trust_boundary_id=trust_boundary_id,
+        rationale=rationale,
+        recommended_mitigation=rule.recommended_mitigation,
+        rule_id=rule.rule_id,
+        evidence=evidence,
+        severity_reasoning=severity_reasoning,
+    )
 
 
 def _build_severity_reasoning(

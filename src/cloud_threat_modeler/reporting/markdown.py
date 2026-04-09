@@ -142,7 +142,7 @@ def _format_severity_reasoning(finding) -> str:
     if finding.severity_reasoning is None:
         return finding.severity.value
     reasoning = finding.severity_reasoning
-    return (
+    summary = (
         f"internet_exposure +{reasoning.internet_exposure}, "
         f"privilege_breadth +{reasoning.privilege_breadth}, "
         f"data_sensitivity +{reasoning.data_sensitivity}, "
@@ -150,3 +150,6 @@ def _format_severity_reasoning(finding) -> str:
         f"blast_radius +{reasoning.blast_radius}, "
         f"final_score {reasoning.final_score} => {reasoning.severity.value}"
     )
+    if reasoning.computed_severity and reasoning.computed_severity != reasoning.severity:
+        summary += f" (computed as {reasoning.computed_severity.value}, overridden by config)"
+    return summary

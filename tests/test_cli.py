@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from cloud_threat_modeler.cli import INPUT_ERROR_EXIT_CODE, POLICY_VIOLATION_EXIT_CODE, main
+from cloud_threat_modeler.config import CONFIG_FILENAME
 
 
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "sample_aws_plan.json"
@@ -231,6 +233,47 @@ class CliTests(unittest.TestCase):
         self.assertEqual("", stdout_buffer.getvalue())
         self.assertIn("Input error:", stderr_buffer.getvalue())
         self.assertIn("must define at least one selector", stderr_buffer.getvalue())
+
+    def test_cli_auto_discovers_config_and_applies_fail_on_and_severity_overrides(self) -> None:
+        stderr_buffer = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / CONFIG_FILENAME
+            json_output_path = Path(tmp_dir) / "report.json"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        'fail_on = "medium"',
+                        "",
+                        "[rules.severity_overrides]",
+                        'aws-iam-wildcard-permissions = "low"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            current_working_directory = os.getcwd()
+            try:
+                os.chdir(tmp_dir)
+                with redirect_stderr(stderr_buffer):
+                    exit_code = main(
+                        [
+                            str(SAFE_FIXTURE_PATH),
+                            "--quiet",
+                            "--json-output",
+                            str(json_output_path),
+                        ]
+                    )
+            finally:
+                os.chdir(current_working_directory)
+
+            payload = json.loads(json_output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual("", stderr_buffer.getvalue())
+        self.assertEqual(payload["summary"]["severity_counts"], {"high": 0, "medium": 0, "low": 1})
+        self.assertEqual(payload["findings"][0]["severity"], "low")
+        self.assertEqual(payload["findings"][0]["severity_reasoning"]["computed_severity"], "medium")
 
 
 if __name__ == "__main__":

@@ -178,4 +178,9 @@ def _serialize_severity_reasoning(finding: Finding) -> dict[str, Any] | None:
         "blast_radius": finding.severity_reasoning.blast_radius,
         "final_score": finding.severity_reasoning.final_score,
         "severity": finding.severity_reasoning.severity.value,
+        "computed_severity": (
+            finding.severity_reasoning.computed_severity.value
+            if finding.severity_reasoning.computed_severity is not None
+            else None
+        ),
     }

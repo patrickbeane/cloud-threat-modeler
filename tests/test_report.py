@@ -5,8 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cloud_threat_modeler.analysis.rule_registry import RulePolicy
 from cloud_threat_modeler.app import CloudThreatModeler
 from cloud_threat_modeler.filtering import apply_finding_filters, render_baseline
+from cloud_threat_modeler.models import Severity
 from cloud_threat_modeler.reporting.json_report import JsonReportRenderer
 from cloud_threat_modeler.reporting.markdown import MarkdownReportRenderer
 from cloud_threat_modeler.reporting.sarif import SarifReportRenderer
@@ -121,6 +123,15 @@ class MarkdownReportRendererTests(unittest.TestCase):
         self.assertIn("- Active findings after filters:", report)
         self.assertIn("- Suppressed findings: `1`", report)
         self.assertIn("- Baselined findings: `2`", report)
+
+    def test_report_mentions_when_severity_is_overridden_by_config(self) -> None:
+        engine = CloudThreatModeler(
+            rule_policy=RulePolicy(severity_overrides={"aws-iam-wildcard-permissions": Severity.LOW})
+        )
+        result = engine.analyze_plan(SAFE_FIXTURE_PATH)
+        report = MarkdownReportRenderer().render(result)
+
+        self.assertIn("overridden by config", report)
 
 
 class SarifReportRendererTests(unittest.TestCase):
