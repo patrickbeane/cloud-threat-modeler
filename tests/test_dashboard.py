@@ -69,6 +69,19 @@ class DashboardAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertIn("/api/analyze", payload["paths"])
+        self.assertIn("/demo/{scenario_id}", payload["paths"])
+        self.assertEqual(
+            payload["paths"]["/api/analyze"]["post"]["summary"],
+            "Analyze Terraform plan JSON",
+        )
+        self.assertEqual(
+            payload["paths"]["/api/analyze"]["post"]["responses"]["200"]["content"]["application/json"]["example"]["kind"],
+            "cloud-threat-model-report",
+        )
+        self.assertIn(
+            "AnalyzeApiUploadRequest",
+            payload["components"]["schemas"],
+        )
 
     def test_html_analyze_renders_finding_content(self) -> None:
         with FIXTURE_PATH.open("rb") as fixture_file:
