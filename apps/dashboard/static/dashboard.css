@@ -312,7 +312,8 @@ h2 {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: center;
+  align-items: start;
+  flex-wrap: wrap;
 }
 
 .summary-card-grid,
@@ -426,6 +427,10 @@ h2 {
   color: var(--muted);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.75rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .scenario-metrics {
