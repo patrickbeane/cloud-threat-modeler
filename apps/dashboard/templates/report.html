@@ -20,6 +20,13 @@
     <a class="button-secondary" href="{{ request.url_for('index') }}">Analyze another plan</a>
   </section>
 
+  <nav class="report-jump-nav" aria-label="Report sections">
+    <a href="#findings">Findings</a>
+    <a href="#observations">Observations</a>
+    <a href="#boundaries">Boundaries</a>
+    <a href="#raw-outputs">Raw outputs</a>
+  </nav>
+
   <section class="summary-card-grid">
     {% for card in summary_cards %}
       <article class="metric-card">
@@ -40,7 +47,7 @@
 
   <section class="content-grid">
     <div class="content-column">
-      <section class="panel">
+      <section class="panel" id="findings">
         <div class="panel-header">
           <p class="eyebrow">Findings</p>
           <h2>Severity bands</h2>
@@ -92,7 +99,7 @@
         {% endfor %}
       </section>
 
-      <section class="panel">
+      <section class="panel" id="observations">
         <div class="panel-header">
           <p class="eyebrow">Observations</p>
           <h2>Controls and mitigating signals</h2>
@@ -112,7 +119,7 @@
     </div>
 
     <div class="content-column">
-      <section class="panel">
+      <section class="panel" id="boundaries">
         <div class="panel-header">
           <p class="eyebrow">Trust boundaries</p>
           <h2>Crossings that drive the model</h2>
@@ -132,7 +139,7 @@
         {% endif %}
       </section>
 
-      <section class="panel">
+      <section class="panel" id="raw-outputs">
         <div class="panel-header">
           <p class="eyebrow">Raw outputs</p>
           <h2>Stable contract and markdown</h2>

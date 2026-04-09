@@ -25,6 +25,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at top left, rgba(214, 159, 58, 0.22), transparent 28rem),
@@ -104,6 +105,16 @@ h4 {
 .site-nav a {
   text-decoration: none;
   color: var(--muted);
+}
+
+.content-column,
+.scenario-card,
+.finding-card,
+.boundary-card,
+.observation-card,
+.metric-card,
+.risk-chip {
+  min-width: 0;
 }
 
 .page-main {
@@ -305,6 +316,25 @@ h2 {
   justify-content: space-between;
   gap: 1rem;
   align-items: end;
+}
+
+.report-jump-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.report-jump-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(13, 92, 99, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .report-label-row,
@@ -526,6 +556,7 @@ h2 {
   justify-content: space-between;
   gap: 0.75rem;
   align-items: start;
+  flex-wrap: wrap;
 }
 
 .finding-high {
@@ -605,17 +636,30 @@ details + details {
 @media (max-width: 980px) {
   .hero-panel,
   .upload-grid,
-  .content-grid,
-  .summary-card-grid,
-  .risk-band,
-  .scenario-grid {
+  .content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .summary-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .risk-band {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .scenario-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .report-hero,
   .site-header {
     flex-direction: column;
     align-items: start;
+  }
+
+  .report-hero .button-secondary {
+    width: 100%;
   }
 }
 
@@ -624,15 +668,71 @@ details + details {
     width: min(100% - 1rem, 1240px);
   }
 
+  .site-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .site-nav a {
+    flex: 1 1 calc(50% - 0.55rem);
+    justify-content: center;
+    padding: 0.65rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(13, 92, 99, 0.08);
+    text-align: center;
+  }
+
   .hero-copy,
   .panel,
   .metric-card,
-  .risk-chip {
+  .risk-chip,
+  .hero-sidecar .sidecar-card,
+  .scenario-card {
     padding: 1.1rem;
   }
 
   h1 {
     line-height: 1.02;
+  }
+
+  .wordmark {
+    width: 100%;
+  }
+
+  .wordmark-text {
+    font-size: 1rem;
+  }
+
+  .summary-card-grid,
+  .risk-band,
+  .scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card strong,
+  .risk-chip strong {
+    font-size: 1.55rem;
+  }
+
+  .report-jump-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-jump-nav a,
+  .button-primary,
+  .button-secondary {
+    width: 100%;
+  }
+
+  .report-label-row,
+  .severity-header {
+    align-items: start;
+  }
+
+  .code-block {
+    font-size: 0.82rem;
   }
 
   .detail-grid {

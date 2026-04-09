@@ -66,6 +66,8 @@ class DashboardAppTests(unittest.TestCase):
         self.assertIn("Database is reachable from overly permissive sources", response.text)
         self.assertIn("JSON report", response.text)
         self.assertIn(FIXTURE_PATH.name, response.text)
+        self.assertIn("Report sections", response.text)
+        self.assertIn('href="#findings"', response.text)
 
     def test_html_analyze_renders_nightmare_fixture(self) -> None:
         with NIGHTMARE_FIXTURE_PATH.open("rb") as fixture_file:
