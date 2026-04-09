@@ -840,11 +840,12 @@ class AwsNormalizer(ProviderNormalizer):
             resource.metadata["internet_ingress"] = internet_ingress
             resource.metadata["internet_ingress_capable"] = internet_ingress
             resource.metadata["internet_ingress_reasons"] = _internet_ingress_reasons(attached_security_groups)
-            resource.metadata["public_subnet"] = (
-                any(subnet_id in public_subnet_ids for subnet_id in resource.subnet_ids)
-                if resource.subnet_ids
-                else resource.metadata.get("public_subnet", False)
-            )
+            if resource.resource_type != "aws_subnet":
+                resource.metadata["in_public_subnet"] = (
+                    any(subnet_id in public_subnet_ids for subnet_id in resource.subnet_ids)
+                    if resource.subnet_ids
+                    else resource.metadata.get("in_public_subnet", False)
+                )
             resource.metadata["has_nat_gateway_egress"] = (
                 any(
                     subnets[subnet_id].metadata.get("has_nat_gateway_egress")
@@ -860,7 +861,7 @@ class AwsNormalizer(ProviderNormalizer):
             if resource.resource_type == "aws_instance":
                 resource.public_exposure = bool(
                     resource.public_access_configured
-                    and resource.metadata["public_subnet"]
+                    and resource.metadata["in_public_subnet"]
                     and internet_ingress
                 )
                 if resource.public_exposure:

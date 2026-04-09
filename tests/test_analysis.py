@@ -326,10 +326,13 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
 
         self.assertEqual(safe_public_subnet.metadata.get("route_table_ids"), ["rtb-safe-001"])
         self.assertTrue(safe_public_subnet.metadata.get("is_public_subnet"))
+        self.assertTrue(safe_public_subnet.metadata.get("has_public_route"))
+        self.assertNotIn("in_public_subnet", safe_public_subnet.metadata)
         self.assertFalse(safe_public_subnet.metadata.get("has_nat_gateway_egress"))
 
         self.assertEqual(safe_private_subnet.metadata.get("route_table_ids"), ["rtb-safe-private-001"])
         self.assertFalse(safe_private_subnet.metadata.get("is_public_subnet"))
+        self.assertNotIn("in_public_subnet", safe_private_subnet.metadata)
         self.assertTrue(safe_private_subnet.metadata.get("has_nat_gateway_egress"))
 
         self.assertEqual(mixed_private_subnet.metadata.get("route_table_ids"), ["rtb-private-001"])
@@ -441,7 +444,7 @@ class CloudThreatModelerAnalysisTests(unittest.TestCase):
 
         self.assertIsNotNone(instance)
         self.assertTrue(instance.public_access_configured)
-        self.assertTrue(instance.metadata.get("public_subnet"))
+        self.assertTrue(instance.metadata.get("in_public_subnet"))
         self.assertFalse(instance.metadata.get("internet_ingress_capable"))
         self.assertFalse(instance.public_exposure)
         self.assertEqual(instance.metadata.get("public_access_reasons"), ["instance requests an associated public IP address"])

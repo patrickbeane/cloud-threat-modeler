@@ -1077,7 +1077,7 @@ def _subnet_posture(resource: NormalizedResource | None, inventory: ResourceInve
         elif subnet.metadata.get("has_nat_gateway_egress"):
             posture += " with NAT-backed egress"
         postures.append(posture)
-    if not postures and resource.metadata.get("public_subnet"):
+    if not postures and resource.metadata.get("in_public_subnet"):
         postures.append(f"{resource.address} is classified in a public subnet")
     return postures
 

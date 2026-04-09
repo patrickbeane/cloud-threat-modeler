@@ -265,7 +265,7 @@ def _database_allows_workload_security_group(
 def _workload_has_general_egress_path(workload: NormalizedResource) -> bool:
     if workload.resource_type == "aws_lambda_function" and not workload.metadata.get("vpc_enabled", True):
         return True
-    return bool(workload.metadata.get("public_subnet") or workload.metadata.get("has_nat_gateway_egress"))
+    return bool(workload.metadata.get("in_public_subnet") or workload.metadata.get("has_nat_gateway_egress"))
 
 
 def _resource_policy_principals(
