@@ -1423,10 +1423,56 @@ class AwsCoverageExpansionTests(unittest.TestCase):
         lambda_function = result.inventory.get_by_address("aws_lambda_function.processor")
 
         self.assertEqual(dict(severity_counts), {"high": 3})
-        self.assertEqual(title_counts["Sensitive resource policy allows public or cross-account access"], 2)
-        self.assertEqual(title_counts["Service resource policy allows public or cross-account access"], 1)
+        self.assertEqual(title_counts["Sensitive resource policy allows broad or cross-account access"], 2)
+        self.assertEqual(title_counts["Service resource policy allows broad or cross-account access"], 1)
         self.assertIn("aws_secretsmanager_secret_policy.app", secret.metadata.get("resource_policy_source_addresses", []))
         self.assertIn("aws_lambda_permission.public_invoke", lambda_function.metadata.get("resource_policy_source_addresses", []))
+
+    def test_same_account_root_kms_policy_is_not_overstated_as_cross_account_exposure(self) -> None:
+        result = self._analyze_payload(
+            {
+                "format_version": "1.2",
+                "terraform_version": "1.8.5",
+                "planned_values": {
+                    "root_module": {
+                        "resources": [
+                            {
+                                "address": "aws_kms_key.shared",
+                                "mode": "managed",
+                                "type": "aws_kms_key",
+                                "name": "shared",
+                                "provider_name": "registry.terraform.io/hashicorp/aws",
+                                "values": {
+                                    "id": "kms-shared",
+                                    "arn": "arn:aws:kms:us-east-1:111122223333:key/1234",
+                                    "policy": {
+                                        "Version": "2012-10-17",
+                                        "Statement": [
+                                            {
+                                                "Effect": "Allow",
+                                                "Principal": {"AWS": "arn:aws:iam::111122223333:root"},
+                                                "Action": "kms:Decrypt",
+                                                "Resource": "*",
+                                            }
+                                        ],
+                                    },
+                                },
+                            }
+                        ]
+                    }
+                },
+            }
+        )
+
+        self.assertEqual(len(result.findings), 1)
+        finding = result.findings[0]
+        evidence = {item.key: item.values for item in finding.evidence}
+
+        self.assertEqual(finding.title, "Sensitive resource policy allows broad or cross-account access")
+        self.assertEqual(finding.severity, Severity.MEDIUM)
+        self.assertIn("same-account root through its key policy", finding.rationale)
+        self.assertEqual(evidence["trust_scope"], ["principal is account root 111122223333"])
+        self.assertEqual(finding.severity_reasoning.final_score, 4)
 
     def test_resource_policy_findings_are_narrowed_by_source_arn_conditions(self) -> None:
         result = self._analyze_payload(
@@ -1519,7 +1565,7 @@ class AwsCoverageExpansionTests(unittest.TestCase):
 
         self.assertEqual(
             [finding.title for finding in result.findings],
-            ["Service resource policy allows public or cross-account access"],
+            ["Service resource policy allows broad or cross-account access"],
         )
 
     def test_normalizer_supports_bucket_policy_queue_and_topic_policies(self) -> None:

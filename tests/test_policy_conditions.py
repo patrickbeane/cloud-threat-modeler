@@ -17,12 +17,17 @@ from cloud_threat_modeler.models import IAMPolicyCondition, IAMPolicyStatement
 class PolicyConditionsTests(unittest.TestCase):
     def test_assess_principal_classifies_foreign_root_and_same_account_role(self) -> None:
         foreign_root = assess_principal("arn:aws:iam::444455556666:root", "111122223333")
+        same_account_root = assess_principal("arn:aws:iam::111122223333:root", "111122223333")
         same_account_role = assess_principal("arn:aws:iam::111122223333:role/deployer", "111122223333")
 
         self.assertTrue(foreign_root.is_foreign_account)
         self.assertTrue(foreign_root.is_root_like)
         self.assertEqual(foreign_root.scope_description, "principal is foreign account root 444455556666")
         self.assertEqual(foreign_root.trust_path_description, "trust principal belongs to foreign account 444455556666")
+
+        self.assertFalse(same_account_root.is_foreign_account)
+        self.assertTrue(same_account_root.is_root_like)
+        self.assertEqual(same_account_root.scope_description, "principal is account root 111122223333")
 
         self.assertFalse(same_account_role.is_foreign_account)
         self.assertFalse(same_account_role.is_root_like)

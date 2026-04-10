@@ -97,11 +97,12 @@ DEFAULT_RULE_REGISTRY = RuleRegistry(
         ),
         RuleMetadata(
             rule_id="aws-sensitive-resource-policy-external-access",
-            title="Sensitive resource policy allows public or cross-account access",
+            title="Sensitive resource policy allows broad or cross-account access",
             category=StrideCategory.INFORMATION_DISCLOSURE,
             recommended_mitigation=(
                 "Limit resource policies to exact service principals or workload roles, avoid wildcard "
-                "and account-root principals, and require source-account or source-ARN constraints where supported."
+                "foreign-account, and account-root principals where more specific identities are possible, "
+                "and require source-account or source-ARN constraints where supported."
             ),
             tags=("aws", "resource-policy", "data"),
             severity_factors=(
@@ -114,11 +115,12 @@ DEFAULT_RULE_REGISTRY = RuleRegistry(
         ),
         RuleMetadata(
             rule_id="aws-service-resource-policy-external-access",
-            title="Service resource policy allows public or cross-account access",
+            title="Service resource policy allows broad or cross-account access",
             category=StrideCategory.ELEVATION_OF_PRIVILEGE,
             recommended_mitigation=(
                 "Limit resource policies to exact service principals or workload roles, avoid wildcard "
-                "and account-root principals, and require source-account or source-ARN constraints where supported."
+                "foreign-account, and account-root principals where more specific identities are possible, "
+                "and require source-account or source-ARN constraints where supported."
             ),
             tags=("aws", "resource-policy", "service"),
             severity_factors=("internet_exposure", "privilege_breadth", "lateral_movement", "blast_radius"),

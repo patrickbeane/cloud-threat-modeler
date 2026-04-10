@@ -92,13 +92,39 @@ class StrideRuleEngine:
                         continue
                     seen.add(finding_key)
                     sensitive_resource = resource.resource_type in SENSITIVE_RESOURCE_POLICY_TYPES
-                    severity_reasoning = _build_severity_reasoning(
-                        internet_exposure=assessment.is_wildcard,
-                        privilege_breadth=2 if assessment.is_wildcard or assessment.is_root_like else 1,
-                        data_sensitivity=2 if sensitive_resource else 0,
-                        lateral_movement=1,
-                        blast_radius=2 if assessment.is_wildcard or assessment.is_foreign_account else 1,
+                    same_account_kms_root = (
+                        resource.resource_type == "aws_kms_key"
+                        and assessment.is_root_like
+                        and not assessment.is_foreign_account
+                        and assessment.account_id is not None
+                        and assessment.account_id == primary_account_id
                     )
+                    if same_account_kms_root:
+                        severity_reasoning = _build_severity_reasoning(
+                            internet_exposure=False,
+                            privilege_breadth=1,
+                            data_sensitivity=2,
+                            lateral_movement=1,
+                            blast_radius=0,
+                        )
+                        rationale = (
+                            f"{resource.display_name} allows same-account root through its key policy. "
+                            "That is a common default KMS posture, but it still keeps key control broader than "
+                            "a role-scoped grant and can make delegation or decryption authority harder to constrain."
+                        )
+                    else:
+                        severity_reasoning = _build_severity_reasoning(
+                            internet_exposure=assessment.is_wildcard,
+                            privilege_breadth=2 if assessment.is_wildcard or assessment.is_root_like else 1,
+                            data_sensitivity=2 if sensitive_resource else 0,
+                            lateral_movement=1,
+                            blast_radius=2 if assessment.is_wildcard or assessment.is_foreign_account else 1,
+                        )
+                        rationale = (
+                            f"{resource.display_name} allows {principal} through a resource policy. "
+                            "Broad principals, account-root grants, or foreign-account principals expand who can "
+                            "invoke, read, decrypt, or consume this resource."
+                        )
                     boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, resource.address))
                     findings.append(
                         _build_finding(
@@ -113,10 +139,7 @@ class StrideRuleEngine:
                                 *resource.metadata.get("resource_policy_source_addresses", []),
                             ],
                             trust_boundary_id=boundary.identifier if boundary else None,
-                            rationale=(
-                                f"{resource.display_name} allows {principal} through a resource policy. "
-                                "Broad or foreign-account principals expand who can invoke, read, decrypt, or consume this resource."
-                            ),
+                            rationale=rationale,
                             evidence=_collect_evidence(
                                 _evidence_item("trust_principals", [principal]),
                                 _evidence_item("trust_scope", [assessment.scope_description]),
