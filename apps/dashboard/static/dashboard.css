@@ -245,6 +245,17 @@ h2 {
   gap: 1rem;
 }
 
+.upload-note {
+  margin: -0.1rem 0 0.15rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(13, 92, 99, 0.16);
+  border-radius: var(--radius-md);
+  background: rgba(13, 92, 99, 0.06);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+ }
+
 .field {
   display: grid;
   gap: 0.45rem;

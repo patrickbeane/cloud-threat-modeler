@@ -42,6 +42,10 @@
           <input type="file" name="plan" accept=".json,application/json" required>
           <small>Maximum upload size: {{ max_upload_mebibytes }} MiB</small>
         </label>
+        <p class="upload-note">
+          Uploaded Terraform plans are analyzed on this server using a temporary file created only for the request.
+          Files are deleted after analysis and are not stored or forwarded to third parties.
+        </p>
         <button class="button-primary" type="submit">Analyze plan</button>
       </form>
     </div>
