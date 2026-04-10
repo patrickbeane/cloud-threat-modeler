@@ -73,11 +73,11 @@
                     </div>
                     <div>
                       <dt>Boundary</dt>
-                      <dd>{{ finding.trust_boundary_id or "not-applicable" }}</dd>
+                      <dd class="detail-wrap">{{ finding.trust_boundary_id or "not-applicable" }}</dd>
                     </div>
                     <div class="detail-span">
                       <dt>Resources</dt>
-                      <dd>{{ finding.affected_resources | join(", ") }}</dd>
+                      <dd class="detail-wrap">{{ finding.affected_resources | join(", ") }}</dd>
                     </div>
                   </dl>
                   {% if finding.evidence %}
