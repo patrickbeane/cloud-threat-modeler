@@ -5,12 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=fleet
-Group=fleet
-WorkingDirectory=/home/fleet/cloud-threat-modeler
+# Example service account and install path for a public demo deployment.
+User=ctm
+Group=ctm
+WorkingDirectory=/srv/cloud-threat-modeler
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=/home/fleet/cloud-threat-modeler/src
-ExecStart=/home/fleet/cloud-threat-modeler/.venv/bin/uvicorn apps.dashboard.main:app --host 127.0.0.1 --port 8001 --workers 2 --proxy-headers
+Environment=PYTHONPATH=/srv/cloud-threat-modeler/src
+ExecStart=/srv/cloud-threat-modeler/.venv/bin/uvicorn apps.dashboard.main:app --host 127.0.0.1 --port 8001 --workers 2 --proxy-headers
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20

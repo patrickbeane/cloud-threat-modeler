@@ -82,6 +82,8 @@ cloud-threat-modeler tfplan.json --config ./cloud-threat-modeler.toml --json-out
 
 The repo also includes a thin FastAPI dashboard in `apps/dashboard/`. It reuses the same engine, findings, and JSON contract as the CLI rather than adding a second analysis path.
 
+Live demo: `https://ctm.beane.me`
+
 Install the web dependencies:
 
 ```bash
@@ -96,19 +98,21 @@ uvicorn apps.dashboard.main:app --reload --port 8001
 
 Useful routes:
 
-- `/`: upload form for plan analysis
-- `/scenarios`: built-in fixture gallery page
-- `/demo/{scenario_id}`: built-in fixture scenarios such as `safe`, `mixed`, and `nightmare`
-- `/api/analyze`: multipart upload endpoint that returns the JSON report contract
-- `/api/docs`: OpenAPI docs for the dashboard API
-- `/healthz`: simple health endpoint for process and proxy checks
+- /: upload form for plan analysis
+- /scenarios: built-in fixture gallery page
+- /demo/{scenario_id}: built-in fixture scenarios such as safe, mixed, and nightmare
+- /api/analyze: multipart upload endpoint that returns the JSON report contract
+- /api/docs: OpenAPI docs for the dashboard API
+- /healthz: simple health endpoint for process and proxy checks
 
 Deployment notes:
 
-- a repo-tracked `systemd` unit example lives at `apps/dashboard/deploy/cloud-threat-modeler-dashboard.service`
-- the checked-in example assumes the app lives at `/home/fleet/cloud-threat-modeler`, runs as user `fleet`, binds `uvicorn` to `127.0.0.1:8001`, and sets `PYTHONPATH` to the repo `src/` directory
-- copy that unit to `/etc/systemd/system/cloud-threat-modeler-dashboard.service` on the host, then run `sudo systemctl daemon-reload && sudo systemctl enable --now cloud-threat-modeler-dashboard`
-- a simple Caddy reverse-proxy example lives at `apps/dashboard/deploy/Caddyfile.example`
+- a repo-tracked systemd unit example lives at apps/dashboard/deploy/cloud-threat-modeler-dashboard.service
+- the checked-in systemd unit and Caddy config are deployment examples, not fixed requirements
+- the checked-in examples use a generic `ctm` service account, `/srv/cloud-threat-modeler` install path, and `ctm.example.com` hostname
+- update the working directory, service user, virtualenv path, bind address, and port to match your host before installing the unit under /etc/systemd/system/
+- after updating the unit, run sudo systemctl daemon-reload && sudo systemctl enable --now cloud-threat-modeler-dashboard
+- a simple Caddy reverse-proxy example lives at apps/dashboard/deploy/Caddyfile.example
 
 ## Example Output
 
