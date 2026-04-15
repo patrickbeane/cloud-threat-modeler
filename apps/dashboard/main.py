@@ -577,9 +577,17 @@ def _analyze_plan_path(
     engine: TfStride,
 ) -> DashboardAnalysis:
     result = engine.analyze_plan(plan_path, title=title)
-    payload = json.loads(engine.json_renderer.render(result))
+    payload = _sanitize_dashboard_payload(json.loads(engine.json_renderer.render(result)))
     markdown_report = engine.report_renderer.render(result)
     return DashboardAnalysis(payload=payload, markdown_report=markdown_report)
+
+
+def _sanitize_dashboard_payload(payload: dict[str, object]) -> dict[str, object]:
+    sanitized = dict(payload)
+    analyzed_file = str(sanitized.get("analyzed_file") or "")
+    if analyzed_file:
+        sanitized["analyzed_path"] = analyzed_file
+    return sanitized
 
 
 def _build_demo_scenarios(engine: TfStride) -> tuple[DemoScenario, ...]:

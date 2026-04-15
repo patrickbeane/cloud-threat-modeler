@@ -63,6 +63,7 @@ class DashboardAppTests(unittest.TestCase):
         self.assertEqual(payload["version"], "1.0")
         self.assertEqual(payload["title"], "Dashboard Test")
         self.assertEqual(payload["analyzed_file"], FIXTURE_PATH.name)
+        self.assertEqual(payload["analyzed_path"], FIXTURE_PATH.name)
         self.assertTrue(payload["findings"])
 
     def test_api_docs_hide_topbar_and_schema_models(self) -> None:
@@ -133,6 +134,7 @@ class DashboardAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Baseline Plan Demo", response.text)
         self.assertIn(BASELINE_FIXTURE_PATH.name, response.text)
+        self.assertNotIn(str(BASELINE_FIXTURE_PATH), response.text)
         self.assertIn("IAM policy grants wildcard privileges", response.text)
 
     def test_demo_route_renders_ecs_fargate_fixture_report(self) -> None:
