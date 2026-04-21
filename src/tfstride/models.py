@@ -134,22 +134,56 @@ class ResourceInventory:
     resources: list[NormalizedResource]
     unsupported_resources: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    _resources_by_type: dict[str, tuple[NormalizedResource, ...]] = field(init=False, repr=False, default_factory=dict)
+    _resources_by_address: dict[str, NormalizedResource] = field(init=False, repr=False, default_factory=dict)
+    _resources_by_identifier: dict[str, NormalizedResource] = field(init=False, repr=False, default_factory=dict)
+    _resource_positions: dict[int, int] = field(init=False, repr=False, default_factory=dict)
+	
+    def __post_init__(self) -> None:
+	    resources_by_type: dict[str, list[NormalizedResource]] = {}
+	    resources_by_address: dict[str, NormalizedResource] = {}
+	    resources_by_identifier: dict[str, NormalizedResource] = {}
+	    resource_positions: dict[int, int] = {}
+	
+	    for index, resource in enumerate(self.resources):
+	        resource_positions[id(resource)] = index
+	        resources_by_type.setdefault(resource.resource_type, []).append(resource)
+	        resources_by_address.setdefault(resource.address, resource)
+	        for key in (resource.identifier, resource.arn, resource.address):
+	            if key is None:
+	                continue
+	            resources_by_identifier.setdefault(key, resource)
+	
+	    self._resources_by_type = {
+	        resource_type: tuple(group)
+	        for resource_type, group in resources_by_type.items()
+	    }
+	    self._resources_by_address = resources_by_address
+	    self._resources_by_identifier = resources_by_identifier
+	    self._resource_positions = resource_positions
 
     def by_type(self, *resource_types: str) -> list[NormalizedResource]:
+        if not resource_types:
+	        return []
+
         allowed = set(resource_types)
-        return [resource for resource in self.resources if resource.resource_type in allowed]
+        if len(allowed) == 1:
+	            resource_type = next(iter(allowed))
+	            return list(self._resources_by_type.get(resource_type, ()))
+	
+        matches = [
+	        resource
+	        for resource_type in allowed
+	        for resource in self._resources_by_type.get(resource_type, ())
+	    ]
+        matches.sort(key=lambda resource: self._resource_positions[id(resource)])
+        return matches        
 
     def get_by_address(self, address: str) -> NormalizedResource | None:
-        for resource in self.resources:
-            if resource.address == address:
-                return resource
-        return None
+        return self._resources_by_address.get(address)
 
     def get_by_identifier(self, identifier: str) -> NormalizedResource | None:
-        for resource in self.resources:
-            if resource.identifier == identifier or resource.arn == identifier or resource.address == identifier:
-                return resource
-        return None
+        return self._resources_by_identifier.get(identifier)
 
 
 @dataclass(slots=True)
