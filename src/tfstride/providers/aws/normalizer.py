@@ -14,6 +14,7 @@ from tfstride.models import (
     TerraformResource,
 )
 from tfstride.providers.base import ProviderNormalizer
+from tfstride.resource_helpers import describe_security_group_rule, policy_allows_public_access
 
 
 SUPPORTED_AWS_TYPES = {
@@ -348,7 +349,7 @@ class AwsNormalizer(ProviderNormalizer):
         if resource.resource_type == "aws_s3_bucket":
             policy_document = _load_json_document(values.get("policy"))
             bucket_acl = values.get("acl", "")
-            public_policy = _policy_allows_public_access(policy_document)
+            public_policy = policy_allows_public_access(policy_document)
             public_access_configured = bucket_acl in {"public-read", "public-read-write", "website"} or public_policy
             return NormalizedResource(
                 address=resource.address,
@@ -903,7 +904,7 @@ class AwsNormalizer(ProviderNormalizer):
             }
             bucket.metadata["public_access_block"] = public_access_block
             public_via_acl = bucket.metadata.get("acl") in {"public-read", "public-read-write", "website"}
-            public_via_policy = _policy_allows_public_access(bucket.metadata.get("policy_document", {}))
+            public_via_policy = policy_allows_public_access(bucket.metadata.get("policy_document", {}))
             bucket.metadata["public_access_reasons"] = _bucket_public_exposure_reasons(
                 bucket.metadata.get("acl", ""),
                 public_policy=public_via_policy,
@@ -1211,15 +1212,6 @@ def _extract_principal_values(raw_principal: Any) -> list[str]:
     return []
 
 
-def _policy_allows_public_access(policy_document: dict[str, Any]) -> bool:
-    for statement in _parse_policy_statements(policy_document):
-        if statement.effect != "Allow":
-            continue
-        if "*" in statement.principals:
-            return True
-    return False
-
-
 def _bucket_public_exposure_reasons(
     bucket_acl: str,
     *,
@@ -1366,30 +1358,8 @@ def _internet_ingress_reasons(attached_security_groups: list[NormalizedResource]
         for rule in security_group.network_rules:
             if rule.direction != "ingress" or not rule.allows_internet():
                 continue
-            reasons.append(_describe_security_group_rule(security_group, rule))
+            reasons.append(describe_security_group_rule(security_group, rule))
     return reasons
-
-
-def _describe_security_group_rule(security_group: NormalizedResource, rule: SecurityGroupRule) -> str:
-    port_range = _format_port_range(rule)
-    sources = list(rule.cidr_blocks) + list(rule.ipv6_cidr_blocks)
-    if rule.referenced_security_group_ids:
-        sources.extend(rule.referenced_security_group_ids)
-    source_text = ", ".join(sorted(sources)) if sources else "unspecified sources"
-    description = f"{security_group.address} {rule.direction} {rule.protocol} {port_range} from {source_text}"
-    if rule.description:
-        return f"{description} ({rule.description})"
-    return description
-
-
-def _format_port_range(rule: SecurityGroupRule) -> str:
-    if rule.protocol == "-1":
-        return "all ports"
-    if rule.from_port is None or rule.to_port is None:
-        return "unspecified ports"
-    if rule.from_port == rule.to_port:
-        return str(rule.from_port)
-    return f"{rule.from_port}-{rule.to_port}"
 
 
 def _compact(values: list[Any]) -> list[str]:

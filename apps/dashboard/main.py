@@ -577,8 +577,8 @@ def _analyze_plan_path(
     engine: TfStride,
 ) -> DashboardAnalysis:
     result = engine.analyze_plan(plan_path, title=title)
-    payload = _sanitize_dashboard_payload(json.loads(engine.json_renderer.render(result)))
-    markdown_report = engine.report_renderer.render(result)
+    payload = _sanitize_dashboard_payload(engine.build_json_report_payload(result))
+    markdown_report = engine.render_markdown(result)
     return DashboardAnalysis(payload=payload, markdown_report=markdown_report)
 
 

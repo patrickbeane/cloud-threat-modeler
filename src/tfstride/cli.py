@@ -103,9 +103,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"Input error: {exc}\n")
         return INPUT_ERROR_EXIT_CODE
 
-    report = engine.report_renderer.render(result)
-    json_report = engine.json_renderer.render(result) if args.json_output else None
-    sarif_report = engine.sarif_renderer.render(result) if args.sarif_output else None
+    report = engine.render_markdown(result)
+    json_report = engine.render_json(result) if args.json_output else None
+    sarif_report = engine.render_sarif(result) if args.sarif_output else None
 
     if args.output:
         Path(args.output).write_text(report, encoding="utf-8")

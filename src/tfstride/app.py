@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from tfstride.analysis.rule_registry import RulePolicy, apply_rule_policy
 from tfstride.analysis.stride_rules import StrideRuleEngine
@@ -28,9 +29,9 @@ class TfStride:
         self.aws_normalizer = AwsNormalizer()
         self.boundary_detector = TrustBoundaryDetector()
         self.rule_engine = StrideRuleEngine()
-        self.json_renderer = JsonReportRenderer()
-        self.report_renderer = MarkdownReportRenderer()
-        self.sarif_renderer = SarifReportRenderer()
+        self._json_renderer = JsonReportRenderer()
+        self._markdown_renderer = MarkdownReportRenderer()
+        self._sarif_renderer = SarifReportRenderer()
         self.rule_policy = rule_policy
 
     def analyze_plan(self, plan_path: str | Path, title: str = "tfSTRIDE Threat Model Report") -> AnalysisResult:
@@ -63,14 +64,26 @@ class TfStride:
             baseline_path=baseline_path,
         )
 
+    def build_json_report_payload(self, result: AnalysisResult) -> dict[str, Any]:
+	        return self._json_renderer.build_payload(result)
+	
+    def render_markdown(self, result: AnalysisResult) -> str:
+	    return self._markdown_renderer.render(result)
+	
+    def render_json(self, result: AnalysisResult) -> str:
+	    return self._json_renderer.render(result)
+	
+    def render_sarif(self, result: AnalysisResult) -> str:
+	    return self._sarif_renderer.render(result)
+
     def render_markdown_report(self, plan_path: str | Path, title: str = "tfSTRIDE Threat Model Report") -> str:
         result = self.analyze_plan(plan_path, title=title)
-        return self.report_renderer.render(result)
+        return self.render_markdown(result)
 
     def render_json_report(self, plan_path: str | Path, title: str = "tfSTRIDE Threat Model Report") -> str:
         result = self.analyze_plan(plan_path, title=title)
-        return self.json_renderer.render(result)
+        return self.render_json(result)
 
     def render_sarif_report(self, plan_path: str | Path, title: str = "tfSTRIDE Threat Model Report") -> str:
         result = self.analyze_plan(plan_path, title=title)
-        return self.sarif_renderer.render(result)
+        return self.render_sarif(result)

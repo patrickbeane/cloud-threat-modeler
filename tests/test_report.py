@@ -186,6 +186,14 @@ class SarifReportRendererTests(unittest.TestCase):
 
 
 class JsonReportRendererTests(unittest.TestCase):
+    def test_app_can_render_reports_from_an_analysis_result(self) -> None:
+	        engine = TfStride()
+	        result = engine.analyze_plan(FIXTURE_PATH)
+	
+	        self.assertEqual(engine.render_markdown(result), MarkdownReportRenderer().render(result))
+	        self.assertEqual(engine.build_json_report_payload(result), json.loads(engine.render_json(result)))
+	        self.assertEqual(json.loads(engine.render_sarif(result)), json.loads(SarifReportRenderer().render(result)))
+
     def test_json_report_contains_inventory_findings_and_filter_summary(self) -> None:
         engine = TfStride()
         result = engine.analyze_plan(FIXTURE_PATH)

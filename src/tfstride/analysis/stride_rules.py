@@ -21,6 +21,7 @@ from tfstride.models import (
     SeverityReasoning,
     TrustBoundary,
 )
+from tfstride.resource_helpers import describe_security_group_rule, policy_allows_public_access
 
 
 SENSITIVE_ACTION_PREFIXES = {
@@ -206,8 +207,7 @@ class StrideRuleEngine:
                     evidence=_collect_evidence(
                         _evidence_item(
                             "security_group_rules",
-                            [_describe_security_group_rule(security_group, rule) for security_group, rule in risky_rules],
-                        ),
+                            [describe_security_group_rule(security_group, rule) for security_group, rule in risky_rules],                        ),
                         _evidence_item("public_exposure_reasons", resource.metadata.get("public_exposure_reasons", [])),
                         _evidence_item("subnet_posture", _subnet_posture(resource, inventory)),
                     ),
@@ -312,11 +312,11 @@ class StrideRuleEngine:
                         _evidence_item(
                             "security_group_rules",
                             [
-                                _describe_security_group_rule(security_group, rule)
+                                describe_security_group_rule(security_group, rule)
                                 for security_group, rule in internet_rules
                             ]
                             + [
-                                _describe_security_group_rule(security_group, rule)
+                                describe_security_group_rule(security_group, rule)
                                 for security_group, rule, _ in public_tier_rules
                             ],
                         ),
@@ -577,7 +577,7 @@ class StrideRuleEngine:
                         evidence=_collect_evidence(
                             _evidence_item(
                                 "security_group_rules",
-                                [_describe_security_group_rule(security_group, rule) for rule in risky_rules],
+                                [describe_security_group_rule(security_group, rule) for rule in risky_rules],
                             ),
                             _evidence_item(
                                 "network_path",
@@ -881,7 +881,7 @@ class StrideRuleEngine:
             acl = bucket.metadata.get("acl", "")
             if acl in {"public-read", "public-read-write", "website"}:
                 mitigation_signals.append(f"bucket ACL `{acl}` would otherwise grant public access")
-            if _policy_allows_public_access(bucket.metadata.get("policy_document", {})):
+            if policy_allows_public_access(bucket.metadata.get("policy_document", {})):
                 mitigation_signals.append("bucket policy would otherwise allow anonymous access")
             if not mitigation_signals:
                 continue
@@ -1128,43 +1128,6 @@ def _policy_allows_public_access(policy_document: dict) -> bool:
     return False
 
 
-def _policy_statements(policy_document: dict) -> list[IAMPolicyStatement]:
-    statements: list[IAMPolicyStatement] = []
-    raw_statements = policy_document.get("Statement", [])
-    if isinstance(raw_statements, dict):
-        raw_statements = [raw_statements]
-    for statement in raw_statements:
-        principal = statement.get("Principal")
-        principals: list[str] = []
-        if isinstance(principal, str):
-            principals = [principal]
-        elif isinstance(principal, dict):
-            for value in principal.values():
-                if isinstance(value, list):
-                    principals.extend(str(item) for item in value)
-                elif value is not None:
-                    principals.append(str(value))
-        statements.append(
-            IAMPolicyStatement(
-                effect=str(statement.get("Effect", "Allow")),
-                principals=principals,
-            )
-        )
-    return statements
-
-
-def _describe_security_group_rule(security_group: NormalizedResource, rule: SecurityGroupRule) -> str:
-    port_range = _format_port_range(rule)
-    sources = list(rule.cidr_blocks) + list(rule.ipv6_cidr_blocks)
-    if rule.referenced_security_group_ids:
-        sources.extend(rule.referenced_security_group_ids)
-    source_text = ", ".join(sorted(sources)) if sources else "unspecified sources"
-    description = f"{security_group.address} {rule.direction} {rule.protocol} {port_range} from {source_text}"
-    if rule.description:
-        return f"{description} ({rule.description})"
-    return description
-
-
 def _describe_policy_statement(statement: IAMPolicyStatement) -> str:
     actions = ", ".join(statement.actions) if statement.actions else "no actions"
     resources = ", ".join(statement.resources) if statement.resources else "no resources"
@@ -1197,16 +1160,6 @@ def _subnet_posture(resource: NormalizedResource | None, inventory: ResourceInve
     if not postures and resource.metadata.get("in_public_subnet"):
         postures.append(f"{resource.address} is classified in a public subnet")
     return postures
-
-
-def _format_port_range(rule: SecurityGroupRule) -> str:
-    if rule.protocol == "-1":
-        return "all ports"
-    if rule.from_port is None or rule.to_port is None:
-        return "unspecified ports"
-    if rule.from_port == rule.to_port:
-        return str(rule.from_port)
-    return f"{rule.from_port}-{rule.to_port}"
 
 
 def _join_clauses(clauses: list[str]) -> str:
@@ -1378,7 +1331,7 @@ def _build_transitive_private_data_finding(
             ]),
             _evidence_item(
                 "security_group_rules",
-                [_describe_security_group_rule(security_group, rule) for security_group, rule in security_group_hops],
+                [describe_security_group_rule(security_group, rule) for security_group, rule in security_group_hops],
             ),
             _evidence_item("subnet_posture", [posture for workload in workload_path for posture in _subnet_posture(workload, inventory)]),
             _evidence_item("data_tier_posture", data_posture),

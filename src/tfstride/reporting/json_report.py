@@ -26,10 +26,10 @@ REPORT_FORMAT_VERSION = "1.0"
 
 class JsonReportRenderer:
     def render(self, result: AnalysisResult) -> str:
-        payload = self._build_payload(result)
+        payload = self.build_payload(result)
         return json.dumps(payload, indent=2) + "\n"
 
-    def _build_payload(self, result: AnalysisResult) -> dict[str, Any]:
+    def build_payload(self, result: AnalysisResult) -> dict[str, Any]:
         filter_summary = result.filter_summary or {
             "total_findings": len(result.findings),
             "active_findings": len(result.findings),
