@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Any
 
 from tfstride import __version__
 from tfstride.filtering import finding_fingerprint
@@ -19,6 +18,19 @@ from tfstride.models import (
     Severity,
     TrustBoundary,
 )
+from tfstride.reporting.report_contract import (
+    EvidenceItemPayload,
+	FindingPayload,
+	InventoryPayload,
+	NormalizedResourcePayload,
+	ObservationPayload,
+	PolicyConditionPayload,
+	PolicyStatementPayload,
+	SecurityGroupRulePayload,
+	SeverityReasoningPayload,
+	TFSReportPayload,
+	TrustBoundaryPayload,
+)
 
 REPORT_KIND = "tfstride-threat-model-report"
 REPORT_FORMAT_VERSION = "1.0"
@@ -29,7 +41,7 @@ class JsonReportRenderer:
         payload = self.build_payload(result)
         return json.dumps(payload, indent=2) + "\n"
 
-    def build_payload(self, result: AnalysisResult) -> dict[str, Any]:
+    def build_payload(self, result: AnalysisResult) -> TFSReportPayload:
         filter_summary = result.filter_summary or {
             "total_findings": len(result.findings),
             "active_findings": len(result.findings),
@@ -83,7 +95,7 @@ class JsonReportRenderer:
         }
 
 
-def _serialize_inventory(inventory: ResourceInventory) -> dict[str, Any]:
+def _serialize_inventory(inventory: ResourceInventory) -> InventoryPayload:
     return {
         "provider": inventory.provider,
         "unsupported_resources": list(inventory.unsupported_resources),
@@ -92,7 +104,7 @@ def _serialize_inventory(inventory: ResourceInventory) -> dict[str, Any]:
     }
 
 
-def _serialize_resource(resource: NormalizedResource) -> dict[str, Any]:
+def _serialize_resource(resource: NormalizedResource) -> NormalizedResourcePayload:
     return {
         "address": resource.address,
         "provider": resource.provider,
@@ -114,7 +126,7 @@ def _serialize_resource(resource: NormalizedResource) -> dict[str, Any]:
     }
 
 
-def _serialize_security_group_rule(rule: SecurityGroupRule) -> dict[str, Any]:
+def _serialize_security_group_rule(rule: SecurityGroupRule) -> SecurityGroupRulePayload:
     return {
         "direction": rule.direction,
         "protocol": rule.protocol,
@@ -127,7 +139,7 @@ def _serialize_security_group_rule(rule: SecurityGroupRule) -> dict[str, Any]:
     }
 
 
-def _serialize_policy_statement(statement: IAMPolicyStatement) -> dict[str, Any]:
+def _serialize_policy_statement(statement: IAMPolicyStatement) -> PolicyStatementPayload:
     return {
         "effect": statement.effect,
         "actions": list(statement.actions),
@@ -137,7 +149,7 @@ def _serialize_policy_statement(statement: IAMPolicyStatement) -> dict[str, Any]
     }
 
 
-def _serialize_policy_condition(condition: IAMPolicyCondition) -> dict[str, Any]:
+def _serialize_policy_condition(condition: IAMPolicyCondition) -> PolicyConditionPayload:
     return {
         "operator": condition.operator,
         "key": condition.key,
@@ -145,7 +157,7 @@ def _serialize_policy_condition(condition: IAMPolicyCondition) -> dict[str, Any]
     }
 
 
-def _serialize_trust_boundary(boundary: TrustBoundary) -> dict[str, Any]:
+def _serialize_trust_boundary(boundary: TrustBoundary) -> TrustBoundaryPayload:
     return {
         "identifier": boundary.identifier,
         "boundary_type": boundary.boundary_type.value,
@@ -156,7 +168,7 @@ def _serialize_trust_boundary(boundary: TrustBoundary) -> dict[str, Any]:
     }
 
 
-def _serialize_finding(finding: Finding) -> dict[str, Any]:
+def _serialize_finding(finding: Finding) -> FindingPayload:
     return {
         "fingerprint": finding_fingerprint(finding),
         "title": finding.title,
@@ -172,7 +184,7 @@ def _serialize_finding(finding: Finding) -> dict[str, Any]:
     }
 
 
-def _serialize_observation(observation: Observation) -> dict[str, Any]:
+def _serialize_observation(observation: Observation) -> ObservationPayload:
     return {
         "title": observation.title,
         "observation_id": observation.observation_id,
@@ -183,11 +195,11 @@ def _serialize_observation(observation: Observation) -> dict[str, Any]:
     }
 
 
-def _serialize_evidence(evidence: list[EvidenceItem]) -> list[dict[str, Any]]:
+def _serialize_evidence(evidence: list[EvidenceItem]) -> list[EvidenceItemPayload]:
     return [{"key": item.key, "values": list(item.values)} for item in evidence]
 
 
-def _serialize_severity_reasoning(finding: Finding) -> dict[str, Any] | None:
+def _serialize_severity_reasoning(finding: Finding) -> SeverityReasoningPayload | None:
     if finding.severity_reasoning is None:
         return None
     return {

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from tfstride.analysis.rule_registry import RulePolicy, apply_rule_policy
 from tfstride.analysis.stride_rules import StrideRuleEngine
@@ -12,6 +11,7 @@ from tfstride.models import AnalysisResult
 from tfstride.providers.aws.normalizer import AwsNormalizer
 from tfstride.reporting.json_report import JsonReportRenderer
 from tfstride.reporting.markdown import MarkdownReportRenderer
+from tfstride.reporting.report_contract import TFSReportPayload
 from tfstride.reporting.sarif import SarifReportRenderer
 
 
@@ -64,7 +64,7 @@ class TfStride:
             baseline_path=baseline_path,
         )
 
-    def build_json_report_payload(self, result: AnalysisResult) -> dict[str, Any]:
+    def build_json_report_payload(self, result: AnalysisResult) -> TFSReportPayload:
 	        return self._json_renderer.build_payload(result)
 	
     def render_markdown(self, result: AnalysisResult) -> str:
