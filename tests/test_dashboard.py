@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import unittest
+from unittest import mock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,6 +16,7 @@ FASTAPI_DEPS_AVAILABLE = all(
 if FASTAPI_DEPS_AVAILABLE:
     from fastapi.testclient import TestClient
 
+    from apps.dashboard import main as dashboard_main
     from apps.dashboard.main import app as dashboard_app
 
 
@@ -30,6 +32,19 @@ NIGHTMARE_FIXTURE_PATH = ROOT / "fixtures" / "sample_aws_nightmare_plan.json"
 class DashboardAppTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(dashboard_app)
+
+    def test_create_app_does_not_analyze_demo_fixtures_eagerly(self) -> None:
+        with mock.patch.object(dashboard_main.TfStride, "analyze_plan", side_effect=AssertionError("unexpected analysis")):
+            app = dashboard_main.create_app()
+
+        self.assertEqual(app.title, "tfSTRIDE Dashboard")
+
+    def test_openapi_generation_does_not_analyze_demo_fixtures(self) -> None:
+        with mock.patch.object(dashboard_main.TfStride, "analyze_plan", side_effect=AssertionError("unexpected analysis")):
+            app = dashboard_main.create_app()
+            payload = app.openapi()
+
+        self.assertIn("/api/analyze", payload["paths"])
 
     def test_index_page_renders_upload_form(self) -> None:
         response = self.client.get("/")

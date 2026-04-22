@@ -75,6 +75,39 @@ DOCS_LINK_CLEANUP_SCRIPT = """
 """
 HTML_LANDING_EXAMPLE = "<!doctype html><html><body><main>tfSTRIDE dashboard landing page</main></body></html>"
 HTML_REPORT_EXAMPLE = "<!doctype html><html><body><main>tfSTRIDE report page</main></body></html>"
+API_REPORT_EXAMPLE: TFSReportPayload = {
+	"kind": "tfstride-report",
+	"version": "1.0",
+	"tool": {"name": "tfstride", "version": "0.2.0"},
+	"title": "tfSTRIDE Report",
+	"analyzed_file": "tfplan.json",
+    "analyzed_path": "tfplan.json",
+    "summary": {
+       "normalized_resources": 0,
+        "unsupported_resources": 0,
+        "trust_boundaries": 0,
+        "active_findings": 0,
+        "total_findings": 0,
+        "suppressed_findings": 0,
+        "baselined_findings": 0,
+        "severity_counts": {"high": 0, "medium": 0, "low": 0},
+	},
+    "filtering": {
+        "total_findings": 0,
+        "active_findings": 0,
+        "suppressed_findings": 0,
+        "baselined_findings": 0,
+        "suppressions_path": None,
+        "baseline_path": None,
+    },
+    "inventory": {"provider": "aws", "unsupported_resources": [], "metadata": {}, "resources": []},
+    "trust_boundaries": [],
+    "findings": [],
+    "suppressed_findings": [],
+    "baselined_findings": [],
+    "observations": [],
+    "limitations": [],
+}
 API_ERROR_EXAMPLE = {
     "kind": "tfstride-error",
     "message": "Upload a non-empty Terraform plan JSON file.",
@@ -310,6 +343,7 @@ DEMO_SCENARIO_DEFINITIONS = (
         theme="safe",
     ),
 )
+KNOWN_DEMO_SCENARIO_IDS = ", ".join(definition.scenario_id for definition in DEMO_SCENARIO_DEFINITIONS)
 
 
 def create_app() -> FastAPI:
@@ -321,12 +355,7 @@ def create_app() -> FastAPI:
     )
     app.router.route_class = DashboardRoute
     app.mount("/static", StaticFiles(directory=str(APP_ROOT / "static")), name="static")
-    engine = TfStride()
-    demo_scenarios = _build_demo_scenarios(engine)
-    app.state.demo_scenarios = demo_scenarios
-    demo_scenarios_by_id = {scenario.scenario_id: scenario for scenario in demo_scenarios}
-    known_demo_scenarios = ", ".join(scenario.scenario_id for scenario in demo_scenarios)
-    api_report_example = _build_api_report_example(engine)
+    app.state.engine = TfStride()
 
     @app.get("/api/docs", include_in_schema=False)
     async def api_docs() -> HTMLResponse:
@@ -361,6 +390,7 @@ def create_app() -> FastAPI:
 
     @app.get("/scenarios", response_class=HTMLResponse, include_in_schema=False)
     async def scenarios_page(request: Request) -> HTMLResponse:
+        demo_scenarios = _get_demo_scenarios(request.app)
         return _template_response(
             request,
             "scenarios.html",
@@ -411,19 +441,19 @@ def create_app() -> FastAPI:
             ...,
             description=(
                 "Built-in fixture scenario to render. "
-                f"Known scenario IDs: {known_demo_scenarios or 'safe, mixed, nightmare'}."
+                f"Known scenario IDs: {KNOWN_DEMO_SCENARIO_IDS or 'safe, mixed, nightmare'}."
             ),
             examples=["safe"],
         ),
     ) -> HTMLResponse:
-        scenario = demo_scenarios_by_id.get(scenario_id)
+        scenario = _get_demo_scenarios_by_id(request.app).get(scenario_id)
         if scenario is None:
             raise HTTPException(status_code=404, detail="Demo scenario not found.")
 
         analysis = _analyze_plan_path(
             Path(scenario.fixture_path),
             title=scenario.report_title,
-            engine=engine,
+            engine=_engine(request.app),
         )
         return _template_response(request, "report.html", _report_context(request, analysis, scenario=scenario))
 
@@ -464,13 +494,13 @@ def create_app() -> FastAPI:
         ),
     ) -> HTMLResponse:
         try:
-            analysis = await _analyze_upload(plan, title=title, engine=engine)
+            analysis = await _analyze_upload(plan, title=title, engine=_engine(request.app))
         except (DashboardInputError, TerraformPlanLoadError) as exc:
             context = _base_context(
                 request,
                 error=str(exc),
                 form_title=title or DEFAULT_REPORT_TITLE,
-                demo_scenarios=demo_scenarios,
+                demo_scenarios=_get_demo_scenarios(request.app),
             )
             return _template_response(request, "index.html", context, status_code=400)
 
@@ -489,7 +519,7 @@ def create_app() -> FastAPI:
         responses={
             200: {
                 "description": "JSON report produced from the uploaded Terraform plan.",
-                "content": {"application/json": {"example": api_report_example}},
+                "content": {"application/json": {"example": API_REPORT_EXAMPLE}},
             },
             400: {
                 "model": DashboardApiErrorModel,
@@ -514,7 +544,7 @@ def create_app() -> FastAPI:
         ),
     ) -> TFSReportPayload | JSONResponse:
         try:
-            analysis = await _analyze_upload(plan, title=title, engine=engine)
+            analysis = await _analyze_upload(plan, title=title, engine=_engine(app))
         except (DashboardInputError, TerraformPlanLoadError) as exc:
             return JSONResponse(
                 status_code=400,
@@ -622,106 +652,25 @@ def _build_demo_scenarios(engine: TfStride) -> tuple[DemoScenario, ...]:
     return tuple(scenarios)
 
 
-def _build_api_report_example(engine: TfStride) -> dict[str, object]:
-    sample_fixture_path = FIXTURES_DIR / "sample_aws_plan.json"
-    if sample_fixture_path.is_file():
-        try:
-            payload = _analyze_plan_path(sample_fixture_path, title="Mixed AWS Plan Demo", engine=engine).payload
-            return _prune_api_report_example(payload)
-        except TerraformPlanLoadError:
-            pass
-    safe_fixture_path = FIXTURES_DIR / "sample_aws_safe_plan.json"
-    if safe_fixture_path.is_file():
-        try:
-            payload = _analyze_plan_path(safe_fixture_path, title="Safe Plan Demo", engine=engine).payload
-            return _prune_api_report_example(payload)
-        except TerraformPlanLoadError:
-            pass
-    return {
-        "kind": "tfstride-threat-model-report",
-        "version": "1.0",
-        "tool": {"name": "tfstride", "version": "0.2.0"},
-        "title": "tfSTRIDE Threat Model Report",
-        "analyzed_file": "tfplan.json",
-        "analyzed_path": "tfplan.json",
-        "summary": {
-            "normalized_resources": 0,
-            "unsupported_resources": 0,
-            "trust_boundaries": 0,
-            "active_findings": 0,
-            "total_findings": 0,
-            "suppressed_findings": 0,
-            "baselined_findings": 0,
-            "severity_counts": {"high": 0, "medium": 0, "low": 0},
-        },
-        "filtering": {
-            "total_findings": 0,
-            "active_findings": 0,
-            "suppressed_findings": 0,
-            "baselined_findings": 0,
-            "suppressions_path": None,
-            "baseline_path": None,
-        },
-        "inventory": {"provider": "aws", "unsupported_resources": [], "metadata": {}, "resources": []},
-        "trust_boundaries": [],
-        "findings": [],
-        "suppressed_findings": [],
-        "baselined_findings": [],
-        "observations": [],
-        "limitations": [],
-    }
+def _engine(app: FastAPI) -> TfStride:
+	    return cast(TFS, app.state.engine)
 
 
-def _prune_api_report_example(payload: dict[str, object]) -> dict[str, object]:
-    inventory = dict(payload.get("inventory", {}))
-    inventory_resources = list(inventory.get("resources", []))
-    trust_boundaries = list(payload.get("trust_boundaries", []))
-    findings = list(payload.get("findings", []))
-    observations = list(payload.get("observations", []))
-    limitations = list(payload.get("limitations", []))
+def _get_demo_scenarios(app: FastAPI) -> tuple[DemoScenario, ...]:
+	    cached = getattr(app.state, "demo_scenarios", None)
+	    if cached is None:
+	        cached = _build_demo_scenarios(_engine(app))
+	        app.state.demo_scenarios = cached
+	    return cast(tuple[DemoScenario, ...], cached)
 
-    pruned_resources = inventory_resources[:2]
-    pruned_boundaries = trust_boundaries[:2]
-    pruned_findings = findings[:2]
-    pruned_observations = observations[:1]
-    pruned_limitations = limitations[:2]
 
-    summary = dict(payload.get("summary", {}))
-    summary["normalized_resources"] = len(pruned_resources)
-    summary["trust_boundaries"] = len(pruned_boundaries)
-    summary["active_findings"] = len(pruned_findings)
-    summary["total_findings"] = len(pruned_findings)
-    summary["suppressed_findings"] = 0
-    summary["baselined_findings"] = 0
-    summary["severity_counts"] = {
-        "high": sum(1 for finding in pruned_findings if finding.get("severity") == "high"),
-        "medium": sum(1 for finding in pruned_findings if finding.get("severity") == "medium"),
-        "low": sum(1 for finding in pruned_findings if finding.get("severity") == "low"),
-    }
-
-    filtering = dict(payload.get("filtering", {}))
-    filtering["total_findings"] = len(pruned_findings)
-    filtering["active_findings"] = len(pruned_findings)
-    filtering["suppressed_findings"] = 0
-    filtering["baselined_findings"] = 0
-    filtering["suppressions_path"] = None
-    filtering["baseline_path"] = None
-
-    inventory["resources"] = pruned_resources
-
-    return {
-        **payload,
-        "summary": summary,
-        "filtering": filtering,
-        "inventory": inventory,
-        "trust_boundaries": pruned_boundaries,
-        "findings": pruned_findings,
-        "suppressed_findings": [],
-        "baselined_findings": [],
-        "observations": pruned_observations,
-        "limitations": pruned_limitations,
-    }
-
+def _get_demo_scenarios_by_id(app: FastAPI) -> dict[str, DemoScenario]:
+	    cached = getattr(app.state, "demo_scenarios_by_id", None)
+	    if cached is None:
+	        cached = {scenario.scenario_id: scenario for scenario in _get_demo_scenarios(app)}
+	        app.state.demo_scenarios_by_id = cached
+	    return cast(dict[str, DemoScenario], cached)
+        
 
 def _base_context(
     request: Request,
