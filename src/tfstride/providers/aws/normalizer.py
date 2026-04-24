@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from dataclasses import dataclass
 from typing import Any
 
 from tfstride.models import (
@@ -71,6 +72,24 @@ SUPPORTED_TRUST_NARROWING_CONDITIONS = {
         "ForAnyValue:StringLike",
     },
 }
+
+
+@dataclass(slots=True)
+class _DecorationContext:
+    subnets: dict[str | None, NormalizedResource]
+    security_groups: dict[str | None, NormalizedResource]
+    route_tables: dict[str | None, NormalizedResource]
+    buckets: dict[str, NormalizedResource]
+    secrets: dict[str, NormalizedResource]
+    lambda_functions: dict[str, NormalizedResource]
+    ecs_clusters: dict[str, NormalizedResource]
+    ecs_task_definitions: dict[str, NormalizedResource]
+    role_index: dict[str, NormalizedResource]
+    instance_profile_index: dict[str, NormalizedResource]
+    policy_index: dict[str, NormalizedResource]
+    vpcs_with_igw: set[str]
+    vpcs_with_public_routes: set[str]
+    nat_gateway_ids: set[str]
 
 
 class AwsNormalizer(ProviderNormalizer):
@@ -627,91 +646,133 @@ class AwsNormalizer(ProviderNormalizer):
         raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}")
 
     def _decorate_resources(self, resources: list[NormalizedResource]) -> None:
-        subnets = {resource.identifier: resource for resource in resources if resource.resource_type == "aws_subnet"}
-        security_groups = {
-            resource.identifier: resource for resource in resources if resource.resource_type == "aws_security_group"
-        }
-        route_tables = {
-            resource.identifier: resource for resource in resources if resource.resource_type == "aws_route_table"
-        }
-        buckets = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_s3_bucket"
-            for key in (resource.identifier, resource.address, resource.arn)
-            if key
-        }
-        secrets = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_secretsmanager_secret"
-            for key in (resource.identifier, resource.address, resource.arn, resource.metadata.get("name"))
-            if key
-        }
-        lambda_functions = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_lambda_function"
-            for key in (resource.identifier, resource.address, resource.arn)
-            if key
-        }
-        ecs_clusters = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_ecs_cluster"
-            for key in (resource.identifier, resource.address, resource.arn, resource.metadata.get("name"))
-            if key
-        }
-        ecs_task_definitions = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_ecs_task_definition"
-            for key in (
-                resource.identifier,
-                resource.address,
-                resource.arn,
-                resource.metadata.get("family"),
-                _ecs_task_definition_identifier(
-                    resource.metadata.get("family"),
-                    resource.metadata.get("revision"),
-                ),
-            )
-            if key
-        }
-        role_index = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_iam_role"
-            for key in (resource.identifier, resource.address, resource.arn)
-            if key
-        }
-        instance_profile_index = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_iam_instance_profile"
-            for key in (resource.identifier, resource.address, resource.arn)
-            if key
-        }
-        policy_index = {
-            key: resource
-            for resource in resources
-            if resource.resource_type == "aws_iam_policy"
-            for key in (resource.identifier, resource.address, resource.arn)
-            if key
-        }
-        vpcs_with_igw = {
-            resource.vpc_id for resource in resources if resource.resource_type == "aws_internet_gateway" and resource.vpc_id
-        }
-        vpcs_with_public_routes = {
-            resource.vpc_id
-            for resource in resources
-            if resource.resource_type == "aws_route_table" and _has_internet_route(resource.metadata.get("routes", []))
-        }
-        nat_gateway_ids = {
-            resource.identifier
-            for resource in resources
-            if resource.resource_type == "aws_nat_gateway" and resource.identifier
-        }
+        context = self._build_decoration_context(resources)
+        self._merge_standalone_security_group_rules(resources, context.security_groups)
+        self._merge_role_policy_resources(resources, context.role_index, context.policy_index)
+        self._resolve_instance_profile_roles(resources, context.role_index, context.instance_profile_index)
+        self._resolve_ecs_service_relationships(
+	        resources,
+	        context.ecs_clusters,
+	        context.ecs_task_definitions,
+	        context.role_index,
+	    )
+        self._merge_resource_policy_resources(
+	        resources,
+	        context.buckets,
+	        context.secrets,
+	        context.lambda_functions,
+	    )
+        self._apply_s3_public_access_blocks(resources, context.buckets)
+        public_subnet_ids = self._derive_subnet_posture(
+	        resources,
+	        context.subnets,
+	        context.route_tables,
+	        context.vpcs_with_igw,
+	        context.vpcs_with_public_routes,
+	        context.nat_gateway_ids,
+	    )
+        self._infer_vpc_ids(resources, context.subnets, context.security_groups)
+        self._derive_public_exposure(resources, context.security_groups, context.subnets, public_subnet_ids)
+        self._mark_ecs_services_fronted_by_internet_facing_load_balancers(resources, context.security_groups)
+	
+    def _build_decoration_context(self, resources: list[NormalizedResource]) -> _DecorationContext:
+	    return _DecorationContext(
+	        subnets={resource.identifier: resource for resource in resources if resource.resource_type == "aws_subnet"},
+	        security_groups={
+	            resource.identifier: resource for resource in resources if resource.resource_type == "aws_security_group"
+	        },
+	        route_tables={
+	            resource.identifier: resource for resource in resources if resource.resource_type == "aws_route_table"
+	        },
+	        buckets={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_s3_bucket"
+	            for key in (resource.identifier, resource.address, resource.arn)
+	            if key
+	        },
+	        secrets={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_secretsmanager_secret"
+	            for key in (resource.identifier, resource.address, resource.arn, resource.metadata.get("name"))
+	            if key
+	        },
+	        lambda_functions={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_lambda_function"
+	            for key in (resource.identifier, resource.address, resource.arn)
+	            if key
+	        },
+	        ecs_clusters={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_ecs_cluster"
+	            for key in (resource.identifier, resource.address, resource.arn, resource.metadata.get("name"))
+	            if key
+	        },
+	        ecs_task_definitions={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_ecs_task_definition"
+	            for key in (
+	                resource.identifier,
+	                resource.address,
+	                resource.arn,
+	                resource.metadata.get("family"),
+	                _ecs_task_definition_identifier(
+	                    resource.metadata.get("family"),
+	                    resource.metadata.get("revision"),
+	                ),
+	            )
+	            if key
+	        },
+	        role_index={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_iam_role"
+	            for key in (resource.identifier, resource.address, resource.arn)
+	            if key
+	        },
+	        instance_profile_index={
+	            key: resource
+	            for resource in resources
+	            if resource.resource_type == "aws_iam_instance_profile"
+	            for key in (resource.identifier, resource.address, resource.arn)
+	            if key
+            },	            
+            policy_index={
+	            key: resource
+	            for resource in resources
+                if resource.resource_type == "aws_iam_policy"
+                for key in (resource.identifier, resource.address, resource.arn)
+	            if key
+	        },
+	        vpcs_with_igw={
+                resource.vpc_id
+	            for resource in resources
+	            if resource.resource_type == "aws_internet_gateway" and resource.vpc_id
+            },
+	        vpcs_with_public_routes={
+	            resource.vpc_id
+                for resource in resources
+	            if resource.resource_type == "aws_route_table"
+	            and resource.vpc_id
+	            and _has_internet_route(resource.metadata.get("routes", []))
+            },
+	        nat_gateway_ids={
+	            resource.identifier
+	            for resource in resources
+	            if resource.resource_type == "aws_nat_gateway" and resource.identifier
+            },
+	    )
+	
+    def _merge_standalone_security_group_rules(
+        self,
+        resources: list[NormalizedResource],
+        security_groups: dict[str | None, NormalizedResource],
+    ) -> None:
 
         # Standalone SG rule resources carry the same security meaning as inline rules, so fold
         # them into the parent security group before any exposure analysis runs.
@@ -723,6 +784,13 @@ class AwsNormalizer(ProviderNormalizer):
                 continue
             target_group.network_rules.extend(_clone_security_group_rules(rule_resource.network_rules))
             _append_unique(target_group.metadata, "standalone_rule_addresses", rule_resource.address)
+
+    def _merge_role_policy_resources(
+	    self,
+	    resources: list[NormalizedResource],
+	    role_index: dict[str, NormalizedResource],
+	    policy_index: dict[str, NormalizedResource],
+	) -> None:
 
         # Inline role-policy resources extend a role's effective permissions in the same way as
         # inline policies declared directly on the role block.
@@ -756,6 +824,13 @@ class AwsNormalizer(ProviderNormalizer):
             _append_unique(role.metadata, "attached_policy_arns", policy.arn or policy.identifier or policy.address)
             _append_unique(role.metadata, "attached_policy_addresses", policy.address)
 
+    def _resolve_instance_profile_roles(
+        self,
+	    resources: list[NormalizedResource],
+	    role_index: dict[str, NormalizedResource],
+	    instance_profile_index: dict[str, NormalizedResource],
+	) -> None:
+
         # Instance profiles are the normal way EC2 inherits role credentials, so resolve them
         # to attached roles before workload-risk and trust-boundary analysis runs.
         for instance_profile_resource in resources:
@@ -787,6 +862,14 @@ class AwsNormalizer(ProviderNormalizer):
             for resolved_role_ref in instance_profile.metadata.get("resolved_role_references", []):
                 if resolved_role_ref not in workload_resource.attached_role_arns:
                     workload_resource.attached_role_arns.append(resolved_role_ref)
+
+    def _resolve_ecs_service_relationships(
+	    self,
+	    resources: list[NormalizedResource],
+	    ecs_clusters: dict[str, NormalizedResource],
+	    ecs_task_definitions: dict[str, NormalizedResource],
+	    role_index: dict[str, NormalizedResource],
+	) -> None:
 
         for ecs_service_resource in resources:
             if ecs_service_resource.resource_type != "aws_ecs_service":
@@ -846,6 +929,14 @@ class AwsNormalizer(ProviderNormalizer):
                         str(execution_role_arn),
                     )
 
+    def _merge_resource_policy_resources(
+	    self,
+	    resources: list[NormalizedResource],
+	    buckets: dict[str, NormalizedResource],
+	    secrets: dict[str, NormalizedResource],
+	    lambda_functions: dict[str, NormalizedResource],
+	) -> None:
+
         # Resource-policy resources should flow into the target resource so later analysis can
         # reason over one consolidated policy surface.
         for bucket_policy_resource in resources:
@@ -888,6 +979,11 @@ class AwsNormalizer(ProviderNormalizer):
                 lambda_permission_resource.address,
             )
 
+    def _apply_s3_public_access_blocks(
+	    self,
+	    resources: list[NormalizedResource],
+	    buckets: dict[str, NormalizedResource],
+	) -> None:
         # Public access blocks can neutralize otherwise-public bucket ACLs or policies, so
         # recompute effective public exposure after the control is applied.
         for access_block_resource in resources:
@@ -921,6 +1017,15 @@ class AwsNormalizer(ProviderNormalizer):
                 public_access_block=public_access_block,
             )
 
+    def _derive_subnet_posture(
+	    self,
+	    resources: list[NormalizedResource],
+	    subnets: dict[str | None, NormalizedResource],
+	    route_tables: dict[str | None, NormalizedResource],
+	    vpcs_with_igw: set[str],
+	    vpcs_with_public_routes: set[str],
+	    nat_gateway_ids: set[str],
+	) -> set[str]:
         subnet_route_table_ids: dict[str, list[str]] = {}
         for association_resource in resources:
             if association_resource.resource_type != "aws_route_table_association":
@@ -931,7 +1036,7 @@ class AwsNormalizer(ProviderNormalizer):
                 continue
             subnet_route_table_ids.setdefault(str(subnet_id), []).append(str(route_table_id))
 
-        public_subnet_ids = set()
+        public_subnet_ids: set[str] = set()
         for subnet in subnets.values():
             associated_route_table_ids = subnet_route_table_ids.get(subnet.identifier or "", [])
             has_public_route = any(
@@ -959,23 +1064,33 @@ class AwsNormalizer(ProviderNormalizer):
             subnet.has_nat_gateway_egress = has_nat_route
             if is_public and subnet.identifier:
                 public_subnet_ids.add(subnet.identifier)
+        return public_subnet_ids
 
         for resource in resources:
-            if not resource.vpc_id:
-                # Some Terraform resources omit a direct VPC reference, so infer it from the
-                # attached subnet first and fall back to attached security groups.
-                for subnet_id in resource.subnet_ids:
-                    subnet = subnets.get(subnet_id)
-                    if subnet and subnet.vpc_id:
-                        resource.vpc_id = subnet.vpc_id
-                        break
-                if not resource.vpc_id:
-                    for security_group_id in resource.security_group_ids:
-                        security_group = security_groups.get(security_group_id)
-                        if security_group and security_group.vpc_id:
-                            resource.vpc_id = security_group.vpc_id
-                            break
+	        if resource.vpc_id:
+	            continue
+	        # Some Terraform resources omit a direct VPC reference, so infer it from the
+	        # attached subnet first and fall back to attached security groups.
+	        for subnet_id in resource.subnet_ids:
+	            subnet = subnets.get(subnet_id)
+	            if subnet and subnet.vpc_id:
+	                resource.vpc_id = subnet.vpc_id
+	                break
+	        if resource.vpc_id:
+	            continue
+	        for security_group_id in resource.security_group_ids:
+	            security_group = security_groups.get(security_group_id)
+	            if security_group and security_group.vpc_id:
+	                resource.vpc_id = security_group.vpc_id
+	                break
 
+    def _derive_public_exposure(
+	    self,
+	    resources: list[NormalizedResource],
+	    security_groups: dict[str | None, NormalizedResource],
+	    subnets: dict[str | None, NormalizedResource],
+	    public_subnet_ids: set[str],
+	) -> None:
         for resource in resources:
             attached_security_groups = [security_groups[sg_id] for sg_id in resource.security_group_ids if sg_id in security_groups]
             internet_ingress = any(
@@ -1067,6 +1182,11 @@ class AwsNormalizer(ProviderNormalizer):
                     )
             resource.direct_internet_reachable = resource.public_exposure
 
+    def _mark_ecs_services_fronted_by_internet_facing_load_balancers(
+	    self,
+	    resources: list[NormalizedResource],
+	    security_groups: dict[str | None, NormalizedResource],
+	) -> None:
         internet_facing_load_balancers_by_security_group: dict[str, list[NormalizedResource]] = {}
         for resource in resources:
             if resource.resource_type != "aws_lb" or not resource.public_exposure:
