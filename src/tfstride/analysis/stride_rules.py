@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 from tfstride.analysis.finding_factory import FindingFactory
+from tfstride.analysis.finding_helpers import (
+    build_severity_reasoning,
+    collect_evidence,
+    describe_policy_statement,
+    evidence_item,
+)
+from tfstride.analysis.iam_rules import IAMRuleDetectors
 from tfstride.analysis.policy_conditions import (
     assess_principal,
     describe_trust_narrowing,
@@ -14,7 +21,6 @@ from tfstride.models import (
     BoundaryType,
     EvidenceItem,
     Finding,
-    IAMPolicyStatement,
     NormalizedResource,
     Observation,
     ResourceInventory,
@@ -26,17 +32,6 @@ from tfstride.models import (
 from tfstride.resource_helpers import describe_security_group_rule, policy_allows_public_access
 
 
-SENSITIVE_ACTION_PREFIXES = {
-    "kms:Decrypt",
-    "secretsmanager:GetSecretValue",
-    "ssm:GetParameter",
-    "ssm:GetParameters",
-    "iam:PassRole",
-    "sts:AssumeRole",
-    "s3:*",
-    "*",
-}
-
 SENSITIVE_RESOURCE_POLICY_TYPES = {"aws_s3_bucket", "aws_kms_key", "aws_secretsmanager_secret"}
 SERVICE_RESOURCE_POLICY_TYPES = {"aws_lambda_function", "aws_sqs_queue", "aws_sns_topic"}
 
@@ -45,28 +40,36 @@ class StrideRuleEngine:
     def __init__(self, rule_registry: RuleRegistry = DEFAULT_RULE_REGISTRY) -> None:
         self._rule_registry = rule_registry
         self._finding_factory = FindingFactory(rule_registry)
+        self._iam_rule_detectors = IAMRuleDetectors(self._finding_factory)
         self._iam_rules = (
-	        ExecutableRule("aws-iam-wildcard-permissions", self._detect_iam_wildcards_rule),
-	        ExecutableRule("aws-workload-role-sensitive-permissions", self._detect_workload_role_risk_rule),
-	    )
+            ExecutableRule(
+                "aws-iam-wildcard-permissions",
+                self._iam_rule_detectors.detect_wildcard_permissions,
+            ),
+            ExecutableRule(
+                "aws-workload-role-sensitive-permissions",
+                self._iam_rule_detectors.detect_workload_role_sensitive_permissions,
+            ),
+        )
 
     def evaluate(
-	    self,
-	    inventory: ResourceInventory,
-	    boundaries: list[TrustBoundary],
-	    *,
-	    rule_policy: RulePolicy | None = None,
-	) -> list[Finding]:
+        self,
+        inventory: ResourceInventory,
+        boundaries: list[TrustBoundary],
+        *,
+        rule_policy: RulePolicy | None = None,
+    ) -> list[Finding]:
         findings: list[Finding] = []
         boundary_index: BoundaryIndex = {
-	        (boundary.boundary_type, boundary.source, boundary.target): boundary for boundary in boundaries
-	    }
+            (boundary.boundary_type, boundary.source, boundary.target): boundary for boundary in boundaries
+        }
         context = RuleEvaluationContext(
-	        inventory=inventory,
+            inventory=inventory,
             boundary_index=boundary_index,
             rule_registry=self._rule_registry,
             rule_policy=rule_policy,
-	    )
+        )
+
         findings.extend(self._detect_public_compute_exposure(inventory, boundary_index))
         findings.extend(self._detect_database_exposure(inventory, boundary_index))
         findings.extend(self._detect_unencrypted_databases(inventory))
@@ -105,28 +108,14 @@ class StrideRuleEngine:
         )
 
     def _evaluate_rules(
-	    self,
-	    rules: tuple[ExecutableRule, ...],
-	    context: RuleEvaluationContext,
-	) -> list[Finding]:
-	    findings: list[Finding] = []
-	    for rule in rules:
-	        findings.extend(rule.evaluate(context))
-	    return findings
-	
-    def _detect_iam_wildcards_rule(
         self,
+        rules: tuple[ExecutableRule, ...],
         context: RuleEvaluationContext,
-        rule_id: str,
     ) -> list[Finding]:
-        return self._detect_iam_wildcards(context.inventory, rule_id=rule_id)
-	
-    def _detect_workload_role_risk_rule(
-	    self,
-	    context: RuleEvaluationContext,
-	    rule_id: str,
-	) -> list[Finding]:
-        return self._detect_workload_role_risk(context.inventory, context.boundary_index, rule_id=rule_id)
+        findings: list[Finding] = []
+        for rule in rules:
+            findings.extend(rule.evaluate(context))
+        return findings
 
     def _detect_resource_policy_exposure(
         self,
@@ -169,7 +158,7 @@ class StrideRuleEngine:
                         and assessment.account_id == primary_account_id
                     )
                     if same_account_kms_root:
-                        severity_reasoning = _build_severity_reasoning(
+                        severity_reasoning = build_severity_reasoning(
                             internet_exposure=False,
                             privilege_breadth=1,
                             data_sensitivity=2,
@@ -182,7 +171,7 @@ class StrideRuleEngine:
                             "a role-scoped grant and can make delegation or decryption authority harder to constrain."
                         )
                     else:
-                        severity_reasoning = _build_severity_reasoning(
+                        severity_reasoning = build_severity_reasoning(
                             internet_exposure=assessment.is_wildcard,
                             privilege_breadth=2 if assessment.is_wildcard or assessment.is_root_like else 1,
                             data_sensitivity=2 if sensitive_resource else 0,
@@ -209,12 +198,12 @@ class StrideRuleEngine:
                             ],
                             trust_boundary_id=boundary.identifier if boundary else None,
                             rationale=rationale,
-                            evidence=_collect_evidence(
-                                _evidence_item("trust_principals", [principal]),
-                                _evidence_item("trust_scope", [assessment.scope_description]),
-                                _evidence_item("policy_actions", sorted(statement.actions)),
-                                _evidence_item("policy_statements", [_describe_policy_statement(statement)]),
-                                _evidence_item(
+                            evidence=collect_evidence(
+                                evidence_item("trust_principals", [principal]),
+                                evidence_item("trust_scope", [assessment.scope_description]),
+                                evidence_item("policy_actions", sorted(statement.actions)),
+                                evidence_item("policy_statements", [describe_policy_statement(statement)]),
+                                evidence_item(
                                     "resource_policy_sources",
                                     resource.resource_policy_source_addresses,
                                 ),
@@ -252,7 +241,7 @@ class StrideRuleEngine:
             ]
             if not risky_rules:
                 continue
-            severity_reasoning = _build_severity_reasoning(
+            severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
                 privilege_breadth=0,
                 data_sensitivity=0,
@@ -271,13 +260,13 @@ class StrideRuleEngine:
                         "security group allows administrative access or all ports from 0.0.0.0/0. "
                         "That broad ingress raises the chance of unauthenticated probing and credential attacks."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item(
+                    evidence=collect_evidence(
+                        evidence_item(
                             "security_group_rules",
                             [describe_security_group_rule(security_group, rule) for security_group, rule in risky_rules],
                         ),
-                        _evidence_item("public_exposure_reasons", resource.public_exposure_reasons),
-                        _evidence_item("subnet_posture", _subnet_posture(resource, inventory)),
+                        evidence_item("public_exposure_reasons", resource.public_exposure_reasons),
+                        evidence_item("subnet_posture", _subnet_posture(resource, inventory)),
                     ),
                     severity_reasoning=severity_reasoning,
                 )
@@ -347,7 +336,7 @@ class StrideRuleEngine:
                     None,
                 )
                 boundary = public_private_boundary
-            severity_reasoning = _build_severity_reasoning(
+            severity_reasoning = build_severity_reasoning(
                 internet_exposure=bool(internet_rules or public_tier_rules or direct_internet_reachable),
                 privilege_breadth=0,
                 data_sensitivity=2,
@@ -374,8 +363,8 @@ class StrideRuleEngine:
                         f"{_join_clauses(path_signals)}. "
                         "That weakens the expected separation between the workload tier and the data tier."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item(
+                    evidence=collect_evidence(
+                        evidence_item(
                             "security_group_rules",
                             [
                                 describe_security_group_rule(security_group, rule)
@@ -386,7 +375,7 @@ class StrideRuleEngine:
                                 for security_group, rule, _ in public_tier_rules
                             ],
                         ),
-                        _evidence_item(
+                        evidence_item(
                             "network_path",
                             path_signals
                             + [
@@ -394,8 +383,8 @@ class StrideRuleEngine:
                                 for security_group, rule, workloads in public_tier_rules
                             ],
                         ),
-                        _evidence_item("public_exposure_reasons", database.public_exposure_reasons),
-                        _evidence_item(
+                        evidence_item("public_exposure_reasons", database.public_exposure_reasons),
+                        evidence_item(
                             "subnet_posture",
                             [
                                 posture
@@ -415,7 +404,7 @@ class StrideRuleEngine:
         for database in inventory.by_type("aws_db_instance"):
             if database.storage_encrypted:
                 continue
-            severity_reasoning = _build_severity_reasoning(
+            severity_reasoning = build_severity_reasoning(
                 internet_exposure=False,
                 privilege_breadth=0,
                 data_sensitivity=2,
@@ -432,8 +421,8 @@ class StrideRuleEngine:
                         f"{database.display_name} stores sensitive data, but `storage_encrypted` is disabled. "
                         "That weakens data-at-rest protections for underlying storage, snapshots, and backup handling."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item(
+                    evidence=collect_evidence(
+                        evidence_item(
                             "encryption_posture",
                             [
                                 "storage_encrypted is false",
@@ -456,7 +445,7 @@ class StrideRuleEngine:
             if not bucket.public_exposure:
                 continue
             boundary = boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", bucket.address))
-            severity_reasoning = _build_severity_reasoning(
+            severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
                 privilege_breadth=0,
                 data_sensitivity=2,
@@ -473,118 +462,8 @@ class StrideRuleEngine:
                         f"{bucket.display_name} appears to be public through ACLs or bucket policy. "
                         "Public object access is a common source of unintended data disclosure."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item("public_exposure_reasons", bucket.public_exposure_reasons),
-                    ),
-                    severity_reasoning=severity_reasoning,
-                )
-            )
-        return findings
-
-    def _detect_iam_wildcards(self, inventory: ResourceInventory, *, rule_id: str) -> list[Finding]:
-        findings: list[Finding] = []
-        for policy_resource in inventory.by_type("aws_iam_policy", "aws_iam_role"):
-            wildcard_statements = [
-                statement
-                for statement in policy_resource.policy_statements
-                if statement.effect == "Allow"
-                and (statement.has_wildcard_action() or statement.has_wildcard_resource())
-            ]
-            if not wildcard_statements:
-                continue
-            wildcard_actions = sorted(
-                {
-                    action
-                    for statement in wildcard_statements
-                    for action in statement.actions
-                    if action == "*" or action.endswith(":*")
-                }
-            )
-            wildcard_resources = sorted(
-                {
-                    resource
-                    for statement in wildcard_statements
-                    for resource in statement.resources
-                    if resource == "*"
-                }
-            )
-            severity_reasoning = _build_severity_reasoning(
-                internet_exposure=False,
-                privilege_breadth=2 if any(statement.has_wildcard_action() for statement in wildcard_statements) else 1,
-                data_sensitivity=0,
-                lateral_movement=1,
-                blast_radius=2,
-            )
-            findings.append(
-                self._build_finding(
-                    rule_id=rule_id,
-                    severity=severity_reasoning.severity,
-                    affected_resources=[policy_resource.address],
-                    trust_boundary_id=None,
-                    rationale=(
-                        f"{policy_resource.display_name} contains allow statements with wildcard actions or "
-                        "resources. That makes the resulting access difficult to reason about and expands blast radius."
-                    ),
-                    evidence=_collect_evidence(
-                        _evidence_item("iam_actions", wildcard_actions),
-                        _evidence_item("iam_resources", wildcard_resources),
-                        _evidence_item(
-                            "policy_statements",
-                            [_describe_policy_statement(statement) for statement in wildcard_statements],
-                        ),
-                    ),
-                    severity_reasoning=severity_reasoning,
-                )
-            )
-        return findings
-
-    def _detect_workload_role_risk(
-        self,
-        inventory: ResourceInventory,
-        boundary_index: BoundaryIndex,
-	    *,
-	    rule_id: str,
-    ) -> list[Finding]:
-        findings: list[Finding] = []
-        role_index = _role_index(inventory)
-        for workload in inventory.by_type("aws_instance", "aws_lambda_function", "aws_ecs_service"):
-            role = _resolve_role(workload, role_index)
-            if role is None:
-                continue
-            sensitive_actions = _sensitive_actions(role.policy_statements)
-            if not sensitive_actions:
-                continue
-            boundary = boundary_index.get((BoundaryType.CONTROL_TO_WORKLOAD, role.address, workload.address))
-            severity_reasoning = _build_severity_reasoning(
-                internet_exposure=workload.public_exposure,
-                privilege_breadth=2 if "*" in sensitive_actions or "s3:*" in sensitive_actions else 1,
-                data_sensitivity=1,
-                lateral_movement=1,
-                blast_radius=2,
-            )
-            findings.append(
-                self._build_finding(
-                    rule_id=rule_id,
-                    severity=severity_reasoning.severity,
-                    affected_resources=[workload.address, role.address],
-                    trust_boundary_id=boundary.identifier if boundary else None,
-                    rationale=(
-                        f"{workload.display_name} inherits sensitive privileges from {role.display_name}, including "
-                        f"{', '.join(sorted(sensitive_actions))}. If the workload is compromised, those credentials "
-                        "can be reused for privilege escalation, data access, or role chaining."
-                    ),
-                    evidence=_collect_evidence(
-                        _evidence_item("iam_actions", sorted(sensitive_actions)),
-                        _evidence_item(
-                            "policy_statements",
-                            [
-                                _describe_policy_statement(statement)
-                                for statement in role.policy_statements
-                                if statement.effect == "Allow"
-                                and _statement_matches_sensitive_actions(statement, sensitive_actions)
-                            ],
-                        ),
-                        _evidence_item("public_exposure_reasons", workload.public_exposure_reasons),
+                    evidence=collect_evidence(
+                        evidence_item("public_exposure_reasons", bucket.public_exposure_reasons),
                     ),
                     severity_reasoning=severity_reasoning,
                 )
@@ -625,7 +504,7 @@ class StrideRuleEngine:
                         for workload in public_security_group_map.get(security_group_id, [])
                     }
                 )
-                severity_reasoning = _build_severity_reasoning(
+                severity_reasoning = build_severity_reasoning(
                     internet_exposure=True,
                     privilege_breadth=0,
                     data_sensitivity=2,
@@ -642,19 +521,19 @@ class StrideRuleEngine:
                             f"{database.display_name} accepts traffic from security groups attached to internet-facing "
                             "workloads. A compromise of the public tier can therefore move laterally into the private data tier."
                         ),
-                        evidence=_collect_evidence(
-                            _evidence_item(
+                        evidence=collect_evidence(
+                            evidence_item(
                                 "security_group_rules",
                                 [describe_security_group_rule(security_group, rule) for rule in risky_rules],
                             ),
-                            _evidence_item(
+                            evidence_item(
                                 "network_path",
                                 [
                                     f"{security_group.address} allows {', '.join(rule.referenced_security_group_ids)} attached to {', '.join(sorted({workload.address for security_group_id in rule.referenced_security_group_ids for workload in public_security_group_map.get(security_group_id, [])}))}"
                                     for rule in risky_rules
                                 ],
                             ),
-                            _evidence_item(
+                            evidence_item(
                                 "subnet_posture",
                                 [
                                     posture
@@ -746,7 +625,7 @@ class StrideRuleEngine:
                     if finding_key in seen:
                         continue
                     seen.add(finding_key)
-                    severity_reasoning = _build_severity_reasoning(
+                    severity_reasoning = build_severity_reasoning(
                         internet_exposure=False,
                         privilege_breadth=2 if assessment.is_wildcard else 1,
                         data_sensitivity=0,
@@ -764,9 +643,9 @@ class StrideRuleEngine:
                                 f"{role.display_name} can be assumed by {principal}. Broad or foreign-account trust "
                                 "relationships increase the chance that compromise in one identity domain spills into another."
                             ),
-                            evidence=_collect_evidence(
-                                _evidence_item("trust_principals", [principal]),
-                                _evidence_item(
+                            evidence=collect_evidence(
+                                evidence_item("trust_principals", [principal]),
+                                evidence_item(
                                     "trust_path",
                                     [assessment.trust_path_description],
                                 ),
@@ -820,7 +699,7 @@ class StrideRuleEngine:
 
                     privilege_breadth = 2 if assessment.is_wildcard else 1
                     blast_radius = 2 if assessment.is_wildcard or len(data_store_addresses) > 1 else 1
-                    severity_reasoning = _build_severity_reasoning(
+                    severity_reasoning = build_severity_reasoning(
                         internet_exposure=False,
                         privilege_breadth=privilege_breadth,
                         data_sensitivity=2,
@@ -844,10 +723,10 @@ class StrideRuleEngine:
                                 "A broad or foreign control-plane principal can therefore influence a workload that already "
                                 "retains sensitive secret or database access."
                             ),
-                            evidence=_collect_evidence(
-                                _evidence_item("trust_principals", [principal]),
-                                _evidence_item("trust_scope", [assessment.scope_description] if assessment.scope_description else []),
-                                _evidence_item(
+                            evidence=collect_evidence(
+                                evidence_item("trust_principals", [principal]),
+                                evidence_item("trust_scope", [assessment.scope_description] if assessment.scope_description else []),
+                                evidence_item(
                                     "control_path",
                                     [
                                         f"{principal} assumes {role.address}",
@@ -861,7 +740,7 @@ class StrideRuleEngine:
                                         ],
                                     ],
                                 ),
-                                _evidence_item(
+                                evidence_item(
                                     "boundary_rationale",
                                     [
                                         *[
@@ -874,11 +753,11 @@ class StrideRuleEngine:
                                         ],
                                     ],
                                 ),
-                                _evidence_item(
+                                evidence_item(
                                     "sensitive_data_targets",
                                     list(data_store_addresses),
                                 ),
-                                _evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
+                                evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
                             ),
                             severity_reasoning=severity_reasoning,
                         )
@@ -907,7 +786,7 @@ class StrideRuleEngine:
                     if finding_key in seen:
                         continue
                     seen.add(finding_key)
-                    severity_reasoning = _build_severity_reasoning(
+                    severity_reasoning = build_severity_reasoning(
                         internet_exposure=False,
                         privilege_breadth=2 if assessment.is_wildcard or assessment.is_root_like else 1,
                         data_sensitivity=0,
@@ -926,10 +805,10 @@ class StrideRuleEngine:
                                 "`sts:ExternalId`, `aws:SourceArn`, or `aws:SourceAccount`. That leaves the assume-role "
                                 "path dependent on a broad or external principal match alone."
                             ),
-                            evidence=_collect_evidence(
-                                _evidence_item("trust_principals", [principal]),
-                                _evidence_item("trust_scope", [assessment.scope_description]),
-                                _evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
+                            evidence=collect_evidence(
+                                evidence_item("trust_principals", [principal]),
+                                evidence_item("trust_scope", [assessment.scope_description]),
+                                evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
                             ),
                             severity_reasoning=severity_reasoning,
                         )
@@ -969,9 +848,9 @@ class StrideRuleEngine:
                         f"{bucket.display_name} includes public-looking ACL or policy signals, but an attached "
                         "public access block materially reduces that exposure."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item("mitigated_public_access", mitigation_signals),
-                        _evidence_item(
+                    evidence=collect_evidence(
+                        evidence_item("mitigated_public_access", mitigation_signals),
+                        evidence_item(
                             "control_posture",
                             [
                                 f"{key} is {str(value).lower()}"
@@ -1012,10 +891,10 @@ class StrideRuleEngine:
                                 f"{role.display_name} trusts {principal}, but supported assume-role conditions narrow "
                                 "when that trust can be exercised."
                             ),
-                            evidence=_collect_evidence(
-                                _evidence_item("trust_principals", [principal]),
-                                _evidence_item("trust_scope", [assessment.scope_description]),
-                                _evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
+                            evidence=collect_evidence(
+                                evidence_item("trust_principals", [principal]),
+                                evidence_item("trust_scope", [assessment.scope_description]),
+                                evidence_item("trust_narrowing", describe_trust_narrowing(trust_statement)),
                             ),
                         )
                     )
@@ -1050,8 +929,8 @@ class StrideRuleEngine:
                         f"{database.display_name} is kept off direct internet paths and has storage encryption enabled, "
                         "which reduces straightforward data exposure risk."
                     ),
-                    evidence=_collect_evidence(
-                        _evidence_item("database_posture", posture_signals),
+                    evidence=collect_evidence(
+                        evidence_item("database_posture", posture_signals),
                     ),
                 )
             )
@@ -1065,115 +944,6 @@ def _attached_security_groups(resource: NormalizedResource, inventory: ResourceI
         if security_group and security_group.resource_type == "aws_security_group":
             security_groups.append(security_group)
     return security_groups
-
-
-def _role_index(inventory: ResourceInventory) -> dict[str, NormalizedResource]:
-    index: dict[str, NormalizedResource] = {}
-    for role in inventory.by_type("aws_iam_role"):
-        if role.arn:
-            index[role.arn] = role
-        index[role.address] = role
-        if role.identifier:
-            index[role.identifier] = role
-    return index
-
-
-def _resolve_role(
-    workload: NormalizedResource,
-    role_index: dict[str, NormalizedResource],
-) -> NormalizedResource | None:
-    for role_arn in workload.attached_role_arns:
-        role = role_index.get(role_arn)
-        if role:
-            return role
-    return None
-
-
-def _sensitive_actions(statements: list[IAMPolicyStatement]) -> set[str]:
-    sensitive: set[str] = set()
-    for statement in statements:
-        if statement.effect != "Allow":
-            continue
-        for action in statement.actions:
-            if action in SENSITIVE_ACTION_PREFIXES:
-                sensitive.add(action)
-                continue
-            if action.startswith("ssm:GetParameter"):
-                sensitive.add("ssm:GetParameter*")
-    return sensitive
-
-
-def _statement_matches_sensitive_actions(statement: IAMPolicyStatement, sensitive_actions: set[str]) -> bool:
-    for action in statement.actions:
-        if action in sensitive_actions:
-            return True
-        if action.startswith("ssm:GetParameter") and "ssm:GetParameter*" in sensitive_actions:
-            return True
-    return False
-
-
-def _build_severity_reasoning(
-    *,
-    internet_exposure: bool,
-    privilege_breadth: int,
-    data_sensitivity: int,
-    lateral_movement: int,
-    blast_radius: int,
-) -> SeverityReasoning:
-    # The v1 model is intentionally additive and explainable: each detector supplies a few
-    # concrete signals and the final banding stays easy to tune without hiding logic in ML.
-    internet_exposure_score = 2 if internet_exposure else 0
-    score = (
-        internet_exposure_score
-        + privilege_breadth
-        + data_sensitivity
-        + lateral_movement
-        + blast_radius
-    )
-    if score >= 6:
-        severity = Severity.HIGH
-    elif score >= 3:
-        severity = Severity.MEDIUM
-    else:
-        severity = Severity.LOW
-    return SeverityReasoning(
-        internet_exposure=internet_exposure_score,
-        privilege_breadth=privilege_breadth,
-        data_sensitivity=data_sensitivity,
-        lateral_movement=lateral_movement,
-        blast_radius=blast_radius,
-        final_score=score,
-        severity=severity,
-    )
-
-
-def _collect_evidence(*items: EvidenceItem | None) -> list[EvidenceItem]:
-    return [item for item in items if item is not None]
-
-
-def _evidence_item(key: str, values: list[str]) -> EvidenceItem | None:
-    deduped_values: list[str] = []
-    for value in values:
-        if not value:
-            continue
-        text = str(value)
-        if text not in deduped_values:
-            deduped_values.append(text)
-    if not deduped_values:
-        return None
-    return EvidenceItem(key=key, values=deduped_values)
-
-
-def _describe_policy_statement(statement: IAMPolicyStatement) -> str:
-    actions = ", ".join(statement.actions) if statement.actions else "no actions"
-    resources = ", ".join(statement.resources) if statement.resources else "no resources"
-    if statement.conditions:
-        conditions = "; ".join(
-            f"{condition.operator} {condition.key}=[{', '.join(condition.values)}]"
-            for condition in statement.conditions
-        )
-        return f"{statement.effect} actions=[{actions}] resources=[{resources}] conditions=[{conditions}]"
-    return f"{statement.effect} actions=[{actions}] resources=[{resources}]"
 
 
 def _subnet_posture(resource: NormalizedResource | None, inventory: ResourceInventory) -> list[str]:
@@ -1338,7 +1108,7 @@ def _build_transitive_private_data_finding(
     ]
     if data_store.resource_type == "aws_db_instance":
         data_posture.append("database has no direct internet ingress path")
-    severity_reasoning = _build_severity_reasoning(
+    severity_reasoning = build_severity_reasoning(
         internet_exposure=False,
         privilege_breadth=0,
         data_sensitivity=2 if data_store.data_sensitivity == "sensitive" else 1,
@@ -1357,8 +1127,8 @@ def _build_transitive_private_data_finding(
             f"move through {_join_clauses(hop_descriptions)}, and then cross into the private data tier through "
             f"{terminal_workload.display_name}. That creates a quieter transitive exposure path than a directly public data store."
         ),
-        evidence=_collect_evidence(
-            _evidence_item("network_path", [
+        evidence=collect_evidence(
+            evidence_item("network_path", [
                 f"internet reaches {entry.address}",
                 *[
                     f"{source.address} reaches {target.address}"
@@ -1366,13 +1136,13 @@ def _build_transitive_private_data_finding(
                 ],
                 f"{terminal_workload.address} reaches {data_store.address}",
             ]),
-            _evidence_item(
+            evidence_item(
                 "security_group_rules",
                 [describe_security_group_rule(security_group, rule) for security_group, rule in security_group_hops],
             ),
-            _evidence_item("subnet_posture", [posture for workload in workload_path for posture in _subnet_posture(workload, inventory)]),
-            _evidence_item("data_tier_posture", data_posture),
-            _evidence_item("boundary_rationale", [data_boundary.rationale]),
+            evidence_item("subnet_posture", [posture for workload in workload_path for posture in _subnet_posture(workload, inventory)]),
+            evidence_item("data_tier_posture", data_posture),
+            evidence_item("boundary_rationale", [data_boundary.rationale]),
         ),
         severity_reasoning=severity_reasoning,
     )
