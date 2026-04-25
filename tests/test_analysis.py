@@ -12,6 +12,7 @@ from tfstride.app import TfStride
 from tfstride.models import (
     BoundaryType,
     IAMPolicyCondition,
+    IAMPolicyStatement,
     NormalizedResource,
     ResourceCategory,
     ResourceInventory,
@@ -89,8 +90,91 @@ class RuleRegistryIntegrationTests(unittest.TestCase):
         self.assertEqual(finding.category, StrideCategory.DENIAL_OF_SERVICE)
         self.assertEqual(finding.recommended_mitigation, "Registry supplied mitigation.")
 
+    def test_rule_engine_executes_iam_rule_definitions_with_registry_metadata(self) -> None:
+        registry = RuleRegistry(
+            [
+                RuleMetadata(
+                    rule_id="aws-iam-wildcard-permissions",
+                    title="Registry supplied IAM wildcard title",
+                    category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                    recommended_mitigation="Registry supplied wildcard mitigation.",
+                ),
+                RuleMetadata(
+                    rule_id="aws-workload-role-sensitive-permissions",
+                    title="Registry supplied workload role title",
+                    category=StrideCategory.INFORMATION_DISCLOSURE,
+                    recommended_mitigation="Registry supplied workload role mitigation.",
+                ),
+            ]
+        )
+        wildcard_policy = NormalizedResource(
+            address="aws_iam_policy.admin",
+            provider="aws",
+            resource_type="aws_iam_policy",
+            name="admin",
+            category=ResourceCategory.IAM,
+            policy_statements=[
+                IAMPolicyStatement(
+                    effect="Allow",
+                    actions=["s3:*"],
+                    resources=["arn:aws:s3:::customer-data/*"],
+                )
+            ],
+        )
+        role = NormalizedResource(
+            address="aws_iam_role.worker",
+            provider="aws",
+            resource_type="aws_iam_role",
+            name="worker",
+            category=ResourceCategory.IAM,
+            arn="arn:aws:iam::111122223333:role/worker",
+            policy_statements=[
+                IAMPolicyStatement(
+                    effect="Allow",
+                    actions=["secretsmanager:GetSecretValue"],
+                    resources=["arn:aws:secretsmanager:us-east-1:111122223333:secret:customer"],
+                )
+            ],
+        )
+        workload = NormalizedResource(
+            address="aws_lambda_function.worker",
+            provider="aws",
+            resource_type="aws_lambda_function",
+            name="worker",
+            category=ResourceCategory.COMPUTE,
+            attached_role_arns=["arn:aws:iam::111122223333:role/worker"],
+        )
+        inventory = ResourceInventory(provider="aws", resources=[wildcard_policy, role, workload])
 
-class TfStrideAnalysisTests(unittest.TestCase):
+        findings = StrideRuleEngine(rule_registry=registry).evaluate(inventory, [])
+        findings_by_rule = {finding.rule_id: finding for finding in findings}
+
+        self.assertEqual(
+            set(findings_by_rule),
+            {
+                "aws-iam-wildcard-permissions",
+                "aws-workload-role-sensitive-permissions",
+            },
+        )
+        self.assertEqual(
+            findings_by_rule["aws-iam-wildcard-permissions"].title,
+            "Registry supplied IAM wildcard title",
+        )
+        self.assertEqual(
+            findings_by_rule["aws-iam-wildcard-permissions"].recommended_mitigation,
+            "Registry supplied wildcard mitigation.",
+        )
+        self.assertEqual(
+            findings_by_rule["aws-workload-role-sensitive-permissions"].title,
+            "Registry supplied workload role title",
+        )
+        self.assertEqual(
+            findings_by_rule["aws-workload-role-sensitive-permissions"].recommended_mitigation,
+            "Registry supplied workload role mitigation.",
+        )
+
+
+class TFSAnalysisTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = TfStride()
         self.result = self.engine.analyze_plan(FIXTURE_PATH)

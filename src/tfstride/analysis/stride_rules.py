@@ -8,6 +8,7 @@ from tfstride.analysis.policy_conditions import (
     trust_statement_has_effective_narrowing,
     trust_statement_has_supported_narrowing,
 )
+from tfstride.analysis.rule_definitions import BoundaryIndex, ExecutableRule, RuleEvaluationContext
 from tfstride.analysis.rule_registry import DEFAULT_RULE_REGISTRY, RuleRegistry
 from tfstride.models import (
     BoundaryType,
@@ -43,18 +44,24 @@ SERVICE_RESOURCE_POLICY_TYPES = {"aws_lambda_function", "aws_sqs_queue", "aws_sn
 class StrideRuleEngine:
     def __init__(self, rule_registry: RuleRegistry = DEFAULT_RULE_REGISTRY) -> None:
         self._finding_factory = FindingFactory(rule_registry)
+        self._iam_rules = (
+	        ExecutableRule("aws-iam-wildcard-permissions", self._detect_iam_wildcards_rule),
+	        ExecutableRule("aws-workload-role-sensitive-permissions", self._detect_workload_role_risk_rule),
+	    )
 
     def evaluate(self, inventory: ResourceInventory, boundaries: list[TrustBoundary]) -> list[Finding]:
         findings: list[Finding] = []
-        boundary_index = {(boundary.boundary_type, boundary.source, boundary.target): boundary for boundary in boundaries}
+        boundary_index: BoundaryIndex = {
+	        (boundary.boundary_type, boundary.source, boundary.target): boundary for boundary in boundaries
+	    }
+        context = RuleEvaluationContext(inventory=inventory, boundary_index=boundary_index)
 
         findings.extend(self._detect_public_compute_exposure(inventory, boundary_index))
         findings.extend(self._detect_database_exposure(inventory, boundary_index))
         findings.extend(self._detect_unencrypted_databases(inventory))
         findings.extend(self._detect_public_object_storage(inventory, boundary_index))
         findings.extend(self._detect_resource_policy_exposure(inventory, boundary_index))
-        findings.extend(self._detect_iam_wildcards(inventory))
-        findings.extend(self._detect_workload_role_risk(inventory, boundary_index))
+        findings.extend(self._evaluate_rules(self._iam_rules, context))
         findings.extend(self._detect_missing_segmentation(inventory, boundary_index))
         findings.extend(self._detect_transitive_private_data_exposure(inventory, boundary_index))
         findings.extend(self._detect_control_plane_sensitive_workload_chain(inventory, boundary_index))
@@ -85,6 +92,30 @@ class StrideRuleEngine:
             evidence=evidence,
             severity_reasoning=severity_reasoning,
         )
+
+    def _evaluate_rules(
+	    self,
+	    rules: tuple[ExecutableRule, ...],
+	    context: RuleEvaluationContext,
+	) -> list[Finding]:
+	    findings: list[Finding] = []
+	    for rule in rules:
+	        findings.extend(rule.evaluate(context))
+	    return findings
+	
+    def _detect_iam_wildcards_rule(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_iam_wildcards(context.inventory, rule_id=rule_id)
+	
+    def _detect_workload_role_risk_rule(
+	    self,
+	    context: RuleEvaluationContext,
+	    rule_id: str,
+	) -> list[Finding]:
+        return self._detect_workload_role_risk(context.inventory, context.boundary_index, rule_id=rule_id)
 
     def _detect_resource_policy_exposure(
         self,
@@ -439,7 +470,7 @@ class StrideRuleEngine:
             )
         return findings
 
-    def _detect_iam_wildcards(self, inventory: ResourceInventory) -> list[Finding]:
+    def _detect_iam_wildcards(self, inventory: ResourceInventory, *, rule_id: str) -> list[Finding]:
         findings: list[Finding] = []
         for policy_resource in inventory.by_type("aws_iam_policy", "aws_iam_role"):
             wildcard_statements = [
@@ -475,7 +506,7 @@ class StrideRuleEngine:
             )
             findings.append(
                 self._build_finding(
-                    rule_id="aws-iam-wildcard-permissions",
+                    rule_id=rule_id,
                     severity=severity_reasoning.severity,
                     affected_resources=[policy_resource.address],
                     trust_boundary_id=None,
@@ -499,7 +530,9 @@ class StrideRuleEngine:
     def _detect_workload_role_risk(
         self,
         inventory: ResourceInventory,
-        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+        boundary_index: BoundaryIndex,
+	    *,
+	    rule_id: str,
     ) -> list[Finding]:
         findings: list[Finding] = []
         role_index = _role_index(inventory)
@@ -520,7 +553,7 @@ class StrideRuleEngine:
             )
             findings.append(
                 self._build_finding(
-                    rule_id="aws-workload-role-sensitive-permissions",
+                    rule_id=rule_id,
                     severity=severity_reasoning.severity,
                     affected_resources=[workload.address, role.address],
                     trust_boundary_id=boundary.identifier if boundary else None,
