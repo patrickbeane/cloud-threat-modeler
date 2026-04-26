@@ -385,6 +385,75 @@ class RuleRegistryIntegrationTests(unittest.TestCase):
                     {finding.rule_id for finding in findings},
                     posture_rule_ids - {disabled_rule_id},
                 )
+
+    def test_rule_engine_skips_disabled_network_data_executable_rule_only(self) -> None:
+        public_security_group = NormalizedResource(
+            address="aws_security_group.public_app",
+            provider="aws",
+            resource_type="aws_security_group",
+            name="public_app",
+            category=ResourceCategory.NETWORK,
+            identifier="sg-public-app",
+        )
+        public_app = NormalizedResource(
+            address="aws_instance.public_app",
+            provider="aws",
+            resource_type="aws_instance",
+            name="public_app",
+            category=ResourceCategory.COMPUTE,
+            security_group_ids=["sg-public-app"],
+            public_exposure=True,
+        )
+        database_security_group = NormalizedResource(
+            address="aws_security_group.database",
+            provider="aws",
+            resource_type="aws_security_group",
+            name="database",
+            category=ResourceCategory.NETWORK,
+            identifier="sg-database",
+            network_rules=[
+                SecurityGroupRule(
+                    direction="ingress",
+                    protocol="tcp",
+                    from_port=5432,
+                    to_port=5432,
+                    referenced_security_group_ids=["sg-public-app"],
+                )
+            ],
+        )
+        database = NormalizedResource(
+            address="aws_db_instance.customer",
+            provider="aws",
+            resource_type="aws_db_instance",
+            name="customer",
+            category=ResourceCategory.DATA,
+            security_group_ids=["sg-database"],
+            metadata={"storage_encrypted": True},
+        )
+        inventory = ResourceInventory(
+            provider="aws",
+            resources=[public_security_group, public_app, database_security_group, database],
+        )
+        network_data_rule_ids = {
+            "aws-database-permissive-ingress",
+            "aws-missing-tier-segmentation",
+        }
+
+        for disabled_rule_id in network_data_rule_ids:
+            with self.subTest(disabled_rule_id=disabled_rule_id):
+                enabled_rule_ids = DEFAULT_RULE_REGISTRY.default_enabled_rule_ids()
+                enabled_rule_ids.remove(disabled_rule_id)
+
+                findings = StrideRuleEngine().evaluate(
+                    inventory,
+                    [],
+                    rule_policy=RulePolicy(enabled_rule_ids=frozenset(enabled_rule_ids)),
+                )
+
+                self.assertEqual(
+                    {finding.rule_id for finding in findings},
+                    network_data_rule_ids - {disabled_rule_id},
+                )
                 
 
 class TFSAnalysisTests(unittest.TestCase):

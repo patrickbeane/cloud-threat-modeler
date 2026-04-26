@@ -51,6 +51,16 @@ class StrideRuleEngine:
                 self._detect_public_object_storage,
             ),
         )
+        self._network_data_rules = (
+	        ExecutableRule(
+                "aws-database-permissive-ingress",
+                self._detect_database_exposure,
+            ),
+            ExecutableRule(
+                "aws-missing-tier-segmentation",
+                self._detect_missing_segmentation,
+            ),
+        )
         self._resource_policy_rules = (
             ExecutableRule(
                 "aws-sensitive-resource-policy-external-access",
@@ -101,10 +111,9 @@ class StrideRuleEngine:
         )
 
         findings.extend(self._evaluate_rules(self._posture_rules, context))
-        findings.extend(self._detect_database_exposure(inventory, boundary_index))
+        findings.extend(self._evaluate_rules(self._network_data_rules, context))
         findings.extend(self._evaluate_rules(self._resource_policy_rules, context))
         findings.extend(self._evaluate_rules(self._iam_rules, context))
-        findings.extend(self._detect_missing_segmentation(inventory, boundary_index))
         findings.extend(self._detect_transitive_private_data_exposure(inventory, boundary_index))
         findings.extend(self._detect_control_plane_sensitive_workload_chain(inventory, boundary_index))
         findings.extend(self._evaluate_rules(self._trust_rules, context))
@@ -213,10 +222,12 @@ class StrideRuleEngine:
 
     def _detect_database_exposure(
         self,
-        inventory: ResourceInventory,
-        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+        context: RuleEvaluationContext,
+	    rule_id: str,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        inventory = context.inventory
+        boundary_index = context.boundary_index
         # Treat security groups attached to internet-reachable workloads as the "public tier"
         # so database rules can reason about indirect exposure, not just raw 0.0.0.0/0 ingress.
         public_workloads_by_security_group: dict[str, list[NormalizedResource]] = {}
@@ -292,7 +303,7 @@ class StrideRuleEngine:
                 path_signals.append("database trusts security groups attached to internet-exposed workloads")
             findings.append(
                 self._build_finding(
-                    rule_id="aws-database-permissive-ingress",
+                    rule_id=rule_id,
                     severity=severity_reasoning.severity,
                     affected_resources=[database.address, *[sg.address for sg in attached_security_groups]],
                     trust_boundary_id=boundary.identifier if boundary else None,
@@ -418,10 +429,12 @@ class StrideRuleEngine:
 
     def _detect_missing_segmentation(
         self,
-        inventory: ResourceInventory,
-        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+        context: RuleEvaluationContext,
+        rule_id: str,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        inventory = context.inventory
+        boundary_index = context.boundary_index
         public_security_group_map: dict[str, list[NormalizedResource]] = {}
         for resource in inventory.resources:
             if not resource.public_exposure:
@@ -459,7 +472,7 @@ class StrideRuleEngine:
                 )
                 findings.append(
                     self._build_finding(
-                        rule_id="aws-missing-tier-segmentation",
+                        rule_id=rule_id,
                         severity=severity_reasoning.severity,
                         affected_resources=[database.address, *exposed_workloads, security_group.address],
                         trust_boundary_id=public_private_boundary.identifier if public_private_boundary else None,
