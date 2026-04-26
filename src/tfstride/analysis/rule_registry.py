@@ -29,7 +29,8 @@ class RulePolicy:
 
 class RuleRegistry:
     def __init__(self, rules: list[RuleMetadata]) -> None:
-        self._rules_by_id = {rule.rule_id: rule for rule in rules}
+        self._rules = tuple(rules)
+        self._rules_by_id = {rule.rule_id: rule for rule in self._rules}
         if len(self._rules_by_id) != len(rules):
             raise ValueError("Duplicate rule IDs are not allowed in the rule registry.")
 
@@ -44,6 +45,9 @@ class RuleRegistry:
 
     def default_enabled_rule_ids(self) -> set[str]:
         return {rule.rule_id for rule in self._rules_by_id.values() if rule.enabled_by_default}
+
+    def rules(self) -> tuple[RuleMetadata, ...]:
+	    return self._rules
 
 
 DEFAULT_RULE_REGISTRY = RuleRegistry(

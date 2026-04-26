@@ -2,10 +2,30 @@ from __future__ import annotations
 
 import unittest
 
-from tfstride.analysis.rule_registry import RulePolicy, apply_severity_overrides
+from tfstride.analysis.rule_registry import RuleMetadata, RulePolicy, RuleRegistry, apply_severity_overrides
 from tfstride.models import Finding, Severity, SeverityReasoning, StrideCategory
 
 
+class RuleRegistryTests(unittest.TestCase):
+    def test_rules_preserves_registry_order(self) -> None:
+        first = RuleMetadata(
+            rule_id="aws-first-rule",
+            title="First rule",
+            category=StrideCategory.SPOOFING,
+            recommended_mitigation="Fix the first issue.",
+        )
+        second = RuleMetadata(
+            rule_id="aws-second-rule",
+            title="Second rule",
+            category=StrideCategory.TAMPERING,
+            recommended_mitigation="Fix the second issue.",
+        )
+	
+        registry = RuleRegistry([first, second])
+
+        self.assertEqual(registry.rules(), (first, second))
+	
+	
 class SeverityOverridePolicyTests(unittest.TestCase):
     def test_apply_severity_overrides_updates_finding_and_preserves_computed_severity(self) -> None:
         finding = _finding(

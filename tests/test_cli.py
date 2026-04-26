@@ -21,6 +21,26 @@ CROSS_ACCOUNT_TRUST_UNCONSTRAINED_FIXTURE_PATH = (
 
 
 class CliTests(unittest.TestCase):
+    def test_cli_lists_rules_without_plan(self) -> None:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exit_code = main(["--list-rules"])
+
+        output = stdout_buffer.getvalue()
+	
+        self.assertEqual(exit_code, 0)
+        self.assertEqual("", stderr_buffer.getvalue())
+        self.assertIn("tfSTRIDE Rules", output)
+        self.assertIn("- aws-public-compute-broad-ingress", output)
+        self.assertIn("  STRIDE: Spoofing", output)
+        self.assertIn("  Enabled by default: yes", output)
+        self.assertIn("  Severity factors: internet_exposure, lateral_movement, blast_radius", output)
+        self.assertIn("  Mitigation: Restrict ingress to expected client ports", output)
+        self.assertIn("- aws-role-trust-missing-narrowing", output)
+        self.assertTrue(output.endswith("\n"))
+
     def test_cli_writes_markdown_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "report.md"
