@@ -91,6 +91,16 @@ class StrideRuleEngine:
                 self._policy_trust_rule_detectors.detect_unconstrained_trust,
             ),
         )
+        self._path_chain_rules = (
+	        ExecutableRule(
+                "aws-private-data-transitive-exposure",
+                self._detect_transitive_private_data_exposure,
+            ),
+            ExecutableRule(
+                "aws-control-plane-sensitive-workload-chain",
+                self._detect_control_plane_sensitive_workload_chain,
+            ),
+        )
 
     def evaluate(
         self,
@@ -114,8 +124,7 @@ class StrideRuleEngine:
         findings.extend(self._evaluate_rules(self._network_data_rules, context))
         findings.extend(self._evaluate_rules(self._resource_policy_rules, context))
         findings.extend(self._evaluate_rules(self._iam_rules, context))
-        findings.extend(self._detect_transitive_private_data_exposure(inventory, boundary_index))
-        findings.extend(self._detect_control_plane_sensitive_workload_chain(inventory, boundary_index))
+        findings.extend(self._evaluate_rules(self._path_chain_rules, context))
         findings.extend(self._evaluate_rules(self._trust_rules, context))
 
         severity_order = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
@@ -511,10 +520,12 @@ class StrideRuleEngine:
 
     def _detect_transitive_private_data_exposure(
         self,
-        inventory: ResourceInventory,
-        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+        context: RuleEvaluationContext,
+	    rule_id: str,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        inventory = context.inventory
+        boundary_index = context.boundary_index
         trusted_workload_hops = _trusted_workload_hops(inventory)
         private_data_paths = _private_workload_data_paths(boundary_index, inventory)
         seen: set[tuple[str, ...]] = set()
@@ -550,7 +561,7 @@ class StrideRuleEngine:
                     seen.add(finding_key)
                     findings.append(
                         _build_transitive_private_data_finding(
-                            rule_id="aws-private-data-transitive-exposure",
+                            rule_id=rule_id,
                             finding_factory=self._finding_factory,
                             inventory=inventory,
                             entry=entry,
@@ -565,10 +576,12 @@ class StrideRuleEngine:
 
     def _detect_control_plane_sensitive_workload_chain(
         self,
-        inventory: ResourceInventory,
-        boundary_index: dict[tuple[BoundaryType, str, str], TrustBoundary],
+        context: RuleEvaluationContext,
+        rule_id: str,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        inventory = context.inventory
+        boundary_index = context.boundary_index
         primary_account_id = inventory.primary_account_id
         control_boundaries_by_role = _control_workload_boundaries_by_role(boundary_index)
         sensitive_data_paths = _private_sensitive_controlled_data_paths(boundary_index, inventory)
@@ -588,7 +601,9 @@ class StrideRuleEngine:
                     if not (assessment.is_foreign_account or assessment.is_wildcard):
                         continue
 
-                    chained_paths: list[tuple[NormalizedResource, TrustBoundary, NormalizedResource, TrustBoundary]] = []
+                    chained_paths: list[
+                        tuple[NormalizedResource, TrustBoundary, NormalizedResource, TrustBoundary]
+                    ] = []
                     for control_boundary in control_boundaries:
                         workload = inventory.get_by_address(control_boundary.target)
                         if workload is None:
@@ -614,10 +629,12 @@ class StrideRuleEngine:
                         lateral_movement=1,
                         blast_radius=blast_radius,
                     )
-                    trust_boundary = boundary_index.get((BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address))
+                    trust_boundary = boundary_index.get(
+                        (BoundaryType.CROSS_ACCOUNT_OR_ROLE, principal, role.address)
+                    )
                     findings.append(
                         self._build_finding(
-                            rule_id="aws-control-plane-sensitive-workload-chain",
+                            rule_id=rule_id,
                             severity=severity_reasoning.severity,
                             affected_resources=[
                                 role.address,
@@ -633,7 +650,10 @@ class StrideRuleEngine:
                             ),
                             evidence=collect_evidence(
                                 evidence_item("trust_principals", [principal]),
-                                evidence_item("trust_scope", [assessment.scope_description] if assessment.scope_description else []),
+                                evidence_item(
+                                    "trust_scope", 
+                                    [assessment.scope_description] if assessment.scope_description else []
+                                ),
                                 evidence_item(
                                     "control_path",
                                     [

@@ -20,6 +20,7 @@ from tfstride.models import (
     Severity,
     StrideCategory,
     TerraformResource,
+    TrustBoundary,
 )
 from tfstride.providers.aws.normalizer import AwsNormalizer
 
@@ -454,7 +455,132 @@ class RuleRegistryIntegrationTests(unittest.TestCase):
                     {finding.rule_id for finding in findings},
                     network_data_rule_ids - {disabled_rule_id},
                 )
-                
+
+    def test_rule_engine_skips_disabled_path_chain_executable_rule_only(self) -> None:
+        principal = "arn:aws:iam::444455556666:role/deployer"
+        edge_security_group = NormalizedResource(
+            address="aws_security_group.edge",
+            provider="aws",
+            resource_type="aws_security_group",
+            name="edge",
+            category=ResourceCategory.NETWORK,
+            identifier="sg-edge",
+        )
+        worker_security_group = NormalizedResource(
+            address="aws_security_group.worker",
+            provider="aws",
+            resource_type="aws_security_group",
+            name="worker",
+            category=ResourceCategory.NETWORK,
+            identifier="sg-worker",
+            network_rules=[
+                SecurityGroupRule(
+                    direction="ingress",
+                    protocol="tcp",
+                    from_port=9000,
+                    to_port=9000,
+                    referenced_security_group_ids=["sg-edge"],
+                )
+            ],
+        )
+        edge = NormalizedResource(
+            address="aws_instance.edge",
+            provider="aws",
+            resource_type="aws_instance",
+            name="edge",
+            category=ResourceCategory.COMPUTE,
+            security_group_ids=["sg-edge"],
+        )
+        worker = NormalizedResource(
+            address="aws_instance.worker",
+            provider="aws",
+            resource_type="aws_instance",
+            name="worker",
+            category=ResourceCategory.COMPUTE,
+            security_group_ids=["sg-worker"],
+        )
+        database = NormalizedResource(
+            address="aws_db_instance.customer",
+            provider="aws",
+            resource_type="aws_db_instance",
+            name="customer",
+            category=ResourceCategory.DATA,
+        )
+        role = NormalizedResource(
+            address="aws_iam_role.deployer",
+            provider="aws",
+            resource_type="aws_iam_role",
+            name="deployer",
+            category=ResourceCategory.IAM,
+            metadata={
+                "trust_statements": [
+                    {
+                        "principals": [principal],
+                        "narrowing_condition_keys": [],
+                        "narrowing_conditions": [],
+                        "has_narrowing_conditions": False,
+                    }
+                ]
+            },
+        )
+        boundaries = [
+            TrustBoundary(
+                identifier="internet-to-edge",
+                boundary_type=BoundaryType.INTERNET_TO_SERVICE,
+                source="internet",
+                target=edge.address,
+                description="internet reaches edge",
+                rationale="edge is internet-facing",
+            ),
+            TrustBoundary(
+                identifier="worker-to-database",
+                boundary_type=BoundaryType.WORKLOAD_TO_DATA_STORE,
+                source=worker.address,
+                target=database.address,
+                description="worker reaches database",
+                rationale="database security group trusts worker",
+            ),
+            TrustBoundary(
+                identifier="role-to-worker",
+                boundary_type=BoundaryType.CONTROL_TO_WORKLOAD,
+                source=role.address,
+                target=worker.address,
+                description="role governs worker",
+                rationale="role credentials are projected into worker",
+            ),
+        ]
+        inventory = ResourceInventory(
+            provider="aws",
+            resources=[
+                edge_security_group,
+                worker_security_group,
+                edge,
+                worker,
+                database,
+                role,
+            ],
+            metadata={"primary_account_id": "111122223333"},
+        )
+        path_chain_rule_ids = {
+            "aws-private-data-transitive-exposure",
+            "aws-control-plane-sensitive-workload-chain",
+        }
+
+        for disabled_rule_id in path_chain_rule_ids:
+            with self.subTest(disabled_rule_id=disabled_rule_id):
+                enabled_rule_ids = path_chain_rule_ids - {disabled_rule_id}
+
+                findings = StrideRuleEngine().evaluate(
+                    inventory,
+                    boundaries,
+                    rule_policy=RulePolicy(enabled_rule_ids=frozenset(enabled_rule_ids)),
+                )
+
+                self.assertEqual(
+                    {finding.rule_id for finding in findings},
+                    enabled_rule_ids,
+                )
+
 
 class TFSAnalysisTests(unittest.TestCase):
     def setUp(self) -> None:
