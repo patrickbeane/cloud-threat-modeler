@@ -4,7 +4,13 @@ import unittest
 
 from tests.helpers import engine_configured_rule_ids
 from tfstride.analysis.rule_definitions import RuleDefinition
-from tfstride.analysis.rule_registry import RuleMetadata, RulePolicy, RuleRegistry, default_rule_registry
+from tfstride.analysis.rule_registry import (
+    RuleMetadata,
+    RulePolicy,
+    RuleRegistry,
+    default_rule_metadata,
+    default_rule_registry,
+)
 from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.models import (
     BoundaryType,
@@ -23,17 +29,30 @@ class RuleRegistryIntegrationTests(unittest.TestCase):
     def test_rule_engine_rule_groups_are_built_from_rule_definitions(self) -> None:
         engine = StrideRuleEngine()
 
-        self.assertTrue(
-            all(isinstance(rule, RuleDefinition) for rule_group in engine._rule_groups() for rule in rule_group)
-        )
+        for provider in ("aws", "gcp", "azure"):
+            with self.subTest(provider=provider):
+                self.assertTrue(
+                    all(
+                        isinstance(rule, RuleDefinition)
+                        for rule_group in engine._rule_groups(provider)
+                        for rule in rule_group
+                    )
+                )
 
-    def test_rule_engine_derives_default_registry_from_rule_definitions(self) -> None:
+    def test_rule_engine_builds_distinct_provider_registries_from_definitions(self) -> None:
         engine = StrideRuleEngine()
         second_engine = StrideRuleEngine()
-        definition_metadata = tuple(rule.metadata for rule_group in engine._rule_groups() for rule in rule_group)
 
-        self.assertIsNot(engine._rule_registry, second_engine._rule_registry)
-        self.assertEqual(engine._rule_registry.rules(), definition_metadata)
+        for provider in ("aws", "gcp", "azure"):
+            with self.subTest(provider=provider):
+                rule_set = engine.rule_set_for(provider)
+                second_rule_set = second_engine.rule_set_for(provider)
+                definition_metadata = tuple(
+                    rule.metadata for rule_group in rule_set.contribution.rule_groups for rule in rule_group
+                )
+
+                self.assertIsNot(rule_set.registry, second_rule_set.registry)
+                self.assertEqual(rule_set.registry.rules(), definition_metadata)
 
     def test_rule_registry_matches_configured_executable_rules(self) -> None:
         self.assertEqual(
@@ -89,6 +108,40 @@ class RuleRegistryIntegrationTests(unittest.TestCase):
         self.assertEqual(finding.title, "Registry supplied public compute title")
         self.assertEqual(finding.category, StrideCategory.DENIAL_OF_SERVICE)
         self.assertEqual(finding.recommended_mitigation, "Registry supplied mitigation.")
+
+    def test_partial_registry_uses_default_metadata_for_unoverridden_rules(self) -> None:
+        override = RuleMetadata(
+            rule_id="aws-public-compute-broad-ingress",
+            title="Registry supplied public compute title",
+            category=StrideCategory.DENIAL_OF_SERVICE,
+            recommended_mitigation="Registry supplied mitigation.",
+        )
+        registry = RuleRegistry([override])
+        wildcard_policy = NormalizedResource(
+            address="aws_iam_policy.admin",
+            provider="aws",
+            resource_type="aws_iam_policy",
+            name="admin",
+            category=ResourceCategory.IAM,
+            policy_statements=[
+                IAMPolicyStatement(
+                    effect="Allow",
+                    actions=["s3:*"],
+                    resources=["arn:aws:s3:::customer-data/*"],
+                )
+            ],
+        )
+        inventory = ResourceInventory(provider="aws", resources=[wildcard_policy])
+        engine = StrideRuleEngine(rule_registry=registry)
+
+        findings = engine.evaluate(inventory, [])
+        rule_set = engine.rule_set_for("aws")
+        default_metadata = default_rule_metadata("aws-iam-wildcard-permissions")
+
+        self.assertEqual([finding.rule_id for finding in findings], [default_metadata.rule_id])
+        self.assertEqual(findings[0].title, default_metadata.title)
+        self.assertIs(rule_set.registry.get(override.rule_id), override)
+        self.assertIs(rule_set.registry.get(default_metadata.rule_id), default_metadata)
 
     def test_rule_engine_executes_iam_rule_definitions_with_registry_metadata(self) -> None:
         registry = RuleRegistry(

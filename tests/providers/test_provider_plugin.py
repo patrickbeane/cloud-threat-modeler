@@ -269,6 +269,42 @@ class ProviderPluginTests(unittest.TestCase):
         self.assertEqual(len(contributors), 1)
         self.assertIsInstance(contributors[0], RecordingBoundaryContributor)
 
+    def test_rule_contribution_helper_filters_before_calling_provider_factory(self) -> None:
+        calls: list[str] = []
+
+        def contribution_factory(provider: str):
+            def build(finding_factory: FindingFactory) -> RuleContribution:
+                calls.append(provider)
+                return _rule_contribution(finding_factory)
+
+            return build
+
+        aws_plugin = _plugin(
+            provider="aws",
+            rule_contribution_factory=contribution_factory("aws"),
+        )
+        gcp_plugin = _plugin(
+            provider="gcp",
+            rule_contribution_factory=contribution_factory("gcp"),
+        )
+
+        contribution = rule_contribution_from_plugins(
+            [aws_plugin, gcp_plugin],
+            FindingFactory(RuleRegistry([RULE_METADATA])),
+            provider=" GCP ",
+        )
+
+        self.assertEqual(calls, ["gcp"])
+        self.assertEqual(contribution.rule_groups[0][0].metadata.rule_id, RULE_METADATA.rule_id)
+
+    def test_rule_contribution_helper_rejects_unknown_provider(self) -> None:
+        with self.assertRaisesRegex(ProviderPluginError, "No provider plugin registered"):
+            rule_contribution_from_plugins(
+                [_plugin(provider="aws")],
+                FindingFactory(RuleRegistry([RULE_METADATA])),
+                provider="unknown",
+            )
+
     def test_plugin_helper_builds_resource_capability_registry(self) -> None:
         plugin = _plugin()
         registry = resource_capability_registry_from_plugins([plugin])

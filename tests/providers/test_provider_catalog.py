@@ -200,6 +200,23 @@ class ProviderCatalogTests(unittest.TestCase):
             registry.known_rule_ids(),
         )
 
+    def test_default_rule_contribution_selects_one_builtin_provider(self) -> None:
+        registry = default_rule_registry()
+        expected_rule_ids = {
+            provider: {rule.rule_id for rule in registry.rules() if rule.rule_id.startswith(f"{provider}-")}
+            for provider in ("aws", "gcp", "azure")
+        }
+
+        for provider in ("aws", "gcp", "azure"):
+            with self.subTest(provider=provider):
+                contribution = default_rule_contribution(
+                    FindingFactory(registry),
+                    provider=f" {provider.upper()} ",
+                )
+                actual_rule_ids = {rule.metadata.rule_id for group in contribution.rule_groups for rule in group}
+
+                self.assertEqual(actual_rule_ids, expected_rule_ids[provider])
+
     def test_default_provider_limitations_register_builtin_provider_caveats(self) -> None:
         limitations = default_provider_limitations()
 

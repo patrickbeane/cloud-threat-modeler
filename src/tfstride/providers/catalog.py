@@ -82,5 +82,13 @@ def default_provider_observation_factories_by_provider() -> dict[str, tuple[Prov
     return observation_factories_by_provider_from_plugins(default_provider_plugins())
 
 
-def default_rule_contribution(finding_factory: FindingFactory) -> RuleContribution:
-    return rule_contribution_from_plugins(default_provider_plugins(), finding_factory)
+def default_rule_contribution(
+    finding_factory: FindingFactory,
+    *,
+    provider: str | None = None,
+) -> RuleContribution:
+    return rule_contribution_from_plugins(
+        default_provider_plugins(),
+        finding_factory,
+        provider=provider,
+    )

@@ -236,13 +236,22 @@ def rule_metadata_from_plugins(plugins: Iterable[ProviderPlugin]) -> tuple[RuleM
 def rule_contribution_from_plugins(
     plugins: Iterable[ProviderPlugin],
     finding_factory: FindingFactory,
+    *,
+    provider: str | None = None,
 ) -> RuleContribution:
     from tfstride.analysis.rule_definitions import merge_rule_contributions_by_stage
+
+    normalized_provider = normalize_provider_name(provider) if provider is not None else None
+    selected_plugins = tuple(
+        plugin for plugin in plugins if normalized_provider is None or plugin.provider == normalized_provider
+    )
+    if normalized_provider is not None and not selected_plugins:
+        raise ProviderPluginError(f"No provider plugin registered for `{normalized_provider}`.")
 
     return merge_rule_contributions_by_stage(
         *(
             contribution
-            for plugin in plugins
+            for plugin in selected_plugins
             if (contribution := plugin.create_rule_contribution(finding_factory)) is not None
         )
     )

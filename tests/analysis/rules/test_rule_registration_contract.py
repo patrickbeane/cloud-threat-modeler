@@ -11,6 +11,7 @@ from tfstride.analysis.rule_registry import default_rule_registry
 from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.providers.aws import rules as aws_rules
 from tfstride.providers.azure import rules as azure_rules
+from tfstride.providers.catalog import default_rule_contribution
 from tfstride.providers.gcp import rules as gcp_rules
 
 EXPECTED_AWS_RULE_GROUP_IDS = (
@@ -326,8 +327,10 @@ EXPECTED_DEFAULT_RULE_GROUP_IDS = _merge_stage_rule_groups(
 )
 
 
-def _engine_rule_group_ids(engine: StrideRuleEngine) -> tuple[tuple[str, ...], ...]:
-    return tuple(tuple(rule.metadata.rule_id for rule in rule_group) for rule_group in engine._rule_groups())
+def _default_rule_group_ids() -> tuple[tuple[str, ...], ...]:
+    registry = default_rule_registry()
+    contribution = default_rule_contribution(FindingFactory(registry))
+    return tuple(tuple(rule.metadata.rule_id for rule in rule_group) for rule_group in contribution.rule_groups)
 
 
 class DefaultRuleRegistrationContractTests(unittest.TestCase):
@@ -388,22 +391,35 @@ class DefaultRuleRegistrationContractTests(unittest.TestCase):
 
     def test_default_rule_group_ids_match_locked_stage_order(self) -> None:
         self.assertEqual(
-            _engine_rule_group_ids(StrideRuleEngine()),
+            _default_rule_group_ids(),
             EXPECTED_DEFAULT_RULE_GROUP_IDS,
         )
 
-    def test_default_rule_groups_are_backed_by_rule_contribution(self) -> None:
+    def test_provider_rule_groups_are_backed_by_provider_rule_sets(self) -> None:
         engine = StrideRuleEngine()
 
-        self.assertIsInstance(engine._rule_contribution, RuleContribution)
-        self.assertIs(engine._rule_groups(), engine._rule_contribution.rule_groups)
+        for provider in ("aws", "gcp", "azure"):
+            with self.subTest(provider=provider):
+                rule_set = engine.rule_set_for(provider)
 
-    def test_default_rule_registry_is_derived_from_rule_contribution_metadata(self) -> None:
+                self.assertIsInstance(rule_set.contribution, RuleContribution)
+                self.assertIs(
+                    engine._rule_groups(provider),
+                    rule_set.contribution.rule_groups,
+                )
+
+    def test_provider_rule_set_registries_use_contribution_metadata(self) -> None:
         engine = StrideRuleEngine()
 
-        for rule_group in engine._rule_contribution.rule_groups:
-            for rule in rule_group:
-                self.assertIs(engine._rule_registry.get(rule.metadata.rule_id), rule.metadata)
+        for provider in ("aws", "gcp", "azure"):
+            with self.subTest(provider=provider):
+                rule_set = engine.rule_set_for(provider)
+                for rule_group in rule_set.contribution.rule_groups:
+                    for rule in rule_group:
+                        self.assertIs(
+                            rule_set.registry.get(rule.metadata.rule_id),
+                            rule.metadata,
+                        )
 
     def test_default_rule_group_count_and_lengths_are_stable(self) -> None:
         self.assertEqual(len(EXPECTED_DEFAULT_RULE_GROUP_IDS), 6)
@@ -420,7 +436,7 @@ class DefaultRuleRegistrationContractTests(unittest.TestCase):
         self.assertEqual(len(rule_ids), len(set(rule_ids)))
 
     def test_default_configured_rule_ids_exist_in_default_registry(self) -> None:
-        configured_rule_ids = set(_flatten(_engine_rule_group_ids(StrideRuleEngine())))
+        configured_rule_ids = set(_flatten(_default_rule_group_ids()))
 
         self.assertLessEqual(configured_rule_ids, default_rule_registry().known_rule_ids())
 

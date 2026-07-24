@@ -8,6 +8,17 @@ if TYPE_CHECKING:
     from tfstride.analysis.stride_rules import StrideRuleEngine
 
 
-def engine_configured_rule_ids(engine: StrideRuleEngine) -> set[str]:
-    """Extract configured rule IDs from a StrideRuleEngine instance."""
-    return {rule.metadata.rule_id for rule_group in engine._rule_groups() for rule in rule_group}
+def engine_configured_rule_ids(
+    engine: StrideRuleEngine,
+    provider: str | None = None,
+) -> set[str]:
+    """Extract one provider or the complete built-in executable rule ID set."""
+    from tfstride.providers.catalog import default_provider_plugins
+
+    providers = (provider,) if provider is not None else tuple(plugin.provider for plugin in default_provider_plugins())
+    return {
+        rule.metadata.rule_id
+        for provider_name in providers
+        for rule_group in engine._rule_groups(provider_name)
+        for rule in rule_group
+    }
