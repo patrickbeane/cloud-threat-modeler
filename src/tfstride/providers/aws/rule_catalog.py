@@ -601,6 +601,34 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-sqs-receive-access",
+        title="Internet-facing ECS service task role has an exact SQS receive allow",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Separate queue-consuming workers from internet-facing ECS services where possible. Otherwise, reduce "
+            "public ingress and scope the task role to `sqs:ReceiveMessage` on only the exact queues required at "
+            "runtime. Keep change-visibility, delete, purge, and queue-administration permissions separate, and use "
+            "SQS encryption with narrowly governed KMS authorization where message confidentiality requires "
+            "independent cryptographic controls."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "sqs",
+            "iam",
+            "public-access",
+            "messaging",
+            "information-disclosure",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-sns-customer-managed-encryption-missing",
         title="SNS topic does not use a customer-managed KMS key",
         category=StrideCategory.INFORMATION_DISCLOSURE,

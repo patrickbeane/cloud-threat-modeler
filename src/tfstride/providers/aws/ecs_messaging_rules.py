@@ -16,6 +16,8 @@ from tfstride.providers.aws.ecs_path_rule_helpers import (
 from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
+_AWS_SQS_QUEUE = "aws_sqs_queue"
+_SQS_RECEIVE_ACTION = "sqs:ReceiveMessage"
 _MUTATION_ACTION_CLASSES = {
     "sns:publish": "publish",
     "sns:confirmsubscription": "write",
@@ -120,6 +122,141 @@ class AwsEcsMessagingAccessRuleDetectors:
             )
         return findings
 
+    def detect_public_service_sqs_receive_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "aws":
+            return []
+
+        findings: list[Finding] = []
+        for service in context.inventory.by_type(_AWS_ECS_SERVICE):
+            receive_paths = [
+                path
+                for path in aws_facts(service).ecs_messaging_access_paths
+                if _is_deterministic_sqs_receive_path(
+                    path,
+                    service.address,
+                    context,
+                )
+            ]
+            if not receive_paths:
+                continue
+
+            load_balancer_addresses = resolved_public_load_balancers(receive_paths, context)
+            if not load_balancer_addresses:
+                continue
+
+            task_definition_addresses = path_string_values(
+                receive_paths,
+                "task_definition_address",
+            )
+            role_addresses = path_string_values(receive_paths, "role_address")
+            queue_addresses = path_string_values(
+                receive_paths,
+                "messaging_resource_address",
+            )
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=1,
+                data_sensitivity=1,
+                lateral_movement=1,
+                blast_radius=2 if len(queue_addresses) > 1 else 1,
+            )
+            affected_resources = [
+                *load_balancer_addresses,
+                service.address,
+                *task_definition_addresses,
+                *role_addresses,
+                *queue_addresses,
+            ]
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=list(dict.fromkeys(affected_resources)),
+                    trust_boundary_id=internet_boundary_id(
+                        load_balancer_addresses,
+                        context,
+                    ),
+                    rationale=(
+                        f"{service.display_name} is reachable through an internet-facing load balancer and its "
+                        f"ECS task role has an unconditional identity-policy allow for `sqs:ReceiveMessage` on "
+                        f"{len(queue_addresses)} exact modeled SQS queue(s). A compromise of the public workload "
+                        "could attempt SQS receive operations with its runtime credentials. This establishes a "
+                        "modeled identity-policy receive path, not guaranteed message retrieval or plaintext "
+                        "disclosure; queue policies, endpoint policies, queue encryption, KMS key policy, and KMS "
+                        "authorization are independent controls not proven by this path. The queue itself is not "
+                        "public."
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item(
+                            "network_path",
+                            public_service_network_path(
+                                load_balancer_addresses,
+                                service.address,
+                            ),
+                        ),
+                        evidence_item(
+                            "task_definitions",
+                            [f"address={address}" for address in task_definition_addresses],
+                        ),
+                        evidence_item("task_roles", _task_role_evidence(receive_paths)),
+                        evidence_item(
+                            "sqs_receive_paths",
+                            _sqs_receive_path_evidence(receive_paths),
+                        ),
+                        evidence_item(
+                            "assessment_scope",
+                            [
+                                "establishes=unconditional identity-policy allow for sqs:ReceiveMessage",
+                                (
+                                    "does_not_establish=plaintext message disclosure; SQS encryption and KMS "
+                                    "authorization are independent controls"
+                                ),
+                            ],
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
+
+def _is_deterministic_sqs_receive_path(
+    path: Mapping[str, Any],
+    service_address: str,
+    context: RuleEvaluationContext,
+) -> bool:
+    target_address = path.get("messaging_resource_address")
+    target = context.inventory.get_by_address(target_address) if isinstance(target_address, str) else None
+    return (
+        path.get("workload_type") == _AWS_ECS_SERVICE
+        and path.get("workload_address") == service_address
+        and all(
+            isinstance(path.get(key), str) and bool(path.get(key))
+            for key in (
+                "task_definition_address",
+                "role_address",
+                "messaging_resource_address",
+                "messaging_resource_arn",
+            )
+        )
+        and target is not None
+        and target.resource_type == _AWS_SQS_QUEUE
+        and target.arn == path.get("messaging_resource_arn")
+        and path.get("messaging_service") == "sqs"
+        and path.get("messaging_resource_type") == _AWS_SQS_QUEUE
+        and path.get("role_kind") == "ecs_task_role"
+        and path.get("credential_context") == "workload_runtime"
+        and path.get("access_state") == "allowed"
+        and path.get("modeled_access_state") == "allowed"
+        and path.get("role_policy_complete") is True
+        and "exact_queue" in _string_values(path.get("resource_scopes"))
+        and _SQS_RECEIVE_ACTION.lower() in {action.lower() for action in _string_values(path.get("matched_actions"))}
+    )
+
 
 def _is_deterministic_mutation_path(path: Mapping[str, Any], service_address: str) -> bool:
     return (
@@ -180,6 +317,28 @@ def _task_role_evidence(paths: list[dict[str, Any]]) -> list[str]:
                     "role_kind=ecs_task_role",
                     "credential_context=workload_runtime",
                     "role_policy_complete=true",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _sqs_receive_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"queue_address={path['messaging_resource_address']}",
+                    f"queue_arn={path['messaging_resource_arn']}",
+                    f"task_definition={path['task_definition_address']}",
+                    f"task_role={path['role_address']}",
+                    f"action={_SQS_RECEIVE_ACTION}",
+                    f"resource_scopes={','.join(_string_values(path.get('resource_scopes')))}",
+                    f"policy_resources={','.join(_string_values(path.get('policy_resources')))}",
+                    f"denied_actions={','.join(_string_values(path.get('denied_actions'))) or 'none'}",
+                    "access_state=allowed",
+                    "receive_evaluation=unconditional_identity_policy_allow",
                 )
             )
             for path in paths

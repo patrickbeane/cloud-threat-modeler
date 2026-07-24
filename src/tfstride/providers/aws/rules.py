@@ -83,6 +83,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-secret-access",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-messaging-mutation-access",
+        "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
         "aws-sqs-customer-managed-encryption-missing",
         "aws-sqs-message-retention-insufficient",
@@ -218,6 +219,7 @@ def build_aws_rule_contribution(
         "aws-public-ecs-secret-access": ecs_secret_detectors.detect_public_service_secret_access,
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
         "aws-public-ecs-messaging-mutation-access": (ecs_messaging_detectors.detect_public_service_mutation_access),
+        "aws-public-ecs-sqs-receive-access": (ecs_messaging_detectors.detect_public_service_sqs_receive_access),
         "aws-sns-customer-managed-encryption-missing": (
             messaging_detectors.detect_sns_customer_managed_encryption_missing
         ),
