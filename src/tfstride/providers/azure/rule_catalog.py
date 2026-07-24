@@ -733,6 +733,33 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-service-bus-receive-access",
+        title="Public Azure App Service identity has an exact Service Bus receive grant",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Remove Azure Service Bus Data Receiver, unnecessary Azure Service Bus Data Owner, and equivalent "
+            "custom-role receive permissions from public App Service runtime identities. Scope required receive "
+            "access to the exact namespace, queue, or subscription, separate message consumers from public "
+            "request-handling workloads where practical, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "service-bus",
+            "managed-identity",
+            "public-access",
+            "information-disclosure",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-app-service-sensitive-app-setting-inline",
         title="Azure App Service materializes a sensitive setting as a literal value",
         category=StrideCategory.INFORMATION_DISCLOSURE,

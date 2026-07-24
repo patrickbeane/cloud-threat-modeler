@@ -96,6 +96,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-app-service-can-modify-image-repository",
         "azure-public-app-service-storage-mutation-access",
         "azure-public-app-service-service-bus-mutation-access",
+        "azure-public-app-service-service-bus-receive-access",
         "azure-app-service-sensitive-app-setting-inline",
         "azure-app-service-key-vault-reference-identity-not-configured",
         "azure-app-service-key-vault-secret-access-overprivileged",
@@ -271,6 +272,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-service-bus-mutation-access": (
             app_service_messaging_detectors.detect_public_app_service_service_bus_mutation_access
+        ),
+        "azure-public-app-service-service-bus-receive-access": (
+            app_service_messaging_detectors.detect_public_app_service_service_bus_receive_access
         ),
         "azure-app-service-sensitive-app-setting-inline": (
             app_service_secret_detectors.detect_inline_sensitive_app_setting

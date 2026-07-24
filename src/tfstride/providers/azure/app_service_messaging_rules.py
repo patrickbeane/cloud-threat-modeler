@@ -19,9 +19,18 @@ from tfstride.providers.azure.resource_types import (
 )
 
 _MUTATION_ACCESS_CLASSES = frozenset({"send", "administrative"})
+_RECEIVE_ACCESS_CLASS = "receive"
+_SERVICE_BUS_RECEIVE_DATA_ACTION = "microsoft.servicebus/namespaces/messages/receive/action"
 _MUTATING_ROLE_KINDS = frozenset(
     {
         "service_bus_data_sender",
+        "service_bus_data_owner",
+        "custom",
+    }
+)
+_RECEIVING_ROLE_KINDS = frozenset(
+    {
+        "service_bus_data_receiver",
         "service_bus_data_owner",
         "custom",
     }
@@ -31,6 +40,13 @@ _SERVICE_BUS_TARGET_TYPES = (
     AzureResourceType.SERVICE_BUS_QUEUE,
     AzureResourceType.SERVICE_BUS_TOPIC,
     AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
+)
+_SERVICE_BUS_RECEIVE_TARGET_TYPES = frozenset(
+    {
+        AzureResourceType.SERVICE_BUS_NAMESPACE,
+        AzureResourceType.SERVICE_BUS_QUEUE,
+        AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
+    }
 )
 _SERVICE_BUS_GRANT_BASES = frozenset(
     {
@@ -143,8 +159,147 @@ class AzureAppServiceMessagingRuleDetectors:
             )
         return findings
 
+    def detect_public_app_service_service_bus_receive_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "azure":
+            return []
+
+        findings: list[Finding] = []
+        for app in context.inventory.by_type(*AZURE_APP_SERVICE_RESOURCE_TYPES):
+            facts = azure_facts(app)
+            if facts.public_network_access_enabled is not True:
+                continue
+
+            receive_paths = [
+                path
+                for path in facts.app_service_service_bus_access_paths
+                if _is_deterministic_receive_path(path, app, context)
+            ]
+            if not receive_paths:
+                continue
+
+            target_addresses = _path_string_values(
+                receive_paths,
+                "service_bus_resource_address",
+            )
+            namespace_addresses = _path_string_values(
+                receive_paths,
+                "service_bus_namespace_address",
+            )
+            topic_addresses = _path_string_values(receive_paths, "topic_address")
+            identity_addresses = _path_string_values(receive_paths, "identity_address")
+            assignment_addresses = _path_string_values(
+                receive_paths,
+                "role_assignment_address",
+            )
+            role_definition_addresses = _path_string_values(
+                receive_paths,
+                "role_definition_address",
+            )
+            has_namespace_scope = any(
+                path.get("resource_scope") == "exact_service_bus_namespace" for path in receive_paths
+            )
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=1,
+                data_sensitivity=1,
+                lateral_movement=1,
+                blast_radius=(2 if has_namespace_scope or len(target_addresses) > 1 else 1),
+            )
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=dedupe_addresses(
+                        [
+                            app.address,
+                            *(address for address in identity_addresses if address != app.address),
+                            *namespace_addresses,
+                            *topic_addresses,
+                            *target_addresses,
+                            *assignment_addresses,
+                            *role_definition_addresses,
+                        ]
+                    ),
+                    trust_boundary_id=None,
+                    rationale=(
+                        f"{app.display_name} has public network access explicitly enabled and its runtime managed "
+                        "identity has an unconditional modeled RBAC allow assignment containing Azure Service Bus "
+                        f"receive permission on {len(target_addresses)} exact modeled target(s). A compromise "
+                        "through an allowed public application path could attempt message-receive operations with "
+                        "the workload identity. This establishes a modeled RBAC receive grant, not guaranteed "
+                        "effective message retrieval; Azure deny assignments and Service Bus network controls are "
+                        "independent controls not evaluated by this path. The Service Bus target itself is not "
+                        "public, and configured App Service access restrictions may still narrow which clients can "
+                        "reach the application endpoint."
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item("public_endpoint", _public_endpoint_evidence(app)),
+                        evidence_item(
+                            "runtime_identity",
+                            _runtime_identity_evidence(receive_paths),
+                        ),
+                        evidence_item(
+                            "service_bus_receive_paths",
+                            _receive_path_evidence(receive_paths),
+                        ),
+                        evidence_item(
+                            "custom_role_permissions",
+                            _custom_role_permission_evidence(receive_paths),
+                        ),
+                        evidence_item(
+                            "assessment_scope",
+                            [
+                                (
+                                    "establishes=unconditional modeled RBAC allow assignment with Azure Service "
+                                    "Bus receive permission"
+                                ),
+                                (
+                                    "does_not_establish=effective access after Azure deny assignment or Service "
+                                    "Bus network evaluation"
+                                ),
+                            ],
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _is_deterministic_mutation_path(
+    path: Mapping[str, Any],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    return (
+        _is_deterministic_service_bus_path(path, app, context)
+        and path.get("role_kind") in _MUTATING_ROLE_KINDS
+        and bool(_path_mutation_classes(path))
+    )
+
+
+def _is_deterministic_receive_path(
+    path: Mapping[str, Any],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    if (
+        not _is_deterministic_service_bus_path(path, app, context)
+        or path.get("service_bus_resource_type") not in _SERVICE_BUS_RECEIVE_TARGET_TYPES
+        or path.get("role_kind") not in _RECEIVING_ROLE_KINDS
+        or _RECEIVE_ACCESS_CLASS not in _string_values(path.get("access_classes"))
+    ):
+        return False
+    if path.get("role_kind") == "custom":
+        return _SERVICE_BUS_RECEIVE_DATA_ACTION in _string_values(path.get("matched_data_actions"))
+    return True
+
+
+def _is_deterministic_service_bus_path(
     path: Mapping[str, Any],
     app: NormalizedResource,
     context: RuleEvaluationContext,
@@ -161,8 +316,6 @@ def _is_deterministic_mutation_path(
         or path.get("access_state") != "granted"
         or path.get("condition_state") != "not_configured"
         or path.get("condition") is not None
-        or path.get("role_kind") not in _MUTATING_ROLE_KINDS
-        or not _path_mutation_classes(path)
     ):
         return False
 
@@ -392,6 +545,38 @@ def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
                     f"grant_basis={path['grant_basis']}",
                     "access_state=granted",
                     "condition_state=not_configured",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _receive_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"service_bus_resource_address={path['service_bus_resource_address']}",
+                    f"service_bus_resource_type={path['service_bus_resource_type']}",
+                    f"service_bus_resource_id={path.get('service_bus_resource_id') or 'unknown'}",
+                    f"service_bus_entity_kind={path.get('service_bus_entity_kind') or 'unknown'}",
+                    f"service_bus_namespace_address={path['service_bus_namespace_address']}",
+                    f"queue_address={path.get('queue_address') or 'not_applicable'}",
+                    f"topic_address={path.get('topic_address') or 'not_applicable'}",
+                    f"subscription_address={path.get('subscription_address') or 'not_applicable'}",
+                    f"role_assignment_address={path['role_assignment_address']}",
+                    f"role_definition_name={path['role_definition_name']}",
+                    f"role_kind={path['role_kind']}",
+                    f"receive_permission={_SERVICE_BUS_RECEIVE_DATA_ACTION}",
+                    f"matched_data_actions={','.join(_string_values(path.get('matched_data_actions'))) or 'built-in-role'}",
+                    f"access_classes={','.join(_string_values(path.get('access_classes')))}",
+                    f"assignment_scope={path.get('assignment_scope') or 'unknown'}",
+                    f"resource_scope={path['resource_scope']}",
+                    f"grant_basis={path['grant_basis']}",
+                    "access_state=granted",
+                    "condition_state=not_configured",
+                    "receive_evaluation=unconditional_modeled_rbac_allow_assignment",
                 )
             )
             for path in paths
