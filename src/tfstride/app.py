@@ -78,6 +78,7 @@ class TfStride:
     def analyze_plan(self, plan_path: str | Path, title: str = "tfSTRIDE Threat Model Report") -> AnalysisResult:
         terraform_plan = load_terraform_plan(plan_path)
         inventory = self._normalize_resources(terraform_plan.resources)
+        rule_set = self._rule_engine.rule_set_for(inventory.provider)
         analysis_indexes = build_analysis_indexes(inventory)
         trust_boundaries = detect_trust_boundaries(
             inventory,
@@ -92,6 +93,7 @@ class TfStride:
                 trust_boundaries,
                 analysis_indexes=analysis_indexes,
                 rule_policy=self._rule_policy,
+                rule_set=rule_set,
             ),
             self._rule_policy,
         )
@@ -109,6 +111,7 @@ class TfStride:
             observations=observations,
             analysis_coverage=build_analysis_coverage(
                 inventory,
+                rule_registry=rule_set.registry,
                 rule_policy=self._rule_policy,
             ),
             limitations=_limitations_for_provider(inventory.provider, self._provider_limitations),

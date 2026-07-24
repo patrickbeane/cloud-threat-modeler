@@ -4,6 +4,12 @@ from collections import Counter
 
 from tfstride.models import AnalysisResult, Finding, Severity
 
+_PROVIDER_DISPLAY_NAMES = {
+    "aws": "AWS",
+    "gcp": "GCP",
+    "azure": "Azure",
+}
+
 
 def render_markdown(result: AnalysisResult) -> str:
     findings_by_severity = _group_findings_by_severity(result)
@@ -147,6 +153,8 @@ def _group_findings_by_severity(result: AnalysisResult) -> dict[Severity, list[F
 
 def _render_analysis_coverage(result: AnalysisResult) -> list[str]:
     coverage = result.analysis_coverage
+    provider = result.inventory.provider.strip()
+    provider_label = _PROVIDER_DISPLAY_NAMES.get(provider.lower(), provider)
     finding_counts = Counter(
         finding.rule_id
         for findings in (result.findings, result.suppressed_findings, result.baselined_findings)
@@ -157,8 +165,8 @@ def _render_analysis_coverage(result: AnalysisResult) -> list[str]:
         f"- Provider resources considered: `{coverage.resources.provider_resources}`",
         f"- Normalized resources: `{coverage.resources.normalized_resources}`",
         f"- Unsupported resources: `{coverage.resources.unsupported_resources}`",
-        f"- Registered rules: `{coverage.rules.registered_rule_count}`",
-        f"- Enabled rules: `{len(coverage.rules.enabled_rules)}`",
+        f"- Registered provider rules ({provider_label}): `{coverage.rules.registered_rule_count}`",
+        f"- Enabled provider rules ({provider_label}): `{len(coverage.rules.enabled_rules)}`",
         f"- Disabled rules: `{len(coverage.rules.disabled_rules)}`",
         f"- Severity overrides: `{len(coverage.rules.severity_overrides)}`",
         f"- Unresolved in-plan references: `{coverage.references.unresolved_reference_count}`",

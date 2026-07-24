@@ -55,11 +55,23 @@ class ProviderScopedRuleEngineTests(unittest.TestCase):
         ) as contribution_builder:
             engine = StrideRuleEngine()
 
-            first_aws_findings = engine.evaluate(_inventory("aws"), [])
             aws_rule_set = engine.rule_set_for("aws")
-            gcp_findings = engine.evaluate(_inventory("gcp"), [])
+            first_aws_findings = engine.evaluate(
+                _inventory("aws"),
+                [],
+                rule_set=aws_rule_set,
+            )
             gcp_rule_set = engine.rule_set_for("gcp")
-            second_aws_findings = engine.evaluate(_inventory("aws"), [])
+            gcp_findings = engine.evaluate(
+                _inventory("gcp"),
+                [],
+                rule_set=gcp_rule_set,
+            )
+            second_aws_findings = engine.evaluate(
+                _inventory("aws"),
+                [],
+                rule_set=aws_rule_set,
+            )
 
         self.assertIsNot(aws_rule_set, gcp_rule_set)
         self.assertIs(engine.rule_set_for(" AWS "), aws_rule_set)
@@ -106,6 +118,17 @@ class ProviderScopedRuleEngineTests(unittest.TestCase):
         self.assertEqual([context.inventory.provider for context in contexts], ["custom", "gcp"])
         self.assertTrue(all(context.rule_registry is custom_rule_set.registry for context in contexts))
         contribution_builder.assert_not_called()
+
+    def test_evaluate_rejects_rule_set_for_different_provider(self) -> None:
+        engine = StrideRuleEngine()
+        aws_rule_set = engine.rule_set_for("aws")
+
+        with self.assertRaisesRegex(ValueError, "cannot evaluate"):
+            engine.evaluate(
+                _inventory("gcp"),
+                [],
+                rule_set=aws_rule_set,
+            )
 
     def test_default_engine_rejects_unknown_provider(self) -> None:
         engine = StrideRuleEngine()

@@ -19,8 +19,8 @@ This run identified **9 trust boundaries** and **15 findings** across **23 norma
 - Provider resources considered: `24`
 - Normalized resources: `23`
 - Unsupported resources: `1`
-- Registered rules: `255`
-- Enabled rules: `255`
+- Registered provider rules (AWS): `83`
+- Enabled provider rules (AWS): `83`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Unresolved in-plan references: `0`
@@ -29,16 +29,16 @@ This run identified **9 trust boundaries** and **15 findings** across **23 norma
 - Findings by rule:
   - `aws-public-compute-broad-ingress`: `1`
   - `aws-public-alb-waf-missing`: `1`
-  - `aws-database-permissive-ingress`: `1`
   - `aws-rds-cloudwatch-log-exports-missing`: `1`
   - `aws-s3-public-access`: `1`
   - `aws-workload-kms-vpc-endpoint-missing`: `1`
   - `aws-workload-s3-vpc-endpoint-missing`: `1`
   - `aws-vpc-flow-logs-not-configured`: `1`
+  - `aws-database-permissive-ingress`: `1`
+  - `aws-missing-tier-segmentation`: `1`
   - `aws-iam-wildcard-permissions`: `2`
   - `aws-iam-privileged-role-assignment`: `1`
   - `aws-workload-role-sensitive-permissions`: `1`
-  - `aws-missing-tier-segmentation`: `1`
   - `aws-role-trust-expansion`: `1`
   - `aws-role-trust-missing-narrowing`: `1`
 

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from tests.integration.analysis_support import (
     AZURE_SAFE_FIXTURE_PATH,
     FIXTURE_PATH,
     TFSIntegrationTestCase,
 )
+from tfstride.analysis.coverage import build_analysis_coverage
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.app import TfStride
 from tfstride.models import (
@@ -41,6 +43,31 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
         self.assertEqual(result.inventory.provider, "aws")
         self.assertEqual(result.inventory.resources, ())
         self.assertEqual(result.findings, [])
+
+    def test_analysis_uses_same_active_registry_for_evaluation_and_coverage(self) -> None:
+        engine = TfStride()
+
+        with (
+            patch.object(
+                engine._rule_engine,
+                "evaluate",
+                wraps=engine._rule_engine.evaluate,
+            ) as evaluate,
+            patch(
+                "tfstride.app.build_analysis_coverage",
+                wraps=build_analysis_coverage,
+            ) as build_coverage,
+        ):
+            result = engine.analyze_plan(FIXTURE_PATH)
+
+        evaluation_rule_set = evaluate.call_args.kwargs["rule_set"]
+        coverage_registry = build_coverage.call_args.kwargs["rule_registry"]
+
+        self.assertIs(evaluation_rule_set, engine._rule_engine.rule_set_for("aws"))
+        self.assertIs(coverage_registry, evaluation_rule_set.registry)
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 83)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 83)
+        self.assertTrue(all(rule_id.startswith("aws-") for rule_id in result.analysis_coverage.rules.enabled_rules))
 
     def test_analysis_selects_boundary_contributors_for_normalized_provider(self) -> None:
         class RecordingNormalizer(ProviderNormalizer):
@@ -168,6 +195,9 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
         self.assertEqual(result.inventory.resources[0].address, "google_storage_bucket.logs")
         self.assertEqual(result.inventory.unsupported_resources, [])
         self.assertEqual(result.findings, [])
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 78)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 78)
+        self.assertTrue(all(rule_id.startswith("gcp-") for rule_id in result.analysis_coverage.rules.enabled_rules))
         self.assertIn("GCP support covers a curated set", result.limitations[0])
 
     def test_analysis_auto_selects_azure_storage_provider(self) -> None:
@@ -239,6 +269,9 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
         self.assertEqual(result.analysis_coverage.resources.unsupported_resource_types, {})
         self.assertEqual(result.trust_boundaries, [])
         self.assertEqual(result.findings, [])
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 94)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 94)
+        self.assertTrue(all(rule_id.startswith("azure-") for rule_id in result.analysis_coverage.rules.enabled_rules))
         self.assertIn("Azure support covers a curated AzureRM set", result.limitations[0])
 
     def test_analysis_accepts_explicit_azure_provider_for_fixture(self) -> None:

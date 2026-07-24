@@ -19,8 +19,8 @@ This run identified **9 trust boundaries** and **45 findings** across **31 norma
 - Provider resources considered: `31`
 - Normalized resources: `31`
 - Unsupported resources: `0`
-- Registered rules: `255`
-- Enabled rules: `255`
+- Registered provider rules (GCP): `78`
+- Enabled provider rules (GCP): `78`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Unresolved in-plan references: `0`
@@ -30,7 +30,6 @@ This run identified **9 trust boundaries** and **45 findings** across **31 norma
   - `gcp-pubsub-topic-customer-managed-encryption-missing`: `1`
   - `gcp-pubsub-subscription-dead-letter-policy-missing`: `1`
   - `gcp-bigquery-public-access`: `1`
-  - `gcp-public-workload-sensitive-data-access`: `3`
   - `gcp-cloud-sql-public-authorized-network`: `1`
   - `gcp-cloud-sql-backup-disabled`: `1`
   - `gcp-cloud-sql-public-ip-without-private-network`: `1`
@@ -67,6 +66,7 @@ This run identified **9 trust boundaries** and **45 findings** across **31 norma
   - `gcp-project-iam-privileged-role`: `1`
   - `gcp-inherited-iam-sensitive-resource-access`: `1`
   - `gcp-inherited-iam-blast-radius`: `1`
+  - `gcp-public-workload-sensitive-data-access`: `3`
 
 ## Discovered Trust Boundaries
 

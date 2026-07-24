@@ -78,8 +78,10 @@ class StrideRuleEngine:
         *,
         analysis_indexes: AnalysisIndexes | None = None,
         rule_policy: RulePolicy | None = None,
+        rule_set: ProviderRuleSet | None = None,
     ) -> list[Finding]:
-        rule_set = self.rule_set_for(inventory.provider)
+        resolved_rule_set = rule_set if rule_set is not None else self.rule_set_for(inventory.provider)
+        _validate_rule_set_provider(resolved_rule_set, inventory.provider)
         resolved_indexes = analysis_indexes if analysis_indexes is not None else build_analysis_indexes(inventory)
         boundary_index: BoundaryIndex = {
             (boundary.boundary_type, boundary.source, boundary.target): boundary for boundary in boundaries
@@ -87,12 +89,12 @@ class StrideRuleEngine:
         context = RuleEvaluationContext(
             inventory=inventory,
             boundary_index=boundary_index,
-            rule_registry=rule_set.registry,
+            rule_registry=resolved_rule_set.registry,
             analysis_indexes=resolved_indexes,
             rule_policy=rule_policy,
         )
 
-        return self._evaluate_contribution(rule_set.contribution, context)
+        return self._evaluate_contribution(resolved_rule_set.contribution, context)
 
     def _evaluate_contribution(
         self,
@@ -117,6 +119,17 @@ class StrideRuleEngine:
 
     def _rule_groups(self, provider: str) -> tuple[tuple[RuleDefinition, ...], ...]:
         return self.rule_set_for(provider).contribution.rule_groups
+
+
+def _validate_rule_set_provider(
+    rule_set: ProviderRuleSet,
+    inventory_provider: str,
+) -> None:
+    if rule_set.provider is None:
+        return
+    provider_name = normalize_provider_name(inventory_provider)
+    if rule_set.provider != provider_name:
+        raise ValueError(f"Provider rule set for `{rule_set.provider}` cannot evaluate `{provider_name}` inventory.")
 
 
 def _complete_registry(
