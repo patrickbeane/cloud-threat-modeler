@@ -742,6 +742,24 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-pubsub-consume-access",
+        title="Public Cloud Run identity has an exact Pub/Sub subscription consume grant",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account "
+            "Pub/Sub Subscriber or equivalent consume permission only on the exact subscriptions required. "
+            "Separate public request handling from message-consuming workloads where practical."
+        ),
+        tags=("gcp", "cloud-run", "pubsub", "iam", "public-access", "messaging", "information-disclosure"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-service-account-iam-broad-principal",
         title="GCP service account IAM grants access to broad principals",
         category=StrideCategory.ELEVATION_OF_PRIVILEGE,

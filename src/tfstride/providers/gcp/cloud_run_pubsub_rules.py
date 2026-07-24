@@ -24,6 +24,14 @@ from tfstride.providers.gcp.resource_utils import binding_members
 
 _MUTATION_ACCESS_CLASSES = frozenset({"publish", "delete", "administrative"})
 _PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
+_SUBSCRIPTION_CONSUMER_ROLES = frozenset(
+    {
+        "roles/pubsub.subscriber",
+        "roles/pubsub.editor",
+        "roles/pubsub.admin",
+    }
+)
+_SUBSCRIPTION_CONSUME_PERMISSION = "pubsub.subscriptions.consume"
 _PUBSUB_TARGET_TYPES = frozenset(
     {
         GcpResourceType.PUBSUB_TOPIC,
@@ -113,6 +121,99 @@ class GcpCloudRunPubsubAccessRuleDetectors:
             )
         return findings
 
+    def detect_public_cloud_run_pubsub_consume_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "gcp":
+            return []
+
+        findings: list[Finding] = []
+        for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
+            public_invokers = _unconditional_public_invokers(workload)
+            invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
+            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+                continue
+
+            consume_paths = [
+                path
+                for path in gcp_facts(workload).cloud_run_pubsub_access_paths
+                if _is_deterministic_consume_path(path, workload, context)
+            ]
+            if not consume_paths:
+                continue
+
+            subscription_addresses = _path_string_values(consume_paths, "messaging_resource_address")
+            iam_resource_addresses = _path_string_values(consume_paths, "iam_resource_address")
+            public_source_addresses = sorted({binding["source"] for binding in public_invokers})
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=1,
+                data_sensitivity=1,
+                lateral_movement=1,
+                blast_radius=2 if len(subscription_addresses) > 1 else 1,
+            )
+            boundary = context.boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", workload.address))
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=dedupe_addresses(
+                        [
+                            workload.address,
+                            *public_source_addresses,
+                            *subscription_addresses,
+                            *iam_resource_addresses,
+                        ]
+                    ),
+                    trust_boundary_id=boundary.identifier if boundary else None,
+                    rationale=(
+                        f"{workload.display_name} is publicly invokable and its Cloud Run runtime service account "
+                        f"has an unconditional IAM allow grant containing `{_SUBSCRIPTION_CONSUME_PERMISSION}` on "
+                        f"{len(subscription_addresses)} exact modeled Pub/Sub subscription(s). A compromise of "
+                        "the public workload could attempt message-consumption operations with its runtime identity. "
+                        "This establishes a modeled subscription-level allow grant, not guaranteed effective message "
+                        "retrieval; IAM deny and principal access boundary policies are independent controls not "
+                        "evaluated by this path. The Pub/Sub subscription itself is not public."
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item(
+                            "public_invoker_bindings",
+                            _public_invoker_evidence(public_invokers),
+                        ),
+                        evidence_item(
+                            "public_exposure_reasons",
+                            workload.public_exposure_reasons,
+                        ),
+                        evidence_item(
+                            "public_exposure_configuration",
+                            _public_exposure_configuration(workload),
+                        ),
+                        evidence_item(
+                            "runtime_identity",
+                            _runtime_identity_evidence(consume_paths),
+                        ),
+                        evidence_item(
+                            "pubsub_consume_paths",
+                            _consume_path_evidence(consume_paths),
+                        ),
+                        evidence_item(
+                            "assessment_scope",
+                            [
+                                ("establishes=unconditional IAM allow grant containing pubsub.subscriptions.consume"),
+                                (
+                                    "does_not_establish=effective access after IAM deny or principal access "
+                                    "boundary evaluation"
+                                ),
+                            ],
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _unconditional_public_invokers(resource: NormalizedResource) -> list[dict[str, str]]:
     invokers: list[dict[str, str]] = []
@@ -172,6 +273,50 @@ def _is_deterministic_mutation_path(
     if path.get("role_kind") == "custom" and not _string_values(path.get("matched_permissions")):
         return False
     return True
+
+
+def _is_deterministic_consume_path(
+    path: Mapping[str, Any],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    if (
+        path.get("workload_address") != workload.address
+        or path.get("workload_type") != workload.resource_type
+        or path.get("identity_kind") != "cloud_run_service_account"
+        or path.get("credential_context") != "workload_runtime"
+        or path.get("messaging_service") != "pubsub"
+        or path.get("messaging_resource_kind") != "subscription"
+        or path.get("messaging_resource_type") != GcpResourceType.PUBSUB_SUBSCRIPTION
+        or path.get("grant_basis") != "pubsub_subscription_iam"
+        or path.get("resource_scope") != "exact_subscription"
+        or path.get("access_state") != "granted"
+        or path.get("condition_state") != "not_configured"
+        or path.get("condition") is not None
+        or "consume" not in _string_values(path.get("access_classes"))
+    ):
+        return False
+
+    service_account_member = _known_string(path.get("service_account_member"))
+    role = _known_string(path.get("role"))
+    target_address = _known_string(path.get("messaging_resource_address"))
+    iam_resource_address = _known_string(path.get("iam_resource_address"))
+    if not all((service_account_member, role, target_address, iam_resource_address)):
+        return False
+
+    target = context.inventory.get_by_address(target_address)
+    iam_resource = context.inventory.get_by_address(iam_resource_address)
+    if (
+        target is None
+        or target.resource_type != GcpResourceType.PUBSUB_SUBSCRIPTION
+        or iam_resource is None
+        or iam_resource.resource_type not in GCP_PUBSUB_SUBSCRIPTION_IAM_RESOURCE_TYPES
+    ):
+        return False
+
+    if path.get("role_kind") == "custom":
+        return _SUBSCRIPTION_CONSUME_PERMISSION in _string_values(path.get("matched_permissions"))
+    return role in _SUBSCRIPTION_CONSUMER_ROLES
 
 
 def _mutation_rationale(
@@ -269,6 +414,28 @@ def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
                     f"access_classes={','.join(_string_values(path.get('access_classes')))}",
                     f"matched_permissions={','.join(_string_values(path.get('matched_permissions'))) or 'built-in-role'}",
                     f"resource_scope={path['resource_scope']}",
+                    "access_state=granted",
+                    "condition_state=not_configured",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _consume_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"subscription_address={path['messaging_resource_address']}",
+                    f"subscription_name={path.get('messaging_resource_name') or 'unknown'}",
+                    f"iam_resource={path['iam_resource_address']}",
+                    f"role={path['role']}",
+                    f"role_kind={path['role_kind']}",
+                    f"permission={_SUBSCRIPTION_CONSUME_PERMISSION}",
+                    f"matched_permissions={','.join(_string_values(path.get('matched_permissions'))) or 'built-in-role'}",
+                    "resource_scope=exact_subscription",
                     "access_state=granted",
                     "condition_state=not_configured",
                 )

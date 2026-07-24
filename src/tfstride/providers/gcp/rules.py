@@ -80,6 +80,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-cloud-run-secret-access-blast-radius",
         "gcp-public-cloud-run-gcs-mutation-access",
         "gcp-public-cloud-run-pubsub-mutation-access",
+        "gcp-public-cloud-run-pubsub-consume-access",
     ),
     (),
     (),
@@ -226,6 +227,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-pubsub-mutation-access": (
             cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_mutation_access
+        ),
+        "gcp-public-cloud-run-pubsub-consume-access": (
+            cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_consume_access
         ),
         "gcp-service-account-iam-broad-principal": gcp_detectors.detect_service_account_iam_broad_principal,
         "gcp-service-account-iam-privileged-role": gcp_detectors.detect_service_account_iam_privileged_role,
