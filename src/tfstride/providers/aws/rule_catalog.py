@@ -396,6 +396,39 @@ AWS_RULE_METADATA = (
         severity_factors=("data_sensitivity", "blast_radius"),
     ),
     RuleMetadata(
+        rule_id="aws-dynamodb-customer-managed-kms-key-missing",
+        title="DynamoDB table does not use a deterministic customer-managed KMS key",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Configure DynamoDB server-side encryption with a customer-managed KMS key where key ownership, "
+            "rotation, audit separation, or compliance controls are required."
+        ),
+        tags=("aws", "database", "dynamodb", "encryption", "kms"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="aws-dynamodb-point-in-time-recovery-disabled-or-unknown",
+        title="DynamoDB point-in-time recovery is disabled or unknown",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Enable DynamoDB point-in-time recovery and retain a recovery window aligned with incident response, "
+            "business continuity, and compliance requirements."
+        ),
+        tags=("aws", "database", "dynamodb", "recovery", "pitr"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="aws-dynamodb-deletion-protection-disabled-or-unknown",
+        title="DynamoDB deletion protection is disabled or unknown",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Enable DynamoDB deletion protection for persistent tables and require an explicit reviewed change "
+            "before destructive table deletion."
+        ),
+        tags=("aws", "database", "dynamodb", "recovery", "deletion-protection"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
         rule_id="aws-s3-public-access",
         title="Object storage is publicly accessible",
         category=StrideCategory.INFORMATION_DISCLOSURE,

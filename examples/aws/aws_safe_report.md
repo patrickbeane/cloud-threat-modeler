@@ -19,8 +19,8 @@ This run identified **6 trust boundaries** and **0 findings** across **28 normal
 - Provider resources considered: `28`
 - Normalized resources: `28`
 - Unsupported resources: `0`
-- Registered provider rules (AWS): `84`
-- Enabled provider rules (AWS): `84`
+- Registered provider rules (AWS): `87`
+- Enabled provider rules (AWS): `87`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Unresolved in-plan references: `0`

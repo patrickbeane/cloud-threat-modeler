@@ -9,6 +9,7 @@ from tfstride.providers.aws.api_gateway_rules import AwsApiGatewayRuleDetectors
 from tfstride.providers.aws.audit_rules import AwsAccountAuditRuleDetectors
 from tfstride.providers.aws.cloudfront_rules import AwsCloudFrontRuleDetectors
 from tfstride.providers.aws.container_rules import AwsContainerDeploymentRuleDetectors
+from tfstride.providers.aws.dynamodb_rules import AwsDynamoDbRuleDetectors
 from tfstride.providers.aws.ecr_rules import AwsEcrRuleDetectors
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
 from tfstride.providers.aws.ecs_s3_rules import AwsEcsS3AccessRuleDetectors
@@ -67,6 +68,9 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-rds-performance-insights-disabled",
         "aws-rds-cloudwatch-log-exports-missing",
         "aws-rds-iam-auth-disabled",
+        "aws-dynamodb-customer-managed-kms-key-missing",
+        "aws-dynamodb-point-in-time-recovery-disabled-or-unknown",
+        "aws-dynamodb-deletion-protection-disabled-or-unknown",
         "aws-s3-public-access",
         "aws-s3-customer-managed-encryption-missing",
         "aws-s3-versioning-disabled",
@@ -144,6 +148,7 @@ def build_aws_rule_contribution(
     iam_assignment_detectors = AwsIamAssignmentRuleDetectors(finding_factory)
     policy_trust_detectors = AwsPolicyTrustRuleDetectors(finding_factory)
     rds_posture_detectors = AwsRdsPostureRuleDetectors(finding_factory)
+    dynamodb_detectors = AwsDynamoDbRuleDetectors(finding_factory)
     s3_posture_detectors = AwsS3PostureRuleDetectors(finding_factory)
     ecr_detectors = AwsEcrRuleDetectors(finding_factory)
     container_deployment_detectors = AwsContainerDeploymentRuleDetectors(finding_factory)
@@ -201,6 +206,13 @@ def build_aws_rule_contribution(
         "aws-rds-performance-insights-disabled": (rds_posture_detectors.detect_performance_insights_disabled),
         "aws-rds-cloudwatch-log-exports-missing": (rds_posture_detectors.detect_cloudwatch_log_exports_missing),
         "aws-rds-iam-auth-disabled": (rds_posture_detectors.detect_iam_database_authentication_disabled),
+        "aws-dynamodb-customer-managed-kms-key-missing": (dynamodb_detectors.detect_customer_managed_kms_key_missing),
+        "aws-dynamodb-point-in-time-recovery-disabled-or-unknown": (
+            dynamodb_detectors.detect_point_in_time_recovery_disabled_or_unknown
+        ),
+        "aws-dynamodb-deletion-protection-disabled-or-unknown": (
+            dynamodb_detectors.detect_deletion_protection_disabled_or_unknown
+        ),
         "aws-s3-public-access": posture_detectors.detect_public_object_storage,
         "aws-s3-customer-managed-encryption-missing": (s3_posture_detectors.detect_customer_managed_encryption_missing),
         "aws-s3-versioning-disabled": s3_posture_detectors.detect_versioning_disabled_or_unknown,

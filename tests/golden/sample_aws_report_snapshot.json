@@ -37,7 +37,7 @@
       }
     },
     "rules": {
-      "registered_rule_count": 84,
+      "registered_rule_count": 87,
       "enabled_rules": [
         "aws-public-compute-broad-ingress",
         "aws-lambda-public-invocation",
@@ -73,6 +73,9 @@
         "aws-rds-performance-insights-disabled",
         "aws-rds-cloudwatch-log-exports-missing",
         "aws-rds-iam-auth-disabled",
+        "aws-dynamodb-customer-managed-kms-key-missing",
+        "aws-dynamodb-point-in-time-recovery-disabled-or-unknown",
+        "aws-dynamodb-deletion-protection-disabled-or-unknown",
         "aws-s3-public-access",
         "aws-s3-customer-managed-encryption-missing",
         "aws-s3-versioning-disabled",
@@ -161,6 +164,9 @@
         "aws-rds-performance-insights-disabled": 0,
         "aws-rds-cloudwatch-log-exports-missing": 1,
         "aws-rds-iam-auth-disabled": 0,
+        "aws-dynamodb-customer-managed-kms-key-missing": 0,
+        "aws-dynamodb-point-in-time-recovery-disabled-or-unknown": 0,
+        "aws-dynamodb-deletion-protection-disabled-or-unknown": 0,
         "aws-s3-public-access": 1,
         "aws-s3-customer-managed-encryption-missing": 0,
         "aws-s3-versioning-disabled": 0,
