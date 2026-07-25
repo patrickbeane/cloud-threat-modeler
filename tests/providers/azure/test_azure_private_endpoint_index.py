@@ -18,6 +18,7 @@ _SERVICE_BUS_NAMESPACE_ID = (
 _CONTAINER_REGISTRY_ID = (
     "/subscriptions/sub-0001/resourceGroups/app/providers/Microsoft.ContainerRegistry/registries/images"
 )
+_COSMOSDB_ID = "/subscriptions/sub-0001/resourceGroups/app/providers/Microsoft.DocumentDB/databaseAccounts/orders"
 
 
 def _resource(
@@ -113,6 +114,24 @@ def _container_registry(
             "name": registry_name,
             "sku": "Premium",
             "public_network_access_enabled": False,
+        },
+    )
+
+
+def _cosmosdb_account(
+    *,
+    name: str = "orders",
+    account_id: str = _COSMOSDB_ID,
+    account_name: str = "orders",
+) -> TerraformResource:
+    return _resource(
+        AzureResourceType.COSMOSDB_ACCOUNT,
+        name,
+        {
+            "id": account_id,
+            "name": account_name,
+            "location": "eastus",
+            "offer_type": "Standard",
         },
     )
 
@@ -329,6 +348,83 @@ class AzurePrivateEndpointIndexTests(unittest.TestCase):
         index = build_azure_private_endpoint_index(inventory)
 
         self.assertFalse(index.coverage_for(registry).has_private_endpoint)
+        self.assertEqual(len(index.unresolved_targets), 1)
+        self.assertEqual(index.unresolved_targets[0].target_resource_id, "shared")
+
+    def test_resolved_private_endpoint_targets_cosmos_db_account(self) -> None:
+        inventory = _normalized(
+            _cosmosdb_account(),
+            _private_endpoint(
+                "orders",
+                _COSMOSDB_ID,
+                subresources=("Sql",),
+                dns_zone_ids=("azurerm_private_dns_zone.cosmos.id",),
+                dns_group_name="cosmos-dns",
+            ),
+        )
+        account = inventory.get_by_address("azurerm_cosmosdb_account.orders")
+        assert account is not None
+
+        index = build_azure_private_endpoint_index(inventory)
+        coverage = index.coverage_for(account)
+
+        self.assertTrue(coverage.has_private_endpoint)
+        self.assertEqual(tuple(index.connections_by_target_key), (_COSMOSDB_ID.lower(),))
+        self.assertEqual(coverage.private_endpoint_addresses, ("azurerm_private_endpoint.orders",))
+        self.assertEqual(coverage.subresource_names, ("Sql",))
+        self.assertEqual(coverage.private_dns_zone_group_names, ("cosmos-dns",))
+        self.assertEqual(coverage.private_dns_zone_ids, ("azurerm_private_dns_zone.cosmos.id",))
+        self.assertEqual(coverage.connections[0].target_resource_id, _COSMOSDB_ID)
+        self.assertEqual(coverage.connections[0].subresource_names, ("Sql",))
+        self.assertEqual(index.unresolved_targets, ())
+
+    def test_cosmosdb_terraform_address_reference_resolves_deterministically(self) -> None:
+        inventory = _normalized(
+            _cosmosdb_account(),
+            _private_endpoint(
+                "orders",
+                "azurerm_cosmosdb_account.orders.id",
+                subresources=("Sql",),
+            ),
+        )
+        account = inventory.get_by_address("azurerm_cosmosdb_account.orders")
+        assert account is not None
+
+        coverage = build_azure_private_endpoint_index(inventory).coverage_for(account)
+
+        self.assertTrue(coverage.has_private_endpoint)
+        self.assertEqual(
+            coverage.connections[0].target_resource_id,
+            "azurerm_cosmosdb_account.orders.id",
+        )
+
+    def test_unresolved_cosmosdb_target_is_retained(self) -> None:
+        target_id = "${data.azurerm_cosmosdb_account.external.id}"
+        inventory = _normalized(
+            _cosmosdb_account(),
+            _private_endpoint("external", target_id, subresources=("Sql",)),
+        )
+        account = inventory.get_by_address("azurerm_cosmosdb_account.orders")
+        assert account is not None
+
+        index = build_azure_private_endpoint_index(inventory)
+
+        self.assertFalse(index.coverage_for(account).has_private_endpoint)
+        self.assertEqual(len(index.unresolved_targets), 1)
+        self.assertEqual(index.unresolved_targets[0].target_resource_id, target_id)
+        self.assertEqual(index.unresolved_targets[0].subresource_names, ("Sql",))
+
+    def test_cosmosdb_account_name_does_not_create_private_endpoint_coverage(self) -> None:
+        inventory = _normalized(
+            _cosmosdb_account(account_name="shared"),
+            _private_endpoint("name_only", "shared", subresources=("Sql",)),
+        )
+        account = inventory.get_by_address("azurerm_cosmosdb_account.orders")
+        assert account is not None
+
+        index = build_azure_private_endpoint_index(inventory)
+
+        self.assertFalse(index.coverage_for(account).has_private_endpoint)
         self.assertEqual(len(index.unresolved_targets), 1)
         self.assertEqual(index.unresolved_targets[0].target_resource_id, "shared")
 
