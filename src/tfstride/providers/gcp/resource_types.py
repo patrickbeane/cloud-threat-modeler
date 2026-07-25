@@ -113,6 +113,7 @@ class GcpResourceType:
     WORKLOAD_IDENTITY_POOL = "google_iam_workload_identity_pool"
     WORKLOAD_IDENTITY_POOL_PROVIDER = "google_iam_workload_identity_pool_provider"
     SCC_ORGANIZATION_SETTINGS = "google_scc_organization_settings"
+    FIRESTORE_DATABASE = "google_firestore_database"
     SQL_DATABASE_INSTANCE = "google_sql_database_instance"
     STORAGE_BUCKET = "google_storage_bucket"
     STORAGE_BUCKET_IAM_BINDING = "google_storage_bucket_iam_binding"
@@ -331,6 +332,7 @@ GCP_DATA_STORE_RESOURCE_TYPES = frozenset(
         GcpResourceType.PUBSUB_SUBSCRIPTION,
         GcpResourceType.PUBSUB_TOPIC,
         GcpResourceType.SECRET_MANAGER_SECRET,
+        GcpResourceType.FIRESTORE_DATABASE,
         GcpResourceType.SQL_DATABASE_INSTANCE,
         GcpResourceType.STORAGE_BUCKET,
     }
@@ -473,6 +475,7 @@ GCP_NORMALIZED_RESOURCE_TYPES = frozenset(
         GcpResourceType.WORKLOAD_IDENTITY_POOL,
         GcpResourceType.WORKLOAD_IDENTITY_POOL_PROVIDER,
         GcpResourceType.SCC_ORGANIZATION_SETTINGS,
+        GcpResourceType.FIRESTORE_DATABASE,
         GcpResourceType.SQL_DATABASE_INSTANCE,
         GcpResourceType.STORAGE_BUCKET,
         GcpResourceType.STORAGE_BUCKET_IAM_BINDING,

@@ -24,7 +24,9 @@ GCP_RESOURCE_CAPABILITIES = MappingProxyType(
         ResourceCapability.IAM_POLICY: GCP_IAM_POLICY_RESOURCE_TYPES,
         ResourceCapability.NETWORK_SECURITY_GROUP: GCP_NETWORK_SECURITY_GROUP_RESOURCE_TYPES,
         ResourceCapability.SUBNET: frozenset({GcpResourceType.COMPUTE_SUBNETWORK}),
-        ResourceCapability.DATABASE: frozenset({GcpResourceType.SQL_DATABASE_INSTANCE}),
+        ResourceCapability.DATABASE: frozenset(
+            {GcpResourceType.FIRESTORE_DATABASE, GcpResourceType.SQL_DATABASE_INSTANCE}
+        ),
         ResourceCapability.OBJECT_STORAGE: frozenset({GcpResourceType.STORAGE_BUCKET}),
         ResourceCapability.SECRET_STORE: frozenset({GcpResourceType.SECRET_MANAGER_SECRET}),
         ResourceCapability.CONTROL_PLANE_SENSITIVE_DATA_STORE: frozenset({GcpResourceType.SECRET_MANAGER_SECRET}),

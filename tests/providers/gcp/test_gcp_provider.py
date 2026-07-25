@@ -434,6 +434,18 @@ class GcpProviderTests(unittest.TestCase):
                 "SCC_ASSET_DISCOVERY_FOLDER_IDS",
                 "SCC_ASSET_DISCOVERY_CONFIG",
                 "AUDIT_SECURITY_POSTURE_UNCERTAINTIES",
+                "FIRESTORE_DATABASE_TYPE",
+                "FIRESTORE_LOCATION",
+                "FIRESTORE_CMEK_KEY_NAME",
+                "FIRESTORE_CMEK_STATE",
+                "FIRESTORE_CMEK_CONFIG",
+                "FIRESTORE_PITR_ENABLEMENT",
+                "FIRESTORE_PITR_STATE",
+                "FIRESTORE_DELETE_PROTECTION_STATE",
+                "FIRESTORE_DELETE_PROTECTION_ENABLEMENT",
+                "FIRESTORE_TERRAFORM_DELETION_POLICY",
+                "FIRESTORE_TERRAFORM_DELETION_POLICY_STATE",
+                "FIRESTORE_POSTURE_UNCERTAINTIES",
             },
         )
 
@@ -466,6 +478,7 @@ class GcpProviderTests(unittest.TestCase):
             "gke",
             "audit",
             "edge",
+            "firestore",
         }
 
         self.assertFalse((gcp_provider_root / "resource_facts.py").exists())

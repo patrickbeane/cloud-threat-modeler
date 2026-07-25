@@ -114,6 +114,7 @@ class ResourceConceptTests(unittest.TestCase):
                     "google_pubsub_subscription",
                     "google_pubsub_topic",
                     "google_secret_manager_secret",
+                    "google_firestore_database",
                     "google_sql_database_instance",
                     "google_storage_bucket",
                     "azurerm_storage_account",
@@ -252,7 +253,10 @@ class ResourceConceptTests(unittest.TestCase):
             SUBNET_RESOURCE_TYPES,
             frozenset({"aws_subnet", "google_compute_subnetwork", "azurerm_subnet"}),
         )
-        self.assertEqual(DATABASE_RESOURCE_TYPES, frozenset({"aws_db_instance", "google_sql_database_instance"}))
+        self.assertEqual(
+            DATABASE_RESOURCE_TYPES,
+            frozenset({"aws_db_instance", "google_firestore_database", "google_sql_database_instance"}),
+        )
         self.assertEqual(
             CONTROL_PLANE_SENSITIVE_DATA_STORE_TYPES,
             frozenset(

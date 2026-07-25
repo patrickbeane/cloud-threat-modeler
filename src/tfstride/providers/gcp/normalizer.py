@@ -29,6 +29,7 @@ from tfstride.providers.gcp.data_normalizers import (
     normalize_sql_database_instance,
     normalize_storage_bucket,
 )
+from tfstride.providers.gcp.firestore_normalizers import normalize_firestore_database
 from tfstride.providers.gcp.iam_normalizers import (
     normalize_artifact_registry_repository_iam_binding,
     normalize_artifact_registry_repository_iam_member,
@@ -218,6 +219,7 @@ _GCP_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     GcpResourceType.ORGANIZATION_IAM_MEMBER: normalize_organization_iam_member,
     GcpResourceType.ORGANIZATION_IAM_POLICY: normalize_organization_iam_policy,
     GcpResourceType.FOLDER_ORGANIZATION_POLICY: normalize_folder_organization_policy,
+    GcpResourceType.FIRESTORE_DATABASE: normalize_firestore_database,
     GcpResourceType.NETWORK_CONNECTIVITY_SERVICE_CONNECTION_POLICY: (
         normalize_network_connectivity_service_connection_policy
     ),

@@ -6,6 +6,7 @@ from tfstride.providers.gcp.resource_facts.audit import GcpAuditFacts
 from tfstride.providers.gcp.resource_facts.cloud_sql import GcpCloudSqlFacts
 from tfstride.providers.gcp.resource_facts.compute import GcpComputeFacts
 from tfstride.providers.gcp.resource_facts.edge import GcpEdgeFacts
+from tfstride.providers.gcp.resource_facts.firestore import GcpFirestoreFacts
 from tfstride.providers.gcp.resource_facts.gke import GcpGkeFacts
 from tfstride.providers.gcp.resource_facts.iam import GcpIamFacts
 from tfstride.providers.gcp.resource_facts.identity import GcpIdentityFacts
@@ -30,6 +31,7 @@ class GcpResourceFacts(
     GcpGkeFacts,
     GcpAuditFacts,
     GcpEdgeFacts,
+    GcpFirestoreFacts,
 ):
     __slots__ = ()
 
