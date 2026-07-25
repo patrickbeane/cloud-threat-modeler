@@ -991,6 +991,39 @@ AZURE_RULE_METADATA = (
         severity_factors=("internet_exposure", "data_sensitivity", "blast_radius"),
     ),
     RuleMetadata(
+        rule_id="azure-cosmosdb-public-network-unrestricted",
+        title="Azure Cosmos DB public endpoint allows unrestricted network access",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Disable public network access and use Private Link where possible. If the public endpoint is required, "
+            "configure reviewed non-universal IP filters or VNet restrictions and avoid universal public ranges."
+        ),
+        tags=("azure", "cosmosdb", "network", "public-access", "access-restrictions"),
+        severity_factors=("internet_exposure", "data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="azure-cosmosdb-local-authentication-enabled",
+        title="Azure Cosmos DB account permits local key authentication",
+        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+        recommended_mitigation=(
+            "Disable local authentication where application compatibility permits it, migrate clients to Microsoft "
+            "Entra ID and least-privilege Azure RBAC, and rotate or retire account keys."
+        ),
+        tags=("azure", "cosmosdb", "identity", "local-auth", "account-keys"),
+        severity_factors=("internet_exposure", "privilege_breadth", "data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="azure-cosmosdb-missing-private-endpoint",
+        title="Azure Cosmos DB account lacks resolved private endpoint coverage",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Add a Private Endpoint for the required Cosmos DB subresources, configure Private DNS, verify clients "
+            "use private connectivity, and explicitly disable public network access where possible."
+        ),
+        tags=("azure", "cosmosdb", "private-endpoint", "public-fallback"),
+        severity_factors=("internet_exposure", "data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
         rule_id="azure-sql-public-network-access-enabled",
         title="Azure SQL Database has public network access enabled",
         category=StrideCategory.INFORMATION_DISCLOSURE,

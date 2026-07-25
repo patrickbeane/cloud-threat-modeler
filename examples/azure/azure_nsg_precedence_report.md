@@ -19,8 +19,8 @@ This run identified **0 trust boundaries** and **1 findings** across **7 normali
 - Provider resources considered: `7`
 - Normalized resources: `7`
 - Unsupported resources: `0`
-- Registered provider rules (Azure): `98`
-- Enabled provider rules (Azure): `98`
+- Registered provider rules (Azure): `101`
+- Enabled provider rules (Azure): `101`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Unresolved in-plan references: `0`

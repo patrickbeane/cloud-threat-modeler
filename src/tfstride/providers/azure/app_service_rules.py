@@ -12,7 +12,7 @@ from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_fa
 from tfstride.providers.azure.resource_types import AZURE_APP_SERVICE_RESOURCE_TYPES
 from tfstride.providers.azure.resource_utils import tls_version_below_1_2
 from tfstride.providers.coercion import STATE_DISABLED, STATE_ENABLED, STATE_NOT_CONFIGURED
-from tfstride.providers.kubernetes import is_broad_public_range
+from tfstride.providers.network_ranges import is_broad_public_range
 
 
 class _PlatformAuthentication(NamedTuple):

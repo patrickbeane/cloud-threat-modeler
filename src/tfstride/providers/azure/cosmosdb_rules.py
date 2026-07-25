@@ -4,6 +4,12 @@ from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import build_severity_reasoning, collect_evidence, evidence_item
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
+from tfstride.providers.azure.cosmosdb_posture import (
+    COSMOSDB_NETWORK_RESTRICTION_RESTRICTED,
+    COSMOSDB_NETWORK_RESTRICTION_UNRESTRICTED,
+    cosmosdb_network_restriction_evidence,
+    cosmosdb_network_restriction_state,
+)
 from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
 from tfstride.providers.azure.resource_utils import tls_version_below_1_2
@@ -123,6 +129,84 @@ class AzureCosmosDbRuleDetectors:
             )
         return findings
 
+    def detect_public_network_unrestricted(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "azure":
+            return []
+
+        findings: list[Finding] = []
+        for account in context.inventory.by_type(AzureResourceType.COSMOSDB_ACCOUNT):
+            facts = azure_facts(account)
+            if facts.cosmosdb_public_network_access_enabled is not True:
+                continue
+            if cosmosdb_network_restriction_state(facts) != COSMOSDB_NETWORK_RESTRICTION_UNRESTRICTED:
+                continue
+            severity_reasoning = _access_posture_severity(facts)
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=[account.address],
+                    trust_boundary_id=None,
+                    rationale=(
+                        f"{account.display_name} enables the Cosmos DB public endpoint without a deterministic "
+                        "non-universal IP filter or enabled VNet restriction. Network reachability does not establish "
+                        "anonymous or authorized database access; identity and key authorization remain separate "
+                        "controls."
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item("target_resource", _target_resource_evidence(account, facts)),
+                        evidence_item("network_posture", _network_posture_evidence(facts)),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
+    def detect_local_authentication_enabled(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "azure":
+            return []
+
+        findings: list[Finding] = []
+        for account in context.inventory.by_type(AzureResourceType.COSMOSDB_ACCOUNT):
+            facts = azure_facts(account)
+            if facts.cosmosdb_local_authentication_enabled is not True:
+                continue
+            severity_reasoning = _access_posture_severity(facts, privilege_breadth=1)
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=[account.address],
+                    trust_boundary_id=None,
+                    rationale=(
+                        f"{account.display_name} permits local key-based Cosmos DB authentication. This does not "
+                        "prove account keys are currently used, but it allows credentials outside Microsoft Entra "
+                        "ID and Azure RBAC authorization controls."
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item("target_resource", _target_resource_evidence(account, facts)),
+                        evidence_item(
+                            "authorization_posture",
+                            [
+                                "local_authentication_state=enabled",
+                                "local_authentication_enabled is true",
+                            ],
+                        ),
+                        evidence_item("network_posture", _network_posture_evidence(facts)),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _data_protection_severity(*, key_ownership: bool = False):
     return build_severity_reasoning(
@@ -131,6 +215,24 @@ def _data_protection_severity(*, key_ownership: bool = False):
         data_sensitivity=1 if key_ownership else 2,
         lateral_movement=0,
         blast_radius=1,
+    )
+
+
+def _access_posture_severity(
+    facts: AzureResourceFacts,
+    *,
+    privilege_breadth: int = 0,
+):
+    unrestricted_public = (
+        facts.cosmosdb_public_network_access_enabled is True
+        and cosmosdb_network_restriction_state(facts) == COSMOSDB_NETWORK_RESTRICTION_UNRESTRICTED
+    )
+    return build_severity_reasoning(
+        internet_exposure=unrestricted_public,
+        privilege_breadth=privilege_breadth,
+        data_sensitivity=2,
+        lateral_movement=0,
+        blast_radius=1 if unrestricted_public else 0,
     )
 
 
@@ -169,6 +271,22 @@ def _backup_evidence(facts: AzureResourceFacts) -> list[str]:
         values.append(f"retention_in_hours={facts.cosmosdb_backup_retention_hours}")
     if facts.cosmosdb_backup_storage_redundancy:
         values.append(f"storage_redundancy={facts.cosmosdb_backup_storage_redundancy}")
+    return values
+
+
+def _network_posture_evidence(facts: AzureResourceFacts) -> list[str]:
+    values = [
+        f"public_network_fallback_state={facts.cosmosdb_public_network_access_state}",
+    ]
+    if facts.cosmosdb_public_network_access_enabled is True:
+        values.append("public_network_access_enabled is true")
+    elif facts.cosmosdb_public_network_access_enabled is False:
+        values.append("public_network_access_enabled is false")
+    else:
+        values.append("public_network_access_enabled is unknown")
+    values.extend(cosmosdb_network_restriction_evidence(facts))
+    if cosmosdb_network_restriction_state(facts) == COSMOSDB_NETWORK_RESTRICTION_RESTRICTED:
+        values.append("network restrictions reduce exposure but do not prove private-only access")
     return values
 
 

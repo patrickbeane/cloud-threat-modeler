@@ -16,6 +16,11 @@ _COSMOSDB_RULE_IDS = (
     "azure-cosmosdb-continuous-backup-not-configured",
     "azure-cosmosdb-minimum-tls-below-1-2",
 )
+_COSMOSDB_ACCESS_RULE_IDS = (
+    "azure-cosmosdb-public-network-unrestricted",
+    "azure-cosmosdb-local-authentication-enabled",
+    "azure-cosmosdb-missing-private-endpoint",
+)
 
 
 def _account(
@@ -50,11 +55,303 @@ def _evaluate(resources: list[TerraformResource], *rule_ids: str):
     )
 
 
+def _private_endpoint(*, with_dns: bool = True) -> TerraformResource:
+    values: dict[str, object] = {
+        "name": "orders-private-endpoint",
+        "private_service_connection": [
+            {
+                "name": "orders-connection",
+                "private_connection_resource_id": _ACCOUNT_ID,
+                "subresource_names": ["Sql"],
+                "is_manual_connection": False,
+            }
+        ],
+    }
+    if with_dns:
+        values["private_dns_zone_group"] = [
+            {
+                "name": "cosmos-dns",
+                "private_dns_zone_ids": ["azurerm_private_dns_zone.cosmos.id"],
+            }
+        ]
+    return TerraformResource(
+        address="azurerm_private_endpoint.orders",
+        mode="managed",
+        resource_type=AzureResourceType.PRIVATE_ENDPOINT,
+        name="orders",
+        provider_name="registry.terraform.io/hashicorp/azurerm",
+        values=values,
+        unknown_values={},
+    )
+
+
 def _evidence_by_key(finding):
     return {item.key: item.values for item in finding.evidence}
 
 
 class AzureCosmosDbRuleTests(unittest.TestCase):
+    def test_unrestricted_public_account_emits_network_local_auth_and_missing_endpoint_findings(
+        self,
+    ) -> None:
+        findings = _evaluate([_account()], *_COSMOSDB_ACCESS_RULE_IDS)
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            list(_COSMOSDB_ACCESS_RULE_IDS),
+        )
+        evidence_by_rule = {finding.rule_id: _evidence_by_key(finding) for finding in findings}
+        network_evidence = evidence_by_rule["azure-cosmosdb-public-network-unrestricted"]["network_posture"]
+        self.assertIn("public_network_access_enabled is true", network_evidence)
+        self.assertIn("network_restriction_state=unrestricted", network_evidence)
+        self.assertIn("ip_range_filter_state=not_configured", network_evidence)
+        self.assertIn("virtual_network_filter_enabled is unknown", network_evidence)
+        self.assertEqual(
+            evidence_by_rule["azure-cosmosdb-local-authentication-enabled"]["authorization_posture"],
+            [
+                "local_authentication_state=enabled",
+                "local_authentication_enabled is true",
+            ],
+        )
+
+    def test_non_universal_ip_filter_reduces_missing_endpoint_severity_without_claiming_private_only(
+        self,
+    ) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": ["198.51.100.0/24"],
+                        "local_authentication_enabled": False,
+                    }
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-cosmosdb-missing-private-endpoint"],
+        )
+        self.assertEqual(findings[0].severity.value, "low")
+        evidence = _evidence_by_key(findings[0])
+        self.assertIn("network_restriction_state=restricted", evidence["network_acl_posture"])
+        self.assertIn(
+            "network restrictions reduce exposure but do not prove private-only access",
+            evidence["network_acl_posture"],
+        )
+        self.assertIn("do not prove private-only access", findings[0].rationale)
+
+    def test_enabled_vnet_filter_is_mitigating_but_not_private_only(self) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "is_virtual_network_filter_enabled": True,
+                        "virtual_network_rule": [{"id": "azurerm_subnet.data.id"}],
+                        "local_authentication_enabled": False,
+                    }
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-cosmosdb-missing-private-endpoint"],
+        )
+        evidence = _evidence_by_key(findings[0])["network_acl_posture"]
+        self.assertIn("network_restriction_state=restricted", evidence)
+        self.assertIn("virtual_network_rule subnet_id=azurerm_subnet.data.id", evidence)
+
+    def test_unknown_ip_filter_is_not_overridden_by_known_vnet_restriction(self) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": [],
+                        "is_virtual_network_filter_enabled": True,
+                        "virtual_network_rule": [{"id": "azurerm_subnet.data.id"}],
+                        "local_authentication_enabled": False,
+                    },
+                    unknown_values={"ip_range_filter": True},
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-cosmosdb-missing-private-endpoint"],
+        )
+        evidence = _evidence_by_key(findings[0])["network_acl_posture"]
+        self.assertIn("network_restriction_state=unknown", evidence)
+        self.assertEqual(findings[0].severity_reasoning.internet_exposure, 0)
+
+    def test_universal_ip_range_is_not_treated_as_a_restriction(self) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": ["198.51.100.0/24", "0.0.0.0/0"],
+                        "local_authentication_enabled": False,
+                    }
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            [
+                "azure-cosmosdb-public-network-unrestricted",
+                "azure-cosmosdb-missing-private-endpoint",
+            ],
+        )
+        self.assertIn(
+            "network_restriction_state=unrestricted",
+            _evidence_by_key(findings[0])["network_posture"],
+        )
+
+    def test_cosmos_azure_datacenter_sentinel_is_not_treated_as_restricted(
+        self,
+    ) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": ["0.0.0.0"],
+                        "local_authentication_enabled": False,
+                    }
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            [
+                "azure-cosmosdb-public-network-unrestricted",
+                "azure-cosmosdb-missing-private-endpoint",
+            ],
+        )
+        self.assertIn(
+            "network_restriction_state=unrestricted",
+            _evidence_by_key(findings[0])["network_posture"],
+        )
+
+    def test_private_endpoint_suppresses_missing_coverage_but_public_fallback_remains(
+        self,
+    ) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": ["198.51.100.0/24"],
+                        "local_authentication_enabled": False,
+                    }
+                ),
+                _private_endpoint(),
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+            "azure-private-endpoint-public-fallback",
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-private-endpoint-public-fallback"],
+        )
+        self.assertEqual(findings[0].severity.value, "low")
+        self.assertEqual(
+            findings[0].affected_resources,
+            ["azurerm_cosmosdb_account.orders", "azurerm_private_endpoint.orders"],
+        )
+        evidence = _evidence_by_key(findings[0])
+        self.assertEqual(evidence["private_endpoint_subresources"], ["Sql"])
+        self.assertIn(
+            "network restrictions reduce exposure but do not prove private-only access",
+            evidence["network_acl_posture"],
+        )
+
+    def test_public_access_disabled_local_auth_disabled_and_private_endpoint_stay_quiet(
+        self,
+    ) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "public_network_access_enabled": False,
+                        "local_authentication_enabled": False,
+                    }
+                ),
+                _private_endpoint(),
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+            "azure-private-endpoint-public-fallback",
+        )
+
+        self.assertEqual(findings, [])
+
+    def test_public_access_disabled_without_private_endpoint_stays_quiet(self) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "public_network_access_enabled": False,
+                        "local_authentication_enabled": False,
+                    }
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(findings, [])
+
+    def test_unknown_acl_and_local_auth_do_not_become_explicit_unsafe_claims(self) -> None:
+        findings = _evaluate(
+            [
+                _account(
+                    values={
+                        "ip_range_filter": [],
+                        "is_virtual_network_filter_enabled": None,
+                        "local_authentication_enabled": None,
+                    },
+                    unknown_values={
+                        "ip_range_filter": True,
+                        "is_virtual_network_filter_enabled": True,
+                        "local_authentication_enabled": True,
+                    },
+                )
+            ],
+            *_COSMOSDB_ACCESS_RULE_IDS,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-cosmosdb-missing-private-endpoint"],
+        )
+        self.assertNotIn(
+            "unrestricted",
+            " ".join(value for item in findings[0].evidence for value in item.values),
+        )
+
+    def test_cosmos_private_endpoint_participates_in_generic_dns_posture(self) -> None:
+        findings = _evaluate(
+            [
+                _account(values={"public_network_access_enabled": False}),
+                _private_endpoint(with_dns=False),
+            ],
+            "azure-private-endpoint-dns-posture-incomplete",
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            ["azure-private-endpoint-dns-posture-incomplete"],
+        )
+        self.assertEqual(
+            findings[0].affected_resources,
+            ["azurerm_cosmosdb_account.orders", "azurerm_private_endpoint.orders"],
+        )
+
     def test_periodic_backup_without_cmk_and_weak_tls_emits_focused_findings(self) -> None:
         findings = _evaluate(
             [

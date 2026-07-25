@@ -274,6 +274,9 @@ EXPECTED_DEFAULT_RULE_METADATA_IDS = (
     "azure-cosmosdb-customer-managed-key-missing",
     "azure-cosmosdb-continuous-backup-not-configured",
     "azure-cosmosdb-minimum-tls-below-1-2",
+    "azure-cosmosdb-public-network-unrestricted",
+    "azure-cosmosdb-local-authentication-enabled",
+    "azure-cosmosdb-missing-private-endpoint",
     "azure-sql-public-network-access-enabled",
     "azure-sql-missing-private-endpoint",
     "azure-sql-firewall-broad-public-access",
@@ -334,7 +337,7 @@ class RuleRegistryTests(unittest.TestCase):
             tuple(item.rule_id for item in metadata),
             EXPECTED_DEFAULT_RULE_METADATA_IDS,
         )
-        self.assertEqual(len(metadata), 267)
+        self.assertEqual(len(metadata), 270)
 
     def test_default_rule_metadata_is_partitioned_by_provider(self) -> None:
         metadata_ids = tuple(metadata.rule_id for metadata in default_rule_registry().rules())
@@ -345,7 +348,7 @@ class RuleRegistryTests(unittest.TestCase):
         self.assertEqual(metadata_ids, aws_metadata_ids + gcp_metadata_ids + azure_metadata_ids)
         self.assertEqual(len(aws_metadata_ids), 87)
         self.assertEqual(len(gcp_metadata_ids), 82)
-        self.assertEqual(len(azure_metadata_ids), 98)
+        self.assertEqual(len(azure_metadata_ids), 101)
         self.assertEqual(set(aws_metadata_ids), set(_flatten_rule_groups(AWS_RULE_GROUP_IDS)))
         self.assertEqual(set(gcp_metadata_ids), set(_flatten_rule_groups(GCP_RULE_GROUP_IDS)))
         self.assertEqual(set(azure_metadata_ids), set(_flatten_rule_groups(AZURE_RULE_GROUP_IDS)))

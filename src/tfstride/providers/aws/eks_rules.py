@@ -17,7 +17,8 @@ from tfstride.providers.coercion import (
     STATE_NOT_CONFIGURED,
     STATE_UNKNOWN,
 )
-from tfstride.providers.kubernetes import is_broad_public_range, uncertainty_evidence
+from tfstride.providers.kubernetes import uncertainty_evidence
+from tfstride.providers.network_ranges import is_broad_public_range
 
 _AWS_EKS_CLUSTER = "aws_eks_cluster"
 _AWS_EKS_ADDON = "aws_eks_addon"

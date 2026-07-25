@@ -5,7 +5,8 @@ from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.gcp.resource_facts import GcpResourceFacts, gcp_facts
 from tfstride.providers.gcp.resource_types import GCP_GKE_RESOURCE_TYPES
-from tfstride.providers.kubernetes import is_broad_public_range, uncertainty_evidence
+from tfstride.providers.kubernetes import uncertainty_evidence
+from tfstride.providers.network_ranges import is_broad_public_range
 
 _GKE_BROAD_OAUTH_SCOPES = frozenset(
     {

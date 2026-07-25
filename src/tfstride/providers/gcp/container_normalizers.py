@@ -23,7 +23,8 @@ from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.network_normalizers import GCP_PROVIDER
 from tfstride.providers.gcp.resource_mutations import gcp_mutations
 from tfstride.providers.gcp.resource_utils import first_non_empty, resource_identifier, resource_name
-from tfstride.providers.kubernetes import block_value, dedupe, first_unknown_block, is_broad_public_range
+from tfstride.providers.kubernetes import block_value, dedupe, first_unknown_block
+from tfstride.providers.network_ranges import is_broad_public_range
 
 
 def normalize_container_cluster(resource: TerraformResource) -> NormalizedResource:

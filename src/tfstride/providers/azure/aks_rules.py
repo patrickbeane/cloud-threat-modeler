@@ -8,7 +8,8 @@ from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding
 from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
-from tfstride.providers.kubernetes import is_broad_public_range, uncertainty_evidence
+from tfstride.providers.kubernetes import uncertainty_evidence
+from tfstride.providers.network_ranges import is_broad_public_range
 
 _ENABLED = "enabled"
 _DISABLED = "disabled"

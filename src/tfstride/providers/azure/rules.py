@@ -119,6 +119,9 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-cosmosdb-customer-managed-key-missing",
         "azure-cosmosdb-continuous-backup-not-configured",
         "azure-cosmosdb-minimum-tls-below-1-2",
+        "azure-cosmosdb-public-network-unrestricted",
+        "azure-cosmosdb-local-authentication-enabled",
+        "azure-cosmosdb-missing-private-endpoint",
         "azure-sql-public-network-access-enabled",
         "azure-sql-missing-private-endpoint",
         "azure-sql-firewall-broad-public-access",
@@ -312,6 +315,11 @@ def build_azure_rule_contribution(
         "azure-cosmosdb-customer-managed-key-missing": (cosmosdb_detectors.detect_customer_managed_key_missing),
         "azure-cosmosdb-continuous-backup-not-configured": (cosmosdb_detectors.detect_continuous_backup_not_configured),
         "azure-cosmosdb-minimum-tls-below-1-2": (cosmosdb_detectors.detect_minimum_tls_below_1_2),
+        "azure-cosmosdb-public-network-unrestricted": (cosmosdb_detectors.detect_public_network_unrestricted),
+        "azure-cosmosdb-local-authentication-enabled": (cosmosdb_detectors.detect_local_authentication_enabled),
+        "azure-cosmosdb-missing-private-endpoint": (
+            private_endpoint_detectors.detect_cosmosdb_account_missing_private_endpoint
+        ),
         "azure-sql-public-network-access-enabled": mssql_detectors.detect_public_network_access_enabled,
         "azure-sql-missing-private-endpoint": (private_endpoint_detectors.detect_sql_server_missing_private_endpoint),
         "azure-sql-firewall-broad-public-access": mssql_detectors.detect_broad_firewall_access,

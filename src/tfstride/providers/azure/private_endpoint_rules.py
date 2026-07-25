@@ -12,6 +12,12 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
+from tfstride.providers.azure.cosmosdb_posture import (
+    COSMOSDB_NETWORK_RESTRICTION_RESTRICTED,
+    COSMOSDB_NETWORK_RESTRICTION_UNKNOWN,
+    cosmosdb_network_restriction_evidence,
+    cosmosdb_network_restriction_state,
+)
 from tfstride.providers.azure.private_endpoint_index import (
     AzurePrivateEndpointConnection,
     build_azure_private_endpoint_index,
@@ -32,6 +38,7 @@ _PRIVATE_ENDPOINT_TARGET_TYPES = (
     AzureResourceType.MSSQL_SERVER,
     AzureResourceType.SERVICE_BUS_NAMESPACE,
     AzureResourceType.CONTAINER_REGISTRY,
+    AzureResourceType.COSMOSDB_ACCOUNT,
 )
 
 
@@ -125,6 +132,23 @@ class AzurePrivateEndpointPostureRuleDetectors:
                 "enabled or unknown."
             ),
             eligible=lambda _resource, facts: facts.container_registry_is_premium is True,
+        )
+
+    def detect_cosmosdb_account_missing_private_endpoint(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_missing_private_endpoint(
+            context,
+            rule_id,
+            resource_type=AzureResourceType.COSMOSDB_ACCOUNT,
+            rationale=lambda resource: (
+                f"{resource.display_name} does not have a resolved private endpoint and may remain reachable "
+                "through the Cosmos DB public endpoint. Configured non-universal IP or enabled VNet controls can "
+                "reduce exposure, but they do not prove private-only access while public network fallback remains "
+                "enabled or unknown."
+            ),
         )
 
     def detect_private_endpoint_public_fallback(
@@ -532,30 +556,36 @@ def _private_endpoint_posture_severity(
     *,
     has_private_endpoint: bool,
 ):
-    default_deny = _network_default_action_is_deny(facts.network_default_action)
+    cosmosdb_restriction_state = cosmosdb_network_restriction_state(facts)
+    network_restricted = (
+        _network_default_action_is_deny(facts.network_default_action)
+        or cosmosdb_restriction_state == COSMOSDB_NETWORK_RESTRICTION_RESTRICTED
+    )
+    network_restriction_unknown = cosmosdb_restriction_state == COSMOSDB_NETWORK_RESTRICTION_UNKNOWN
+    network_unrestricted = not network_restricted and not network_restriction_unknown
     fallback_state = facts.public_network_fallback_state
     if has_private_endpoint:
         return build_severity_reasoning(
-            internet_exposure=fallback_state == PUBLIC_NETWORK_FALLBACK_ENABLED and not default_deny,
+            internet_exposure=(fallback_state == PUBLIC_NETWORK_FALLBACK_ENABLED and network_unrestricted),
             privilege_breadth=0,
             data_sensitivity=1,
             lateral_movement=0,
-            blast_radius=1 if fallback_state == PUBLIC_NETWORK_FALLBACK_ENABLED and not default_deny else 0,
+            blast_radius=(1 if fallback_state == PUBLIC_NETWORK_FALLBACK_ENABLED and network_unrestricted else 0),
         )
     if fallback_state == PUBLIC_NETWORK_FALLBACK_ENABLED:
         return build_severity_reasoning(
-            internet_exposure=not default_deny,
+            internet_exposure=network_unrestricted,
             privilege_breadth=0,
-            data_sensitivity=2 if not default_deny else 1,
+            data_sensitivity=2 if network_unrestricted else 1,
             lateral_movement=0,
-            blast_radius=1 if not default_deny else 0,
+            blast_radius=1 if network_unrestricted else 0,
         )
     return build_severity_reasoning(
         internet_exposure=False,
         privilege_breadth=0,
-        data_sensitivity=2 if not default_deny else 1,
+        data_sensitivity=2 if network_unrestricted else 1,
         lateral_movement=0,
-        blast_radius=1 if not default_deny else 0,
+        blast_radius=1 if network_unrestricted else 0,
     )
 
 
@@ -580,6 +610,10 @@ def _network_acl_evidence(facts: AzureResourceFacts) -> list[str]:
         values.append(f"effective default_action is {facts.network_default_action}")
     if facts.network_rule_source_address:
         values.append(f"network rule source is {facts.network_rule_source_address}")
+    if facts.cosmosdb_ip_range_filter_state is not None or facts.cosmosdb_virtual_network_filter_state is not None:
+        values.extend(cosmosdb_network_restriction_evidence(facts))
+        if cosmosdb_network_restriction_state(facts) == COSMOSDB_NETWORK_RESTRICTION_RESTRICTED:
+            values.append("network restrictions reduce exposure but do not prove private-only access")
     return values
 
 
@@ -613,6 +647,8 @@ def _posture_uncertainties(
         return facts.service_bus_posture_uncertainties
     if resource.resource_type == AzureResourceType.CONTAINER_REGISTRY:
         return facts.container_registry_posture_uncertainties
+    if resource.resource_type == AzureResourceType.COSMOSDB_ACCOUNT:
+        return facts.cosmosdb_posture_uncertainties
     return []
 
 
