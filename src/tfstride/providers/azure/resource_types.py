@@ -15,6 +15,7 @@ class AzureResourceType:
     SERVICE_BUS_QUEUE = "azurerm_servicebus_queue"
     SERVICE_BUS_TOPIC = "azurerm_servicebus_topic"
     SERVICE_BUS_SUBSCRIPTION = "azurerm_servicebus_subscription"
+    COSMOSDB_ACCOUNT = "azurerm_cosmosdb_account"
     CONTAINER_REGISTRY = "azurerm_container_registry"
     KEY_VAULT = "azurerm_key_vault"
     KEY_VAULT_ACCESS_POLICY = "azurerm_key_vault_access_policy"
@@ -83,6 +84,8 @@ AZURE_SERVICE_BUS_RESOURCE_TYPES = frozenset(
         AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
     }
 )
+
+AZURE_COSMOSDB_RESOURCE_TYPES = frozenset({AzureResourceType.COSMOSDB_ACCOUNT})
 
 AZURE_CONTAINER_REGISTRY_RESOURCE_TYPES = frozenset({AzureResourceType.CONTAINER_REGISTRY})
 
@@ -173,6 +176,7 @@ AZURE_AUDIT_SECURITY_RESOURCE_TYPES = frozenset(
 AZURE_SUPPORTED_RESOURCE_TYPES = (
     AZURE_STORAGE_RESOURCE_TYPES
     | AZURE_SERVICE_BUS_RESOURCE_TYPES
+    | AZURE_COSMOSDB_RESOURCE_TYPES
     | AZURE_CONTAINER_REGISTRY_RESOURCE_TYPES
     | AZURE_KEY_VAULT_RESOURCE_TYPES
     | AZURE_IDENTITY_RESOURCE_TYPES

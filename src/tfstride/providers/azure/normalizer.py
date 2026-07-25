@@ -26,6 +26,7 @@ from tfstride.providers.azure.compute_normalizers import (
     normalize_windows_virtual_machine,
 )
 from tfstride.providers.azure.container_registry_normalizers import normalize_container_registry
+from tfstride.providers.azure.cosmosdb_normalizers import normalize_cosmosdb_account
 from tfstride.providers.azure.data_normalizers import (
     normalize_storage_account,
     normalize_storage_account_network_rules,
@@ -98,6 +99,7 @@ _AZURE_RESOURCE_NORMALIZERS = {
     AzureResourceType.SERVICE_BUS_QUEUE: normalize_servicebus_queue,
     AzureResourceType.SERVICE_BUS_TOPIC: normalize_servicebus_topic,
     AzureResourceType.SERVICE_BUS_SUBSCRIPTION: normalize_servicebus_subscription,
+    AzureResourceType.COSMOSDB_ACCOUNT: normalize_cosmosdb_account,
     AzureResourceType.CONTAINER_REGISTRY: normalize_container_registry,
     AzureResourceType.KEY_VAULT: normalize_key_vault,
     AzureResourceType.KEY_VAULT_ACCESS_POLICY: normalize_key_vault_access_policy,
@@ -153,7 +155,7 @@ SUPPORTED_AZURE_TYPES = frozenset(_AZURE_RESOURCE_NORMALIZERS)
 
 
 class AzureNormalizer(ProviderNormalizer):
-    """Normalize supported AzureRM storage, Service Bus, identity, Key Vault, network, compute, AKS, and app resources."""
+    """Normalize supported AzureRM data, identity, network, compute, AKS, and app resources."""
 
     provider = "azure"
 

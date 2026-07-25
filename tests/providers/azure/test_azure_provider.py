@@ -64,6 +64,7 @@ class AzureProviderTests(unittest.TestCase):
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.SERVICE_BUS_QUEUE))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.SERVICE_BUS_TOPIC))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.SERVICE_BUS_SUBSCRIPTION))
+        self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_ACCOUNT))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.KEY_VAULT))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.USER_ASSIGNED_IDENTITY))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.FEDERATED_IDENTITY_CREDENTIAL))
@@ -97,6 +98,7 @@ class AzureProviderTests(unittest.TestCase):
                     AzureResourceType.SERVICE_BUS_QUEUE,
                     AzureResourceType.SERVICE_BUS_TOPIC,
                     AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
+                    AzureResourceType.COSMOSDB_ACCOUNT,
                     AzureResourceType.KEY_VAULT,
                     AzureResourceType.KEY_VAULT_SECRET,
                     AzureResourceType.KEY_VAULT_KEY,
@@ -107,6 +109,10 @@ class AzureProviderTests(unittest.TestCase):
                     AzureResourceType.POSTGRESQL_FLEXIBLE_SERVER_DATABASE,
                 }
             ),
+        )
+        self.assertEqual(
+            plugin.resource_types_for_capability(ResourceCapability.DATABASE),
+            frozenset({AzureResourceType.COSMOSDB_ACCOUNT}),
         )
         self.assertEqual(
             plugin.resource_types_for_capability(ResourceCapability.WORKLOAD),

@@ -117,6 +117,7 @@ class ResourceConceptTests(unittest.TestCase):
                     "google_firestore_database",
                     "google_sql_database_instance",
                     "google_storage_bucket",
+                    "azurerm_cosmosdb_account",
                     "azurerm_storage_account",
                     "azurerm_key_vault",
                     "azurerm_key_vault_secret",
@@ -255,7 +256,14 @@ class ResourceConceptTests(unittest.TestCase):
         )
         self.assertEqual(
             DATABASE_RESOURCE_TYPES,
-            frozenset({"aws_db_instance", "google_firestore_database", "google_sql_database_instance"}),
+            frozenset(
+                {
+                    "aws_db_instance",
+                    "google_firestore_database",
+                    "google_sql_database_instance",
+                    "azurerm_cosmosdb_account",
+                }
+            ),
         )
         self.assertEqual(
             CONTROL_PLANE_SENSITIVE_DATA_STORE_TYPES,
@@ -353,6 +361,7 @@ class ResourceConceptTests(unittest.TestCase):
         self.assertTrue(is_subnet_resource(_resource("azurerm_subnet", provider="azure")))
         self.assertTrue(is_database_resource(_resource("aws_db_instance")))
         self.assertTrue(is_database_resource(_resource("google_sql_database_instance", provider="gcp")))
+        self.assertTrue(is_database_resource(_resource("azurerm_cosmosdb_account", provider="azure")))
         self.assertTrue(is_object_storage_resource(_resource("aws_s3_bucket")))
         self.assertTrue(is_object_storage_resource(_resource("google_storage_bucket", provider="gcp")))
         self.assertTrue(is_object_storage_resource(_resource("azurerm_storage_account", provider="azure")))
