@@ -188,6 +188,39 @@ GCP_RULE_METADATA = (
         severity_factors=("data_sensitivity", "lateral_movement"),
     ),
     RuleMetadata(
+        rule_id="gcp-firestore-customer-managed-encryption-missing",
+        title="Firestore database does not use customer-managed encryption",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Configure a customer-managed Cloud KMS key for sensitive Firestore databases where key ownership, "
+            "rotation, audit separation, or compliance requirements warrant it."
+        ),
+        tags=("gcp", "firestore", "database", "encryption", "cmek"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="gcp-firestore-point-in-time-recovery-disabled-or-unknown",
+        title="Firestore point-in-time recovery is disabled or unknown",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Enable Firestore point-in-time recovery for persistent databases and test recovery procedures "
+            "against accidental or malicious data changes."
+        ),
+        tags=("gcp", "firestore", "database", "backup", "recovery"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="gcp-firestore-delete-protection-disabled-or-unknown",
+        title="Firestore service delete protection is disabled or unknown",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Enable Firestore service delete protection for persistent databases and require explicit review "
+            "before disabling it during planned retirement. Configure Terraform deletion behavior separately."
+        ),
+        tags=("gcp", "firestore", "database", "lifecycle", "delete-protection"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
         rule_id="gcp-cloud-sql-private-connectivity-not-modeled",
         title="Cloud SQL private network lacks modeled private service access",
         category=StrideCategory.INFORMATION_DISCLOSURE,

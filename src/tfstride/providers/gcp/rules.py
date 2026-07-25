@@ -32,6 +32,9 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-cloud-sql-zonal-availability",
         "gcp-cloud-sql-query-insights-disabled",
         "gcp-cloud-sql-connector-enforcement-not-required",
+        "gcp-firestore-customer-managed-encryption-missing",
+        "gcp-firestore-point-in-time-recovery-disabled-or-unknown",
+        "gcp-firestore-delete-protection-disabled-or-unknown",
         "gcp-cloud-sql-private-connectivity-not-modeled",
         "gcp-private-workload-private-google-access-disabled",
         "gcp-gcs-public-access",
@@ -143,6 +146,15 @@ def build_gcp_rule_contribution(
         "gcp-cloud-sql-query-insights-disabled": gcp_detectors.detect_cloud_sql_query_insights_disabled,
         "gcp-cloud-sql-connector-enforcement-not-required": (
             gcp_detectors.detect_cloud_sql_connector_enforcement_not_required
+        ),
+        "gcp-firestore-customer-managed-encryption-missing": (
+            gcp_detectors.detect_firestore_customer_managed_encryption_missing
+        ),
+        "gcp-firestore-point-in-time-recovery-disabled-or-unknown": (
+            gcp_detectors.detect_firestore_point_in_time_recovery_disabled_or_unknown
+        ),
+        "gcp-firestore-delete-protection-disabled-or-unknown": (
+            gcp_detectors.detect_firestore_delete_protection_disabled_or_unknown
         ),
         "gcp-cloud-sql-private-connectivity-not-modeled": (
             private_connectivity_detectors.detect_cloud_sql_private_connectivity_not_modeled

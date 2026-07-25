@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from tfstride.providers.gcp.artifact_registry_rules import GcpArtifactRegistryRuleDetectors
 from tfstride.providers.gcp.cloud_sql_rules import GcpCloudSqlRuleDetectors
+from tfstride.providers.gcp.firestore_rules import GcpFirestoreRuleDetectors
 from tfstride.providers.gcp.kms_rules import GcpKmsRuleDetectors
 from tfstride.providers.gcp.pubsub_bigquery_rules import GcpPubSubBigQueryRuleDetectors
 from tfstride.providers.gcp.pubsub_posture_rules import GcpPubSubPostureRuleDetectors
@@ -17,5 +18,6 @@ class GcpDataRuleDetectors(
     GcpSecretManagerRuleDetectors,
     GcpKmsRuleDetectors,
     GcpCloudSqlRuleDetectors,
+    GcpFirestoreRuleDetectors,
 ):
     pass
