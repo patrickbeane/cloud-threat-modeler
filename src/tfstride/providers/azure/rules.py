@@ -19,6 +19,7 @@ from tfstride.providers.azure.app_service_storage_rules import AzureAppServiceSt
 from tfstride.providers.azure.audit_rules import AzureAuditRuleDetectors
 from tfstride.providers.azure.compute_rules import AzureComputeRuleDetectors
 from tfstride.providers.azure.container_registry_rules import AzureContainerRegistryRuleDetectors
+from tfstride.providers.azure.cosmosdb_rules import AzureCosmosDbRuleDetectors
 from tfstride.providers.azure.federated_identity_rules import AzureFederatedIdentityRuleDetectors
 from tfstride.providers.azure.iam_assignment_rules import AzureIamAssignmentRuleDetectors
 from tfstride.providers.azure.key_vault_rules import AzureKeyVaultRuleDetectors
@@ -115,6 +116,9 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-aks-monitoring-agent-not-enabled",
         "azure-aks-defender-not-enabled",
         "azure-aks-azure-policy-not-enabled",
+        "azure-cosmosdb-customer-managed-key-missing",
+        "azure-cosmosdb-continuous-backup-not-configured",
+        "azure-cosmosdb-minimum-tls-below-1-2",
         "azure-sql-public-network-access-enabled",
         "azure-sql-missing-private-endpoint",
         "azure-sql-firewall-broad-public-access",
@@ -156,6 +160,7 @@ def build_azure_rule_contribution(
     storage_detectors = AzureStorageRuleDetectors(finding_factory)
     service_bus_detectors = AzureServiceBusRuleDetectors(finding_factory)
     container_registry_detectors = AzureContainerRegistryRuleDetectors(finding_factory)
+    cosmosdb_detectors = AzureCosmosDbRuleDetectors(finding_factory)
     key_vault_detectors = AzureKeyVaultRuleDetectors(finding_factory)
     custom_role_detectors = AzureCustomRoleRuleDetectors(finding_factory)
     iam_assignment_detectors = AzureIamAssignmentRuleDetectors(finding_factory)
@@ -304,6 +309,9 @@ def build_azure_rule_contribution(
         "azure-aks-monitoring-agent-not-enabled": aks_detectors.detect_monitoring_agent_not_enabled,
         "azure-aks-defender-not-enabled": aks_detectors.detect_defender_not_enabled,
         "azure-aks-azure-policy-not-enabled": aks_detectors.detect_azure_policy_not_enabled,
+        "azure-cosmosdb-customer-managed-key-missing": (cosmosdb_detectors.detect_customer_managed_key_missing),
+        "azure-cosmosdb-continuous-backup-not-configured": (cosmosdb_detectors.detect_continuous_backup_not_configured),
+        "azure-cosmosdb-minimum-tls-below-1-2": (cosmosdb_detectors.detect_minimum_tls_below_1_2),
         "azure-sql-public-network-access-enabled": mssql_detectors.detect_public_network_access_enabled,
         "azure-sql-missing-private-endpoint": (private_endpoint_detectors.detect_sql_server_missing_private_endpoint),
         "azure-sql-firewall-broad-public-access": mssql_detectors.detect_broad_firewall_access,

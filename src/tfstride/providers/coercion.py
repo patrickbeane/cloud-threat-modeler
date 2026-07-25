@@ -364,7 +364,18 @@ def tls_version_below_1_2(value: str | None) -> bool:
     if value is None:
         return False
     normalized = value.strip().lower().replace(".", "_").replace("-", "_")
-    return normalized in {"tls1_0", "tls1_1", "tlsv1", "tlsv1_0", "tlsv1_1", "1_0", "1_1"}
+    return normalized in {
+        "tls",
+        "tls10",
+        "tls11",
+        "tls1_0",
+        "tls1_1",
+        "tlsv1",
+        "tlsv1_0",
+        "tlsv1_1",
+        "1_0",
+        "1_1",
+    }
 
 
 def append_unique(values: list[Any], value: Any) -> None:

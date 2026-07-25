@@ -158,7 +158,7 @@ class AzureResourceUtilsTests(unittest.TestCase):
         self.assertEqual(unknown_fields, ["private_connection_resource_id"])
 
     def test_tls_version_below_1_2_accepts_provider_spellings(self) -> None:
-        for weak_version in ("TLS1_0", "TLS1.1", "TLSv1", "TLSv1_1", "1.0", "1_1"):
+        for weak_version in ("Tls", "Tls10", "Tls11", "TLS1_0", "TLS1.1", "TLSv1", "TLSv1_1", "1.0", "1_1"):
             with self.subTest(weak_version=weak_version):
                 self.assertTrue(tls_version_below_1_2(weak_version))
 

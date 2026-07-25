@@ -959,6 +959,38 @@ AZURE_RULE_METADATA = (
         severity_factors=("lateral_movement", "blast_radius"),
     ),
     RuleMetadata(
+        rule_id="azure-cosmosdb-customer-managed-key-missing",
+        title="Azure Cosmos DB account lacks customer-managed key control",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Configure a customer-managed Key Vault key and deterministic managed identity where customer key "
+            "ownership, rotation governance, or separation of duties is required."
+        ),
+        tags=("azure", "cosmosdb", "encryption", "cmk", "key-management"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="azure-cosmosdb-continuous-backup-not-configured",
+        title="Azure Cosmos DB account does not use Continuous backup",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Use Cosmos DB Continuous backup when point-in-time recovery is required. Retain periodic backup "
+            "settings that meet recovery objectives when Continuous backup is not suitable."
+        ),
+        tags=("azure", "cosmosdb", "backup", "recovery", "pitr"),
+        severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="azure-cosmosdb-minimum-tls-below-1-2",
+        title="Azure Cosmos DB account allows TLS below 1.2",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Set `minimal_tls_version` to `Tls12` or newer and remove clients that require deprecated TLS versions."
+        ),
+        tags=("azure", "cosmosdb", "tls"),
+        severity_factors=("internet_exposure", "data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
         rule_id="azure-sql-public-network-access-enabled",
         title="Azure SQL Database has public network access enabled",
         category=StrideCategory.INFORMATION_DISCLOSURE,

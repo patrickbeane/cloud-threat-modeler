@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import unittest
 
-from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.models import ResourceCategory, TerraformResource
 from tfstride.providers.azure.normalizer import AzureNormalizer
 from tfstride.providers.azure.resource_facts import azure_facts
@@ -450,7 +449,6 @@ class AzureCosmosDbNormalizerTests(unittest.TestCase):
         self.assertEqual([resource.address for resource in inventory.resources], ["azurerm_cosmosdb_account.orders"])
         self.assertTrue(registry.has_capability(inventory.resources[0], ResourceCapability.DATA_STORE))
         self.assertTrue(registry.has_capability(inventory.resources[0], ResourceCapability.DATABASE))
-        self.assertEqual(StrideRuleEngine().evaluate(inventory, []), [])
 
 
 if __name__ == "__main__":
