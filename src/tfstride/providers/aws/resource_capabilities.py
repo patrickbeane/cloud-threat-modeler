@@ -23,6 +23,7 @@ AWS_RESOURCE_CAPABILITIES = MappingProxyType(
         ResourceCapability.DATA_STORE: frozenset(
             {
                 "aws_db_instance",
+                "aws_dynamodb_table",
                 "aws_s3_bucket",
                 "aws_secretsmanager_secret",
             }

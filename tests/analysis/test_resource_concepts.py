@@ -106,6 +106,7 @@ class ResourceConceptTests(unittest.TestCase):
             frozenset(
                 {
                     "aws_db_instance",
+                    "aws_dynamodb_table",
                     "aws_s3_bucket",
                     "aws_secretsmanager_secret",
                     "google_bigquery_dataset",

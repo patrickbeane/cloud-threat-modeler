@@ -240,6 +240,7 @@
         "aws_config_configuration_recorder_status",
         "aws_config_delivery_channel",
         "aws_db_instance",
+        "aws_dynamodb_table",
         "aws_ecr_registry_scanning_configuration",
         "aws_ecr_repository",
         "aws_ecs_cluster",

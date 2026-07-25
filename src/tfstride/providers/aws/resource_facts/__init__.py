@@ -4,6 +4,7 @@ from tfstride.models import NormalizedResource
 from tfstride.providers.aws.resource_facts.audit import AwsAuditFacts
 from tfstride.providers.aws.resource_facts.compute import AwsComputeFacts
 from tfstride.providers.aws.resource_facts.data import AwsDataFacts
+from tfstride.providers.aws.resource_facts.dynamodb import AwsDynamoDbFacts
 from tfstride.providers.aws.resource_facts.ecr import AwsEcrFacts
 from tfstride.providers.aws.resource_facts.edge import AwsEdgeFacts
 from tfstride.providers.aws.resource_facts.iam import AwsIamFacts
@@ -21,6 +22,7 @@ class AwsResourceFacts(
     AwsComputeFacts,
     AwsEdgeFacts,
     AwsDataFacts,
+    AwsDynamoDbFacts,
     AwsEcrFacts,
     AwsMessagingFacts,
     AwsAuditFacts,
