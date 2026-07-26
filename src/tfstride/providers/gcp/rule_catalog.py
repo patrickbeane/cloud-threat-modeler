@@ -738,6 +738,25 @@ GCP_RULE_METADATA = (
         severity_factors=("privilege_breadth", "data_sensitivity", "blast_radius"),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-firestore-mutation-access",
+        title="Public Cloud Run identity has Firestore entity mutation grants",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Firestore entity permissions and database scope required. Prefer database-name "
+            "conditions over project-applicable grants, and separate database administration from public "
+            "application runtime identities."
+        ),
+        tags=("gcp", "cloud-run", "firestore", "iam", "public-access", "nosql", "tampering"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-gcs-mutation-access",
         title="Public Cloud Run service can modify GCS object storage",
         category=StrideCategory.TAMPERING,
