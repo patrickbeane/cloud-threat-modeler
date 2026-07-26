@@ -7,6 +7,7 @@ from tfstride.providers.azure.resource_facts.audit import AzureAuditFacts
 from tfstride.providers.azure.resource_facts.compute import AzureComputeFacts
 from tfstride.providers.azure.resource_facts.container_registry import AzureContainerRegistryFacts
 from tfstride.providers.azure.resource_facts.cosmosdb import AzureCosmosDbFacts
+from tfstride.providers.azure.resource_facts.cosmosdb_nosql import AzureCosmosDbNoSqlFacts
 from tfstride.providers.azure.resource_facts.identity import AzureIdentityFacts
 from tfstride.providers.azure.resource_facts.key_vault import AzureKeyVaultFacts
 from tfstride.providers.azure.resource_facts.network import AzureNetworkFacts
@@ -23,6 +24,7 @@ class AzureResourceFacts(
     AzureServiceBusFacts,
     AzureContainerRegistryFacts,
     AzureCosmosDbFacts,
+    AzureCosmosDbNoSqlFacts,
     AzureAksFacts,
     AzureAppServiceFacts,
     AzureKeyVaultFacts,

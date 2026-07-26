@@ -42,6 +42,13 @@ def normalize_cosmosdb_account(resource: TerraformResource) -> NormalizedResourc
     uncertainties: list[str] = []
     account_id = known_string(values, resource.unknown_values, "id", uncertainties, require_string=True)
     name = known_string(values, resource.unknown_values, "name", uncertainties, require_string=True)
+    resource_group_name = known_string(
+        values,
+        resource.unknown_values,
+        "resource_group_name",
+        uncertainties,
+        require_string=True,
+    )
     public_network_access_enabled = _known_bool_with_default(
         resource,
         "public_network_access_enabled",
@@ -61,6 +68,8 @@ def normalize_cosmosdb_account(resource: TerraformResource) -> NormalizedResourc
 
     metadata: dict[Any, Any] = {
         AzureResourceMetadata.NAME: name or resource.name,
+        AzureResourceMetadata.COSMOSDB_ACCOUNT_NAME: name,
+        AzureResourceMetadata.COSMOSDB_RESOURCE_GROUP_NAME: resource_group_name,
         AzureResourceMetadata.LOCATION: known_string(
             values,
             resource.unknown_values,

@@ -27,6 +27,12 @@ from tfstride.providers.azure.compute_normalizers import (
 )
 from tfstride.providers.azure.container_registry_normalizers import normalize_container_registry
 from tfstride.providers.azure.cosmosdb_normalizers import normalize_cosmosdb_account
+from tfstride.providers.azure.cosmosdb_nosql_normalizers import (
+    normalize_cosmosdb_sql_container,
+    normalize_cosmosdb_sql_database,
+    normalize_cosmosdb_sql_role_assignment,
+    normalize_cosmosdb_sql_role_definition,
+)
 from tfstride.providers.azure.data_normalizers import (
     normalize_storage_account,
     normalize_storage_account_network_rules,
@@ -100,6 +106,10 @@ _AZURE_RESOURCE_NORMALIZERS = {
     AzureResourceType.SERVICE_BUS_TOPIC: normalize_servicebus_topic,
     AzureResourceType.SERVICE_BUS_SUBSCRIPTION: normalize_servicebus_subscription,
     AzureResourceType.COSMOSDB_ACCOUNT: normalize_cosmosdb_account,
+    AzureResourceType.COSMOSDB_SQL_DATABASE: normalize_cosmosdb_sql_database,
+    AzureResourceType.COSMOSDB_SQL_CONTAINER: normalize_cosmosdb_sql_container,
+    AzureResourceType.COSMOSDB_SQL_ROLE_DEFINITION: normalize_cosmosdb_sql_role_definition,
+    AzureResourceType.COSMOSDB_SQL_ROLE_ASSIGNMENT: normalize_cosmosdb_sql_role_assignment,
     AzureResourceType.CONTAINER_REGISTRY: normalize_container_registry,
     AzureResourceType.KEY_VAULT: normalize_key_vault,
     AzureResourceType.KEY_VAULT_ACCESS_POLICY: normalize_key_vault_access_policy,

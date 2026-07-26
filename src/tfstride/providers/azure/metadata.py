@@ -33,6 +33,32 @@ class AzureResourceMetadata:
         "service_bus_customer_managed_key_source_address"
     )
     COSMOSDB_ACCOUNT_ID = OptionalStringMetadataField("cosmosdb_account_id")
+    COSMOSDB_RESOURCE_GROUP_NAME = OptionalStringMetadataField("cosmosdb_resource_group_name")
+    COSMOSDB_ACCOUNT_NAME = OptionalStringMetadataField("cosmosdb_account_name")
+    COSMOSDB_SQL_DATABASE_ID = OptionalStringMetadataField("cosmosdb_sql_database_id")
+    COSMOSDB_SQL_DATABASE_NAME = OptionalStringMetadataField("cosmosdb_sql_database_name")
+    COSMOSDB_SQL_CONTAINER_ID = OptionalStringMetadataField("cosmosdb_sql_container_id")
+    COSMOSDB_SQL_CONTAINER_NAME = OptionalStringMetadataField("cosmosdb_sql_container_name")
+    RESOLVED_COSMOSDB_ACCOUNT_ADDRESS = OptionalStringMetadataField("resolved_cosmosdb_account_address")
+    RESOLVED_COSMOSDB_DATABASE_ADDRESS = OptionalStringMetadataField("resolved_cosmosdb_database_address")
+    RESOLVED_COSMOSDB_CONTAINER_ADDRESS = OptionalStringMetadataField("resolved_cosmosdb_container_address")
+    COSMOSDB_SQL_ROLE_DEFINITION_RESOURCE_ID = OptionalStringMetadataField("cosmosdb_sql_role_definition_resource_id")
+    COSMOSDB_SQL_ROLE_DEFINITION_GUID = OptionalStringMetadataField("cosmosdb_sql_role_definition_guid")
+    COSMOSDB_SQL_ROLE_DEFINITION_NAME = OptionalStringMetadataField("cosmosdb_sql_role_definition_name")
+    COSMOSDB_SQL_ROLE_DEFINITION_TYPE = OptionalStringMetadataField("cosmosdb_sql_role_definition_type")
+    COSMOSDB_SQL_ROLE_ASSIGNMENT_ID = OptionalStringMetadataField("cosmosdb_sql_role_assignment_id")
+    COSMOSDB_SQL_ROLE_ASSIGNMENT_SCOPE = OptionalStringMetadataField("cosmosdb_sql_role_assignment_scope")
+    COSMOSDB_SQL_ROLE_ASSIGNMENT_SCOPE_KIND = OptionalStringMetadataField("cosmosdb_sql_role_assignment_scope_kind")
+    COSMOSDB_SQL_ROLE_ASSIGNMENT_SCOPE_STATE = OptionalStringMetadataField("cosmosdb_sql_role_assignment_scope_state")
+    COSMOSDB_SQL_ASSIGNABLE_SCOPE_COMPATIBILITY_STATE = OptionalStringMetadataField(
+        "cosmosdb_sql_assignable_scope_compatibility_state"
+    )
+    COSMOSDB_SQL_ROLE_DEFINITION_REFERENCE = OptionalStringMetadataField("cosmosdb_sql_role_definition_reference")
+    RESOLVED_COSMOSDB_SQL_ROLE_DEFINITION_ADDRESS = OptionalStringMetadataField(
+        "resolved_cosmosdb_sql_role_definition_address"
+    )
+    COSMOSDB_SQL_ROLE_KIND = OptionalStringMetadataField("cosmosdb_sql_role_kind")
+    COSMOSDB_SQL_PRINCIPAL_ID = OptionalStringMetadataField("cosmosdb_sql_principal_id")
     COSMOSDB_KIND = OptionalStringMetadataField("cosmosdb_kind")
     COSMOSDB_OFFER_TYPE = OptionalStringMetadataField("cosmosdb_offer_type")
     COSMOSDB_CUSTOMER_MANAGED_KEY_STATE = OptionalStringMetadataField("cosmosdb_customer_managed_key_state")
@@ -288,6 +314,12 @@ class AzureResourceMetadata:
     COSMOSDB_IP_RANGE_FILTER = StringListMetadataField("cosmosdb_ip_range_filter")
     COSMOSDB_NETWORK_ACL_BYPASS_IDS = StringListMetadataField("cosmosdb_network_acl_bypass_ids")
     COSMOSDB_POSTURE_UNCERTAINTIES = StringListMetadataField("cosmosdb_posture_uncertainties")
+    COSMOSDB_SQL_ROLE_DEFINITION_ASSIGNABLE_SCOPES = StringListMetadataField(
+        "cosmosdb_sql_role_definition_assignable_scopes"
+    )
+    COSMOSDB_SQL_ROLE_DEFINITION_DATA_ACTIONS = StringListMetadataField("cosmosdb_sql_role_definition_data_actions")
+    COSMOSDB_SQL_ROLE_DATA_ACTIONS = StringListMetadataField("cosmosdb_sql_role_data_actions")
+    COSMOSDB_SQL_RBAC_UNCERTAINTIES = StringListMetadataField("cosmosdb_sql_rbac_uncertainties")
     CONTAINER_REGISTRY_POSTURE_UNCERTAINTIES = StringListMetadataField("container_registry_posture_uncertainties")
     CONTAINER_REGISTRY_RETENTION_DAYS = OptionalIntMetadataField("container_registry_retention_days")
     STORAGE_BLOB_DELETE_RETENTION_DAYS = OptionalIntMetadataField("storage_blob_delete_retention_days")
@@ -423,6 +455,7 @@ class AzureResourceMetadata:
     PRIVATE_DNS_ZONE_GROUPS = DictListMetadataField("private_dns_zone_groups")
     COSMOSDB_VIRTUAL_NETWORK_RULES = DictListMetadataField("cosmosdb_virtual_network_rules")
     COSMOSDB_GEO_LOCATIONS = DictListMetadataField("cosmosdb_geo_locations")
+    COSMOSDB_SQL_ASSIGNABLE_SCOPE_RECORDS = DictListMetadataField("cosmosdb_sql_assignable_scope_records")
     AKS_KUBELET_IDENTITIES = DictListMetadataField("aks_kubelet_identities")
     AKS_MAINTENANCE_WINDOWS = DictListMetadataField("aks_maintenance_windows")
     DIAGNOSTIC_LOG_RECORDS = DictListMetadataField("diagnostic_log_records")

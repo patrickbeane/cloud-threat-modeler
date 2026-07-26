@@ -65,6 +65,10 @@ class AzureProviderTests(unittest.TestCase):
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.SERVICE_BUS_TOPIC))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.SERVICE_BUS_SUBSCRIPTION))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_ACCOUNT))
+        self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_SQL_DATABASE))
+        self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_SQL_CONTAINER))
+        self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_SQL_ROLE_DEFINITION))
+        self.assertTrue(plugin.supports_resource_type(AzureResourceType.COSMOSDB_SQL_ROLE_ASSIGNMENT))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.KEY_VAULT))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.USER_ASSIGNED_IDENTITY))
         self.assertTrue(plugin.supports_resource_type(AzureResourceType.FEDERATED_IDENTITY_CREDENTIAL))
@@ -99,6 +103,8 @@ class AzureProviderTests(unittest.TestCase):
                     AzureResourceType.SERVICE_BUS_TOPIC,
                     AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
                     AzureResourceType.COSMOSDB_ACCOUNT,
+                    AzureResourceType.COSMOSDB_SQL_DATABASE,
+                    AzureResourceType.COSMOSDB_SQL_CONTAINER,
                     AzureResourceType.KEY_VAULT,
                     AzureResourceType.KEY_VAULT_SECRET,
                     AzureResourceType.KEY_VAULT_KEY,
@@ -112,7 +118,12 @@ class AzureProviderTests(unittest.TestCase):
         )
         self.assertEqual(
             plugin.resource_types_for_capability(ResourceCapability.DATABASE),
-            frozenset({AzureResourceType.COSMOSDB_ACCOUNT}),
+            frozenset(
+                {
+                    AzureResourceType.COSMOSDB_ACCOUNT,
+                    AzureResourceType.COSMOSDB_SQL_DATABASE,
+                }
+            ),
         )
         self.assertEqual(
             plugin.resource_types_for_capability(ResourceCapability.WORKLOAD),
@@ -139,6 +150,8 @@ class AzureProviderTests(unittest.TestCase):
                     AzureResourceType.KEY_VAULT_ACCESS_POLICY,
                     AzureResourceType.ROLE_ASSIGNMENT,
                     AzureResourceType.ROLE_DEFINITION,
+                    AzureResourceType.COSMOSDB_SQL_ROLE_DEFINITION,
+                    AzureResourceType.COSMOSDB_SQL_ROLE_ASSIGNMENT,
                 }
             ),
         )

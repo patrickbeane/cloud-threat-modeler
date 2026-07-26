@@ -16,6 +16,10 @@ class AzureResourceType:
     SERVICE_BUS_TOPIC = "azurerm_servicebus_topic"
     SERVICE_BUS_SUBSCRIPTION = "azurerm_servicebus_subscription"
     COSMOSDB_ACCOUNT = "azurerm_cosmosdb_account"
+    COSMOSDB_SQL_DATABASE = "azurerm_cosmosdb_sql_database"
+    COSMOSDB_SQL_CONTAINER = "azurerm_cosmosdb_sql_container"
+    COSMOSDB_SQL_ROLE_DEFINITION = "azurerm_cosmosdb_sql_role_definition"
+    COSMOSDB_SQL_ROLE_ASSIGNMENT = "azurerm_cosmosdb_sql_role_assignment"
     CONTAINER_REGISTRY = "azurerm_container_registry"
     KEY_VAULT = "azurerm_key_vault"
     KEY_VAULT_ACCESS_POLICY = "azurerm_key_vault_access_policy"
@@ -85,7 +89,15 @@ AZURE_SERVICE_BUS_RESOURCE_TYPES = frozenset(
     }
 )
 
-AZURE_COSMOSDB_RESOURCE_TYPES = frozenset({AzureResourceType.COSMOSDB_ACCOUNT})
+AZURE_COSMOSDB_RESOURCE_TYPES = frozenset(
+    {
+        AzureResourceType.COSMOSDB_ACCOUNT,
+        AzureResourceType.COSMOSDB_SQL_DATABASE,
+        AzureResourceType.COSMOSDB_SQL_CONTAINER,
+        AzureResourceType.COSMOSDB_SQL_ROLE_DEFINITION,
+        AzureResourceType.COSMOSDB_SQL_ROLE_ASSIGNMENT,
+    }
+)
 
 AZURE_CONTAINER_REGISTRY_RESOURCE_TYPES = frozenset({AzureResourceType.CONTAINER_REGISTRY})
 

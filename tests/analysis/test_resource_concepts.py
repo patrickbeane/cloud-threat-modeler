@@ -118,6 +118,8 @@ class ResourceConceptTests(unittest.TestCase):
                     "google_sql_database_instance",
                     "google_storage_bucket",
                     "azurerm_cosmosdb_account",
+                    "azurerm_cosmosdb_sql_database",
+                    "azurerm_cosmosdb_sql_container",
                     "azurerm_storage_account",
                     "azurerm_key_vault",
                     "azurerm_key_vault_secret",
@@ -235,6 +237,8 @@ class ResourceConceptTests(unittest.TestCase):
                     "azurerm_key_vault_access_policy",
                     "azurerm_role_assignment",
                     "azurerm_role_definition",
+                    "azurerm_cosmosdb_sql_role_assignment",
+                    "azurerm_cosmosdb_sql_role_definition",
                 }
             ),
         )
@@ -262,6 +266,7 @@ class ResourceConceptTests(unittest.TestCase):
                     "google_firestore_database",
                     "google_sql_database_instance",
                     "azurerm_cosmosdb_account",
+                    "azurerm_cosmosdb_sql_database",
                 }
             ),
         )
