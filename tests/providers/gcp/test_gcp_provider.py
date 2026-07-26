@@ -282,6 +282,8 @@ class GcpProviderTests(unittest.TestCase):
                 "CLOUD_RUN_GCS_ACCESS_PATHS",
                 "CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES",
                 "CLOUD_RUN_PUBSUB_ACCESS_PATHS",
+                "CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES",
+                "CLOUD_RUN_FIRESTORE_ACCESS_PATHS",
                 "CLOUD_RUN_SECRET_ACCESS_PATHS",
                 "ARTIFACT_REGISTRY_FORMAT",
                 "ARTIFACT_REGISTRY_MODE",

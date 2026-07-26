@@ -19,6 +19,7 @@ GCP_REFERENCE_SUFFIXES = (
     ".table_id",
 )
 GCP_ROLE_REFERENCE_SUFFIXES = (".id", ".name", ".role_id", ".self_link")
+GCP_BASIC_IAM_ROLES = frozenset({"roles/owner", "roles/editor", "roles/viewer"})
 GCP_NETWORK_REFERENCE_SUFFIXES = (
     ".id",
     ".name",

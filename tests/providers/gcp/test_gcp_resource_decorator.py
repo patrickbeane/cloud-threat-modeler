@@ -263,6 +263,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "derive_public_exposure",
                 "decorate_sensitive_iam_bindings",
                 "normalize_firestore_iam_posture",
+                "model_cloud_run_firestore_access_paths",
                 "model_cloud_run_gcs_access_paths",
                 "model_cloud_run_pubsub_access_paths",
                 "model_cloud_run_secret_access_paths",

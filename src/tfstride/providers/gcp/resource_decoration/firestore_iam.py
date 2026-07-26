@@ -11,7 +11,7 @@ from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
 from tfstride.providers.gcp.resource_mutations import gcp_mutations
 from tfstride.providers.gcp.resource_types import GCP_PROJECT_IAM_RESOURCE_TYPES, GcpResourceType
-from tfstride.providers.gcp.resource_utils import binding_members
+from tfstride.providers.gcp.resource_utils import GCP_BASIC_IAM_ROLES, binding_members
 
 _FIRESTORE_DATABASE_NAME_PATTERN = re.compile(r"^projects/([^/]+)/databases/([^/]+)$")
 _RESOURCE_NAME_EQUALS_LITERAL = re.compile(
@@ -91,6 +91,12 @@ def _firestore_iam_posture(
             if scope_type is None:
                 uncertainties.append(
                     f"{iam_resource.address}: {condition_uncertainty or 'IAM condition applicability is unresolved'}"
+                )
+                continue
+            if scope_type == "database" and role in GCP_BASIC_IAM_ROLES:
+                uncertainties.append(
+                    f"{iam_resource.address}: basic IAM role {role} cannot use "
+                    f"conditional database scope for {database_resource_name}"
                 )
                 continue
 

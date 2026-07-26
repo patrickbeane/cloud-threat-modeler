@@ -207,6 +207,38 @@ class GcpFirestoreIamNormalizationTests(unittest.TestCase):
             ["google_project_iam_member.archive_user"],
         )
 
+    def test_conditioned_basic_role_is_not_projected_as_a_database_grant(self) -> None:
+        inventory = GcpNormalizer().normalize(
+            [
+                _database(),
+                _project_iam_member(
+                    "google_project_iam_member.conditioned_editor",
+                    role="roles/editor",
+                    condition=[
+                        {
+                            "title": "orders-only",
+                            "expression": f'resource.name == "{_DATABASE_RESOURCE_NAME}"',
+                        }
+                    ],
+                ),
+            ]
+        )
+        database = inventory.get_by_address("google_firestore_database.orders")
+        assert database is not None
+
+        facts = gcp_facts(database)
+        self.assertEqual(facts.firestore_iam_grants, [])
+        self.assertEqual(
+            facts.firestore_iam_posture_uncertainties,
+            [
+                (
+                    "google_project_iam_member.conditioned_editor: basic IAM role roles/editor "
+                    "cannot use conditional database scope for "
+                    f"{_DATABASE_RESOURCE_NAME}"
+                )
+            ],
+        )
+
     def test_unknown_and_runtime_conditions_remain_uncertain_not_database_grants(self) -> None:
         inventory = GcpNormalizer().normalize(
             [
