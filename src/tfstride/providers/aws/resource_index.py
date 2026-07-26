@@ -19,6 +19,7 @@ class AwsResourceIndex:
     secrets: dict[str, NormalizedResource]
     sns_topics: dict[str, NormalizedResource]
     sqs_queues: dict[str, NormalizedResource]
+    dynamodb_tables: dict[str, NormalizedResource]
     lambda_functions: dict[str, NormalizedResource]
     ecs_clusters: dict[str, NormalizedResource]
     ecs_task_definitions: dict[str, NormalizedResource]
@@ -53,6 +54,7 @@ class AwsResourceIndexBuilder:
         secrets: dict[str, NormalizedResource] = {}
         sns_topics: dict[str, NormalizedResource] = {}
         sqs_queues: dict[str, NormalizedResource] = {}
+        dynamodb_tables: dict[str, NormalizedResource] = {}
         lambda_functions: dict[str, NormalizedResource] = {}
         ecs_clusters: dict[str, NormalizedResource] = {}
         ecs_task_definitions: dict[str, NormalizedResource] = {}
@@ -123,6 +125,19 @@ class AwsResourceIndexBuilder:
                         f"{resource.address}.url",
                         resource.arn,
                         facts.sqs_queue_url,
+                    ),
+                )
+            elif resource_type == "aws_dynamodb_table":
+                _index_resource_aliases(
+                    dynamodb_tables,
+                    resource,
+                    (
+                        resource.address,
+                        f"{resource.address}.id",
+                        f"{resource.address}.arn",
+                        resource.identifier,
+                        resource.arn,
+                        facts.dynamodb_table_arn,
                     ),
                 )
             elif resource_type == "aws_lambda_function":
@@ -257,6 +272,7 @@ class AwsResourceIndexBuilder:
             secrets=secrets,
             sns_topics=sns_topics,
             sqs_queues=sqs_queues,
+            dynamodb_tables=dynamodb_tables,
             lambda_functions=lambda_functions,
             ecs_clusters=ecs_clusters,
             ecs_task_definitions=ecs_task_definitions,

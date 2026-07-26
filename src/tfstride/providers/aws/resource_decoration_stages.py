@@ -9,6 +9,10 @@ from tfstride.providers.aws.resource_decoration.ecs import (
     MarkEcsLoadBalancerExposureStage,
     ResolveEcsServiceRelationshipsStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_dynamodb_access_paths import (
+    ModelEcsDynamoDbAccessPathsStage,
+    ProjectEcsDynamoDbAccessPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_messaging_access_paths import (
     ModelEcsMessagingAccessPathsStage,
     ProjectEcsMessagingAccessPathsOntoServicesStage,
@@ -66,6 +70,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelEcsSecretAccessPathsStage(),
         ModelEcsS3AccessPathsStage(),
         ModelEcsMessagingAccessPathsStage(),
+        ModelEcsDynamoDbAccessPathsStage(),
         ModelWorkloadEcrWritePathsStage(),
         ResolveApiGatewayRelationshipsStage(),
         MergeResourcePolicyResourcesStage(),
@@ -80,4 +85,5 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsSecretAccessPathsOntoServicesStage(),
         ProjectEcsS3AccessPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
+        ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
     )

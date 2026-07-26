@@ -167,6 +167,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "model_ecs_secret_access_paths",
                 "model_ecs_s3_access_paths",
                 "model_ecs_messaging_access_paths",
+                "model_ecs_dynamodb_access_paths",
                 "model_workload_ecr_write_paths",
                 "resolve_api_gateway_relationships",
                 "merge_resource_policy_resources",
@@ -181,6 +182,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "project_ecs_secret_access_paths_onto_services",
                 "project_ecs_s3_access_paths_onto_services",
                 "project_ecs_messaging_access_paths_onto_services",
+                "project_ecs_dynamodb_access_paths_onto_services",
             ],
         )
 
