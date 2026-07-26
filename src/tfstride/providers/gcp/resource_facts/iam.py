@@ -14,6 +14,10 @@ class GcpIamFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.POLICY_DOCUMENT)
 
     @property
+    def iam_policy_data_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.IAM_POLICY_DATA_STATE)
+
+    @property
     def resource_policy_source_addresses(self) -> list[str]:
         return self.get(GcpResourceMetadata.RESOURCE_POLICY_SOURCE_ADDRESSES)
 

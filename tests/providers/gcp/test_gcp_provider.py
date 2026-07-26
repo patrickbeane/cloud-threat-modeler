@@ -265,6 +265,7 @@ class GcpProviderTests(unittest.TestCase):
                 "ORG_POLICY_SCOPE",
                 "ORG_POLICY_SCOPE_TYPE",
                 "IAM_BINDINGS",
+                "IAM_POLICY_DATA_STATE",
                 "PRIVILEGED_ACCESS_GRANTS",
                 "ORG_POLICY_ENFORCED",
                 "ORG_POLICY_INHERIT_FROM_PARENT",
@@ -435,6 +436,7 @@ class GcpProviderTests(unittest.TestCase):
                 "SCC_ASSET_DISCOVERY_CONFIG",
                 "AUDIT_SECURITY_POSTURE_UNCERTAINTIES",
                 "FIRESTORE_DATABASE_TYPE",
+                "FIRESTORE_DATABASE_NAME",
                 "FIRESTORE_LOCATION",
                 "FIRESTORE_CMEK_KEY_NAME",
                 "FIRESTORE_CMEK_STATE",
@@ -446,6 +448,8 @@ class GcpProviderTests(unittest.TestCase):
                 "FIRESTORE_TERRAFORM_DELETION_POLICY",
                 "FIRESTORE_TERRAFORM_DELETION_POLICY_STATE",
                 "FIRESTORE_POSTURE_UNCERTAINTIES",
+                "FIRESTORE_IAM_GRANTS",
+                "FIRESTORE_IAM_POSTURE_UNCERTAINTIES",
             },
         )
 

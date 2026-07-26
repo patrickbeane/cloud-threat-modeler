@@ -11,6 +11,10 @@ class GcpFirestoreFacts(GcpBaseFacts):
     __slots__ = ()
 
     @property
+    def firestore_database_name(self) -> str | None:
+        return self.get(GcpResourceMetadata.FIRESTORE_DATABASE_NAME)
+
+    @property
     def firestore_database_type(self) -> str | None:
         return self.get(GcpResourceMetadata.FIRESTORE_DATABASE_TYPE)
 
@@ -84,3 +88,11 @@ class GcpFirestoreFacts(GcpBaseFacts):
     @property
     def firestore_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.FIRESTORE_POSTURE_UNCERTAINTIES)
+
+    @property
+    def firestore_iam_grants(self) -> list[dict[str, Any]]:
+        return self.get(GcpResourceMetadata.FIRESTORE_IAM_GRANTS)
+
+    @property
+    def firestore_iam_posture_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.FIRESTORE_IAM_POSTURE_UNCERTAINTIES)

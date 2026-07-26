@@ -88,6 +88,7 @@ def normalize_firestore_database(resource: TerraformResource) -> NormalizedResou
     metadata: dict[str | MetadataField[Any], Any] = {
         GcpResourceMetadata.NAME: database_name or resource.name,
         GcpResourceMetadata.PROJECT: project,
+        GcpResourceMetadata.FIRESTORE_DATABASE_NAME: database_name,
         GcpResourceMetadata.FIRESTORE_DATABASE_TYPE: database_type,
         GcpResourceMetadata.FIRESTORE_LOCATION: location,
         GcpResourceMetadata.FIRESTORE_CMEK_KEY_NAME: cmek_key_name,

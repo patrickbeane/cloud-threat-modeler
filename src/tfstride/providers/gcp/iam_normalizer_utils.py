@@ -28,10 +28,19 @@ def _iam_bindings(
     *,
     condition: Any = None,
     condition_unknown: bool = False,
+    role_unknown: bool = False,
+    members_unknown: bool = False,
 ) -> list[dict[str, Any]]:
-    if not role or not members:
+    if not role and not role_unknown:
         return []
+    if not members and not members_unknown:
+        return []
+
     binding: dict[str, Any] = {"role": role, "members": list(members)}
+    if role_unknown:
+        binding["role_state"] = "unknown"
+    if members_unknown:
+        binding["members_state"] = "unknown"
     normalized_condition = _condition(condition)
     if condition_unknown:
         binding["condition_state"] = "unknown"

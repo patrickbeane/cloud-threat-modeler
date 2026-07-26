@@ -131,6 +131,22 @@ class GcpResourceMutations:
         if source_addresses:
             facts.extend(GcpResourceMetadata.RESOURCE_POLICY_SOURCE_ADDRESSES, list(source_addresses))
 
+    def set_firestore_iam_posture(
+        self,
+        *,
+        grants: Sequence[Mapping[str, Any]],
+        uncertainties: Sequence[str],
+    ) -> None:
+        facts = gcp_facts(self.resource)
+        facts.set(
+            GcpResourceMetadata.FIRESTORE_IAM_GRANTS,
+            [dict(grant) for grant in grants],
+        )
+        facts.set(
+            GcpResourceMetadata.FIRESTORE_IAM_POSTURE_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
 
 def gcp_mutations(resource: NormalizedResource) -> GcpResourceMutations:
     return GcpResourceMutations(resource)
