@@ -11,6 +11,9 @@ from tfstride.providers.aws.cloudfront_rules import AwsCloudFrontRuleDetectors
 from tfstride.providers.aws.container_rules import AwsContainerDeploymentRuleDetectors
 from tfstride.providers.aws.dynamodb_rules import AwsDynamoDbRuleDetectors
 from tfstride.providers.aws.ecr_rules import AwsEcrRuleDetectors
+from tfstride.providers.aws.ecs_dynamodb_rules import (
+    AwsEcsDynamoDbAccessRuleDetectors,
+)
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
 from tfstride.providers.aws.ecs_s3_rules import AwsEcsS3AccessRuleDetectors
 from tfstride.providers.aws.ecs_secret_rules import AwsEcsSecretDeliveryRuleDetectors
@@ -86,6 +89,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-ecs-secret-access-blast-radius",
         "aws-public-ecs-secret-access",
         "aws-public-ecs-s3-mutation-access",
+        "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-messaging-mutation-access",
         "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
@@ -154,6 +158,7 @@ def build_aws_rule_contribution(
     container_deployment_detectors = AwsContainerDeploymentRuleDetectors(finding_factory)
     ecs_secret_detectors = AwsEcsSecretDeliveryRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
+    ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
     ecs_messaging_detectors = AwsEcsMessagingAccessRuleDetectors(finding_factory)
     messaging_detectors = AwsMessagingPostureRuleDetectors(finding_factory)
     secrets_manager_detectors = AwsSecretsManagerPostureRuleDetectors(finding_factory)
@@ -230,6 +235,7 @@ def build_aws_rule_contribution(
         "aws-ecs-secret-access-blast-radius": ecs_secret_detectors.detect_secret_access_blast_radius,
         "aws-public-ecs-secret-access": ecs_secret_detectors.detect_public_service_secret_access,
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
+        "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-messaging-mutation-access": (ecs_messaging_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-sqs-receive-access": (ecs_messaging_detectors.detect_public_service_sqs_receive_access),
         "aws-sns-customer-managed-encryption-missing": (

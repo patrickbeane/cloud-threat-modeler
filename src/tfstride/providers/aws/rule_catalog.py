@@ -615,6 +615,35 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-dynamodb-mutation-access",
+        title="Internet-facing ECS service task role has a DynamoDB mutation allow",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role "
+            "to only the exact DynamoDB item actions and table ARNs required at "
+            "runtime. Remove table deletion, replica deletion, resource-policy, "
+            "and configuration-administration permissions from public workloads; "
+            "use separate operational identities for privileged table changes, "
+            "and enable deletion protection and point-in-time recovery."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "dynamodb",
+            "iam",
+            "public-access",
+            "nosql",
+            "tampering",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-messaging-mutation-access",
         title="Internet-facing ECS service can mutate managed messaging resources",
         category=StrideCategory.TAMPERING,
