@@ -706,6 +706,33 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-cosmosdb-mutation-access",
+        title="Public Azure App Service identity can mutate Cosmos DB for NoSQL data",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Remove Cosmos DB Built-in Data Contributor and equivalent custom-role item mutation DataActions "
+            "from public App Service runtime identities. Scope required access to the exact database or "
+            "container, separate data mutation from public runtimes where practical, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "cosmosdb",
+            "nosql",
+            "managed-identity",
+            "public-access",
+            "tampering",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-service-bus-mutation-access",
         title="Public Azure App Service identity can mutate Service Bus messaging",
         category=StrideCategory.TAMPERING,
