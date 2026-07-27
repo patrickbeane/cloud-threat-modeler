@@ -98,6 +98,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-app-service-can-modify-image-repository",
         "azure-public-app-service-storage-mutation-access",
         "azure-public-app-service-cosmosdb-mutation-access",
+        "azure-public-app-service-cosmosdb-read-access",
         "azure-public-app-service-service-bus-mutation-access",
         "azure-public-app-service-service-bus-receive-access",
         "azure-app-service-sensitive-app-setting-inline",
@@ -283,6 +284,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-cosmosdb-mutation-access": (
             app_service_cosmosdb_detectors.detect_public_app_service_cosmosdb_mutation_access
+        ),
+        "azure-public-app-service-cosmosdb-read-access": (
+            app_service_cosmosdb_detectors.detect_public_app_service_cosmosdb_read_access
         ),
         "azure-public-app-service-service-bus-mutation-access": (
             app_service_messaging_detectors.detect_public_app_service_service_bus_mutation_access

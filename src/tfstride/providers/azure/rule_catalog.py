@@ -733,6 +733,33 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-cosmosdb-read-access",
+        title="Public Azure App Service identity can read Cosmos DB for NoSQL data",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Remove Cosmos DB Built-in Data Reader and equivalent custom-role retrieval DataActions from "
+            "public App Service runtime identities unless required. Scope necessary reads to the exact database "
+            "or container, avoid items/unmask where masked values suffice, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "cosmosdb",
+            "nosql",
+            "managed-identity",
+            "public-access",
+            "information-disclosure",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-service-bus-mutation-access",
         title="Public Azure App Service identity can mutate Service Bus messaging",
         category=StrideCategory.TAMPERING,

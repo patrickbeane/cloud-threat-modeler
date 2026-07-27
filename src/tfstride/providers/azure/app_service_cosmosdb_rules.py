@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from tfstride.analysis.finding_factory import FindingFactory
@@ -25,8 +26,15 @@ _MUTATION_ACTION_OPERATIONS: dict[str, tuple[str, ...]] = {
     ("microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/upsert"): ("create", "update"),
     ("microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/delete"): ("delete",),
 }
+_CONTAINER_WILDCARD = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/*"
 _ITEM_WILDCARD = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/*"
+_ITEM_READ_ACTION = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/read"
+_ITEM_UNMASK_ACTION = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/unmask"
+_EXECUTE_QUERY_ACTION = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/executequery"
+_READ_CHANGE_FEED_ACTION = "microsoft.documentdb/databaseaccounts/sqldatabases/containers/readchangefeed"
+_READ_CAPABILITY_ORDER = ("point_read", "query", "change_feed_read")
 _MUTATING_ROLE_KINDS = frozenset({"built_in_data_contributor", "custom"})
+_READING_ROLE_KINDS = frozenset({"built_in_data_reader", "built_in_data_contributor", "custom"})
 _SCOPE_CONTRACTS: dict[str, tuple[str, str]] = {
     "account": (
         AzureResourceType.COSMOSDB_ACCOUNT,
@@ -46,6 +54,13 @@ _SCOPE_BLAST_RADIUS = {
     "database": 2,
     "container": 1,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class _CosmosDbReadProfile:
+    capabilities: tuple[str, ...]
+    matched_actions: tuple[str, ...]
+    unmask: bool
 
 
 class AzureAppServiceCosmosDbRuleDetectors:
@@ -178,13 +193,192 @@ class AzureAppServiceCosmosDbRuleDetectors:
             )
         return findings
 
+    def detect_public_app_service_cosmosdb_read_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "azure":
+            return []
+
+        findings: list[Finding] = []
+        for app in context.inventory.by_type(*AZURE_APP_SERVICE_RESOURCE_TYPES):
+            if azure_facts(app).public_network_access_enabled is not True:
+                continue
+
+            component_paths = [
+                path
+                for path in azure_facts(app).app_service_cosmosdb_access_paths
+                if _is_deterministic_read_component_path(path, app, context)
+            ]
+            retrieval_paths = [path for path in component_paths if _path_read_profile(path).capabilities]
+            if not retrieval_paths:
+                continue
+            read_paths = [
+                path
+                for path in component_paths
+                if path in retrieval_paths
+                or any(
+                    _same_runtime_principal(path, retrieval_path) and _path_scopes_overlap(path, retrieval_path)
+                    for retrieval_path in retrieval_paths
+                )
+            ]
+
+            target_addresses = _path_string_values(
+                retrieval_paths,
+                "cosmosdb_resource_address",
+            )
+            account_addresses = _path_string_values(
+                read_paths,
+                "cosmosdb_account_address",
+            )
+            database_addresses = _path_string_values(
+                read_paths,
+                "cosmosdb_database_address",
+            )
+            container_addresses = _path_string_values(
+                read_paths,
+                "cosmosdb_container_address",
+            )
+            identity_addresses = _path_string_values(
+                read_paths,
+                "identity_address",
+            )
+            assignment_addresses = _path_string_values(
+                read_paths,
+                "role_assignment_address",
+            )
+            role_definition_addresses = _path_string_values(
+                read_paths,
+                "role_definition_address",
+            )
+            read_profile = _read_profile(read_paths)
+            scope_types = _scope_types(retrieval_paths)
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=1,
+                data_sensitivity=3 if read_profile.unmask else 2,
+                lateral_movement=1,
+                blast_radius=max(
+                    max(_SCOPE_BLAST_RADIUS[scope_type] for scope_type in scope_types),
+                    2 if len(target_addresses) > 1 else 1,
+                ),
+            )
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=dedupe_addresses(
+                        [
+                            app.address,
+                            *(address for address in identity_addresses if address != app.address),
+                            *account_addresses,
+                            *database_addresses,
+                            *container_addresses,
+                            *target_addresses,
+                            *assignment_addresses,
+                            *role_definition_addresses,
+                        ]
+                    ),
+                    trust_boundary_id=None,
+                    rationale=_read_rationale(
+                        app,
+                        read_profile,
+                        scope_types,
+                        len(target_addresses),
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item(
+                            "public_endpoint",
+                            _public_endpoint_evidence(app),
+                        ),
+                        evidence_item(
+                            "runtime_identity",
+                            _runtime_identity_evidence(read_paths),
+                        ),
+                        evidence_item(
+                            "cosmosdb_read_paths",
+                            _read_path_evidence(read_paths),
+                        ),
+                        evidence_item(
+                            "capability_profile",
+                            _read_capability_profile_evidence(read_profile),
+                        ),
+                        evidence_item(
+                            "scope_breadth",
+                            _scope_breadth_evidence(retrieval_paths),
+                        ),
+                        evidence_item(
+                            "custom_role_actions",
+                            _read_custom_role_action_evidence(read_paths),
+                        ),
+                        evidence_item(
+                            "assessment_scope",
+                            [
+                                (
+                                    "establishes=deterministic Cosmos DB for NoSQL native RBAC grant "
+                                    "containing item-read or change-feed retrieval DataActions"
+                                ),
+                                (
+                                    "query_semantics=executeQuery establishes query retrieval only when "
+                                    "readChangeFeed is also granted"
+                                ),
+                                ("readMetadata=metadata only; does not retrieve stored item data"),
+                                (
+                                    "items_unmask=severity modifier when retrieval authority exists; "
+                                    "not standalone retrieval authority"
+                                ),
+                                (
+                                    "does_not_establish=Cosmos DB network reachability or successful "
+                                    "operations after independent network controls"
+                                ),
+                            ],
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _is_deterministic_mutation_path(
     path: Mapping[str, Any],
     app: NormalizedResource,
     context: RuleEvaluationContext,
 ) -> bool:
-    operations = _path_mutation_operations(path)
+    return (
+        bool(_path_mutation_operations(path))
+        and path.get("role_kind") in _MUTATING_ROLE_KINDS
+        and _is_deterministic_access_path(
+            path,
+            app,
+            context,
+        )
+    )
+
+
+def _is_deterministic_read_component_path(
+    path: Mapping[str, Any],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    profile = _path_read_profile(path)
+    return (
+        bool(profile.capabilities or profile.matched_actions)
+        and path.get("role_kind") in _READING_ROLE_KINDS
+        and _is_deterministic_access_path(
+            path,
+            app,
+            context,
+        )
+    )
+
+
+def _is_deterministic_access_path(
+    path: Mapping[str, Any],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
     scope_type = _known_string(path.get("scope_type"))
     scope_contract = _SCOPE_CONTRACTS.get(scope_type or "")
     if (
@@ -198,11 +392,9 @@ def _is_deterministic_mutation_path(
         or path.get("access_state") != "granted"
         or path.get("assignment_scope_state") != "resolved"
         or path.get("assignable_scope_compatibility_state") != "resolved"
-        or path.get("role_kind") not in _MUTATING_ROLE_KINDS
         or scope_contract is None
         or path.get("resource_scope") != scope_contract[1]
         or path.get("cosmosdb_resource_type") != scope_contract[0]
-        or not operations
     ):
         return False
 
@@ -365,6 +557,108 @@ def _target_relationship_is_exact(
     )
 
 
+def _path_read_profile(path: Mapping[str, Any]) -> _CosmosDbReadProfile:
+    role_data_actions = _string_values(path.get("role_data_actions"))
+    allowed_actions = {
+        normalized
+        for action in _string_values(path.get("matched_data_actions"))
+        if (normalized := action.strip().casefold()) and _role_actions_allow_action(role_data_actions, normalized)
+    }
+    has_item_read = _ITEM_READ_ACTION in allowed_actions
+    has_change_feed = _READ_CHANGE_FEED_ACTION in allowed_actions
+    has_query = _EXECUTE_QUERY_ACTION in allowed_actions and has_change_feed
+    capabilities = tuple(
+        capability
+        for capability, enabled in (
+            ("point_read", has_item_read),
+            ("query", has_query),
+            ("change_feed_read", has_change_feed),
+        )
+        if enabled
+    )
+    matched_actions = tuple(
+        action
+        for action, enabled in (
+            (_ITEM_READ_ACTION, has_item_read),
+            (_EXECUTE_QUERY_ACTION, _EXECUTE_QUERY_ACTION in allowed_actions),
+            (_READ_CHANGE_FEED_ACTION, has_change_feed),
+            (_ITEM_UNMASK_ACTION, _ITEM_UNMASK_ACTION in allowed_actions),
+        )
+        if enabled
+    )
+    return _CosmosDbReadProfile(
+        capabilities=capabilities,
+        matched_actions=matched_actions,
+        unmask=_ITEM_UNMASK_ACTION in allowed_actions,
+    )
+
+
+def _read_profile(paths: list[dict[str, Any]]) -> _CosmosDbReadProfile:
+    profiles = [_path_read_profile(path) for path in paths]
+    capabilities = {capability for profile in profiles for capability in profile.capabilities}
+    if any(
+        _same_runtime_principal(left, right)
+        and _path_scopes_overlap(left, right)
+        and _EXECUTE_QUERY_ACTION in _path_read_profile(left).matched_actions
+        and _READ_CHANGE_FEED_ACTION in _path_read_profile(right).matched_actions
+        for left in paths
+        for right in paths
+    ):
+        capabilities.add("query")
+    matched_actions = {action for profile in profiles for action in profile.matched_actions}
+    return _CosmosDbReadProfile(
+        capabilities=tuple(capability for capability in _READ_CAPABILITY_ORDER if capability in capabilities),
+        matched_actions=tuple(
+            action
+            for action in (
+                _ITEM_READ_ACTION,
+                _EXECUTE_QUERY_ACTION,
+                _READ_CHANGE_FEED_ACTION,
+                _ITEM_UNMASK_ACTION,
+            )
+            if action in matched_actions
+        ),
+        unmask=any(profile.unmask for profile in profiles),
+    )
+
+
+def _same_runtime_principal(
+    left: Mapping[str, Any],
+    right: Mapping[str, Any],
+) -> bool:
+    return (
+        left.get("identity_address") == right.get("identity_address")
+        and left.get("identity_kind") == right.get("identity_kind")
+        and _same_identifier(
+            _known_string(left.get("principal_id")),
+            _known_string(right.get("principal_id")),
+        )
+    )
+
+
+def _path_scopes_overlap(
+    left: Mapping[str, Any],
+    right: Mapping[str, Any],
+) -> bool:
+    return _path_scope_contains(left, right) or _path_scope_contains(right, left)
+
+
+def _path_scope_contains(
+    parent: Mapping[str, Any],
+    child: Mapping[str, Any],
+) -> bool:
+    if parent.get("cosmosdb_account_address") != child.get("cosmosdb_account_address"):
+        return False
+    scope_type = parent.get("scope_type")
+    if scope_type == "account":
+        return True
+    if scope_type == "database":
+        return parent.get("cosmosdb_resource_address") == child.get("cosmosdb_database_address")
+    if scope_type == "container":
+        return parent.get("cosmosdb_resource_address") == child.get("cosmosdb_container_address")
+    return False
+
+
 def _path_mutation_operations(path: Mapping[str, Any]) -> list[str]:
     access_classes = set(_string_values(path.get("access_classes")))
     role_data_actions = _string_values(path.get("role_data_actions"))
@@ -387,10 +681,20 @@ def _role_actions_allow_action(
     role_data_actions: list[str],
     normalized_action: str,
 ) -> bool:
-    return any(
-        (normalized := action.strip().casefold()) == normalized_action or normalized == _ITEM_WILDCARD
-        for action in role_data_actions
-    )
+    for action in role_data_actions:
+        normalized = action.strip().casefold()
+        if normalized == normalized_action:
+            return True
+        if normalized == _ITEM_WILDCARD and normalized_action.startswith(
+            "microsoft.documentdb/databaseaccounts/sqldatabases/containers/items/"
+        ):
+            return True
+        if normalized == _CONTAINER_WILDCARD and normalized_action in {
+            _EXECUTE_QUERY_ACTION,
+            _READ_CHANGE_FEED_ACTION,
+        }:
+            return True
+    return False
 
 
 def _mutation_operations(paths: list[dict[str, Any]]) -> list[str]:
@@ -401,6 +705,46 @@ def _mutation_operations(paths: list[dict[str, Any]]) -> list[str]:
 def _scope_types(paths: list[dict[str, Any]]) -> list[str]:
     values = {value for path in paths if (value := _known_string(path.get("scope_type"))) in _SCOPE_CONTRACTS}
     return [scope_type for scope_type in ("account", "database", "container") if scope_type in values]
+
+
+def _read_rationale(
+    app: NormalizedResource,
+    profile: _CosmosDbReadProfile,
+    scope_types: list[str],
+    target_count: int,
+) -> str:
+    rationale = (
+        f"{app.display_name} has public network access explicitly enabled and its "
+        "runtime managed identity has deterministic Azure Cosmos DB for NoSQL native "
+        f"RBAC grants that can {_read_capability_summary(profile.capabilities)} across "
+        f"{target_count} exact modeled target(s). A compromise through an allowed "
+        "public application path could attempt the modeled retrieval operations using "
+        f"the workload identity. {_scope_impact(scope_types)} "
+    )
+    if profile.unmask:
+        rationale += (
+            "The same grants include items/unmask, which can reveal original values "
+            "otherwise protected by Dynamic Data Masking and increases the modeled data "
+            "sensitivity; unmask does not independently establish retrieval authority. "
+        )
+    return rationale + (
+        "This does not mean that the Cosmos DB for NoSQL account, database, or container "
+        "is itself public; Cosmos DB network controls and configured App Service access "
+        "restrictions are independent controls."
+    )
+
+
+def _read_capability_summary(capabilities: tuple[str, ...]) -> str:
+    values: list[str] = []
+    if "point_read" in capabilities:
+        values.append("read specific item data")
+    if "query" in capabilities:
+        values.append("execute queries with the required change-feed permission")
+    if "change_feed_read" in capabilities:
+        values.append("read the container change feed")
+    if len(values) == 1:
+        return values[0]
+    return ", ".join(values[:-1]) + f", and {values[-1]}"
 
 
 def _mutation_rationale(
@@ -465,6 +809,51 @@ def _runtime_identity_evidence(paths: list[dict[str, Any]]) -> list[str]:
     )
 
 
+def _read_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"target_address={path['cosmosdb_resource_address']}",
+                    f"target_type={path['cosmosdb_resource_type']}",
+                    f"target_id={path.get('cosmosdb_resource_id') or 'unknown'}",
+                    f"account_address={path['cosmosdb_account_address']}",
+                    (f"database_address={path.get('cosmosdb_database_address') or 'not_applicable'}"),
+                    (f"container_address={path.get('cosmosdb_container_address') or 'not_applicable'}"),
+                    f"role_assignment_address={path['role_assignment_address']}",
+                    f"role_definition_name={path['role_definition_name']}",
+                    f"role_kind={path['role_kind']}",
+                    (f"read_capabilities={','.join(_path_read_profile(path).capabilities) or 'none'}"),
+                    (f"matched_read_actions={','.join(_path_read_profile(path).matched_actions)}"),
+                    f"items_unmask_modifier={str(_path_read_profile(path).unmask).lower()}",
+                    f"scope_type={path['scope_type']}",
+                    f"assignment_scope={path['assignment_scope']}",
+                    f"resource_scope={path['resource_scope']}",
+                    "assignment_scope_state=resolved",
+                    "assignable_scope_compatibility_state=resolved",
+                    "access_state=granted",
+                    "authorization_model=cosmosdb_for_nosql_native_rbac",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _read_capability_profile_evidence(
+    profile: _CosmosDbReadProfile,
+) -> list[str]:
+    return [
+        "; ".join(
+            (
+                f"read_capabilities={','.join(profile.capabilities)}",
+                f"matched_read_actions={','.join(profile.matched_actions)}",
+                f"items_unmask_modifier={str(profile.unmask).lower()}",
+            )
+        )
+    ]
+
+
 def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
     return sorted(
         {
@@ -520,6 +909,23 @@ def _scope_breadth_evidence(paths: list[dict[str, Any]]) -> list[str]:
             )
         )
     ]
+
+
+def _read_custom_role_action_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"role_definition_address={path['role_definition_address']}",
+                    (f"role_data_actions={','.join(_string_values(path.get('role_data_actions')))}"),
+                    (f"matched_read_actions={','.join(_path_read_profile(path).matched_actions)}"),
+                    f"items_unmask_modifier={str(_path_read_profile(path).unmask).lower()}",
+                )
+            )
+            for path in paths
+            if path.get("role_kind") == "custom"
+        }
+    )
 
 
 def _custom_role_action_evidence(paths: list[dict[str, Any]]) -> list[str]:
