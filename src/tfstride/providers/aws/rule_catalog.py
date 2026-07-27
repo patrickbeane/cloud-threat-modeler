@@ -644,6 +644,34 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-dynamodb-read-access",
+        title="Internet-facing ECS service task role has a DynamoDB read allow",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Separate DynamoDB-reading workers from internet-facing ECS services where possible. Otherwise, "
+            "reduce public ingress and restrict the task role to only the exact table or index ARNs and read "
+            "actions required at runtime. Use DynamoDB fine-grained access conditions for leading keys, "
+            "attributes, select behavior, and return values; avoid table scans, return-value disclosure, and "
+            "table export authority on public workloads unless explicitly required."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "dynamodb",
+            "iam",
+            "public-access",
+            "nosql",
+            "information-disclosure",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-messaging-mutation-access",
         title="Internet-facing ECS service can mutate managed messaging resources",
         category=StrideCategory.TAMPERING,

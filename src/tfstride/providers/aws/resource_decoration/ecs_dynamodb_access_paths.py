@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
+from types import MappingProxyType
 from typing import Any, Literal
 
 from tfstride.models import IAMPolicyCondition, IAMPolicyStatement, NormalizedResource
@@ -137,6 +138,9 @@ _DYNAMODB_ACTIONS = (
     ),
 )
 _ACTION_BY_NAME = {action.name: action for action in _DYNAMODB_ACTIONS}
+DYNAMODB_ACCESS_CLASSES_BY_ACTION: Mapping[str, tuple[AccessClass, ...]] = MappingProxyType(
+    {action.name.lower(): action.access_classes for action in _DYNAMODB_ACTIONS}
+)
 _INDEX_READ_ACTION_NAMES = frozenset(
     {
         "dynamodb:query",
