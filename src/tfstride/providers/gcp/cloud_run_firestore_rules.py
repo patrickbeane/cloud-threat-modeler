@@ -22,6 +22,11 @@ from tfstride.providers.gcp.resource_types import (
 from tfstride.providers.gcp.resource_utils import binding_members
 
 _PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
+_ENTITY_READ_PERMISSION_OPERATIONS = {
+    "datastore.entities.get": "get",
+    "datastore.entities.list": "list",
+}
+_ENTITY_READ_WILDCARDS = frozenset({"*", "datastore.*", "datastore.entities.*"})
 _ENTITY_MUTATION_PERMISSION_OPERATIONS = {
     "datastore.entities.create": "create",
     "datastore.entities.update": "update",
@@ -149,6 +154,126 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
             )
         return findings
 
+    def detect_public_cloud_run_firestore_read_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        if context.inventory.provider != "gcp":
+            return []
+
+        findings: list[Finding] = []
+        for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
+            public_invokers = _unconditional_public_invokers(workload)
+            invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
+            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+                continue
+
+            read_paths = [
+                path
+                for path in gcp_facts(workload).cloud_run_firestore_access_paths
+                if _is_deterministic_entity_read_path(path, workload, context)
+            ]
+            if not read_paths:
+                continue
+
+            database_addresses = _path_string_values(
+                read_paths,
+                "firestore_database_address",
+            )
+            iam_resource_addresses = _path_string_values(
+                read_paths,
+                "iam_resource_address",
+            )
+            public_source_addresses = sorted({binding["source"] for binding in public_invokers})
+            operations = _entity_read_operations(read_paths)
+            has_project_scope = any(path.get("scope_type") == "project" for path in read_paths)
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=1,
+                data_sensitivity=2,
+                lateral_movement=1,
+                blast_radius=(2 if has_project_scope or len(database_addresses) > 1 else 1),
+            )
+            boundary = context.boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", workload.address))
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=dedupe_addresses(
+                        [
+                            workload.address,
+                            *public_source_addresses,
+                            *database_addresses,
+                            *iam_resource_addresses,
+                        ]
+                    ),
+                    trust_boundary_id=boundary.identifier if boundary else None,
+                    rationale=_read_rationale(
+                        workload,
+                        operations,
+                        database_addresses,
+                        has_project_scope=has_project_scope,
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item(
+                            "public_invoker_bindings",
+                            _public_invoker_evidence(public_invokers),
+                        ),
+                        evidence_item(
+                            "public_exposure_reasons",
+                            workload.public_exposure_reasons,
+                        ),
+                        evidence_item(
+                            "public_exposure_configuration",
+                            _public_exposure_configuration(workload),
+                        ),
+                        evidence_item(
+                            "runtime_identity",
+                            _runtime_identity_evidence(read_paths),
+                        ),
+                        evidence_item(
+                            "firestore_read_paths",
+                            _read_path_evidence(read_paths),
+                        ),
+                        evidence_item(
+                            "scope_breadth",
+                            _scope_breadth_evidence(
+                                read_paths,
+                                database_addresses,
+                            ),
+                        ),
+                        evidence_item(
+                            "authorization_scope",
+                            [
+                                (
+                                    "establishes=modeled IAM allow grant containing deterministic "
+                                    "datastore.entities.get or datastore.entities.list permission"
+                                ),
+                                (
+                                    "firestore_security_rules=not evaluated for server/API access "
+                                    "authenticated as the Cloud Run runtime service account"
+                                ),
+                                (
+                                    "permission_semantics=datastore.entities.list permits document-name "
+                                    "enumeration; datastore.entities.get is required for document data"
+                                ),
+                                (
+                                    "does_not_establish=effective access after IAM deny or principal "
+                                    "access boundary evaluation"
+                                ),
+                                (
+                                    "excludes=datastore.databases.export bulk-transfer workflows and "
+                                    "their additional destination authorization semantics"
+                                ),
+                            ],
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _unconditional_public_invokers(
     resource: NormalizedResource,
@@ -175,6 +300,30 @@ def _is_deterministic_entity_mutation_path(
     workload: NormalizedResource,
     context: RuleEvaluationContext,
 ) -> bool:
+    return bool(_path_entity_mutation_operations(path)) and _is_deterministic_firestore_path(
+        path,
+        workload,
+        context,
+    )
+
+
+def _is_deterministic_entity_read_path(
+    path: Mapping[str, Any],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    return bool(_path_entity_read_operations(path)) and _is_deterministic_firestore_path(
+        path,
+        workload,
+        context,
+    )
+
+
+def _is_deterministic_firestore_path(
+    path: Mapping[str, Any],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
     if (
         path.get("workload_address") != workload.address
         or path.get("workload_type") != workload.resource_type
@@ -185,7 +334,6 @@ def _is_deterministic_entity_mutation_path(
         or path.get("authorization_model") != "iam_authorized_server_api"
         or path.get("firestore_security_rules_evaluated") is not False
         or path.get("firestore_security_rules_applicability") != "not_in_server_api_authorization_path"
-        or not _path_entity_mutation_operations(path)
         or not _scope_is_deterministic(path)
     ):
         return False
@@ -257,6 +405,46 @@ def _scope_is_deterministic(path: Mapping[str, Any]) -> bool:
     return False
 
 
+def _read_rationale(
+    workload: NormalizedResource,
+    operations: list[str],
+    database_addresses: list[str],
+    *,
+    has_project_scope: bool,
+) -> str:
+    permission_names = ", ".join(f"datastore.entities.{operation}" for operation in operations)
+    rationale = (
+        f"{workload.display_name} is publicly invokable and its Cloud Run runtime "
+        f"service account has deterministic IAM allow grants containing {permission_names} "
+        f"on {len(database_addresses)} exact modeled database(s). A compromise of the public "
+        f"workload could attempt to {_read_capability_summary(operations)} through the "
+        "service-account-authenticated server/API path. "
+    )
+    if has_project_scope:
+        rationale += (
+            "At least one grant is project-applicable and can reach Firestore databases "
+            "across the project, so its blast radius is broader than an exact "
+            "database-scoped grant. "
+        )
+    else:
+        rationale += "The modeled grants are limited by exact Firestore database-name conditions. "
+    return rationale + (
+        "Firestore Security Rules are not evaluated for server/API access authenticated "
+        "through the Cloud Run runtime service account. IAM deny and principal access "
+        "boundary policies are independent controls not evaluated by this path. This path "
+        "does not mean that the Firestore database itself is public."
+    )
+
+
+def _read_capability_summary(operations: list[str]) -> str:
+    operation_set = set(operations)
+    if {"get", "list"} <= operation_set:
+        return "enumerate document names and read document data"
+    if "get" in operation_set:
+        return "read document data"
+    return "enumerate document names without establishing access to document contents"
+
+
 def _mutation_rationale(
     workload: NormalizedResource,
     operations: list[str],
@@ -291,6 +479,24 @@ def _mutation_rationale(
         "through the Cloud Run runtime service account. This path does not mean that the "
         "Firestore database itself is public."
     )
+
+
+def _entity_read_operations(paths: list[dict[str, Any]]) -> list[str]:
+    operations = {operation for path in paths for operation in _path_entity_read_operations(path)}
+    return [operation for operation in ("get", "list") if operation in operations]
+
+
+def _path_entity_read_operations(path: Mapping[str, Any]) -> list[str]:
+    operations: set[str] = set()
+    for permission in _string_values(path.get("matched_permissions")):
+        normalized = permission.strip().lower()
+        if normalized in _ENTITY_READ_WILDCARDS:
+            operations.update({"get", "list"})
+            continue
+        operation = _ENTITY_READ_PERMISSION_OPERATIONS.get(normalized)
+        if operation is not None:
+            operations.add(operation)
+    return [operation for operation in ("get", "list") if operation in operations]
 
 
 def _entity_mutation_operations(paths: list[dict[str, Any]]) -> list[str]:
@@ -360,6 +566,33 @@ def _runtime_identity_evidence(paths: list[dict[str, Any]]) -> list[str]:
                     f"role={path['role']}",
                     f"role_kind={path['role_kind']}",
                     "credential_context=workload_runtime",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _read_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"database_address={path['firestore_database_address']}",
+                    f"database_resource_name={path['firestore_database_resource_name']}",
+                    f"iam_resource={path['iam_resource_address']}",
+                    f"role={path['role']}",
+                    f"role_kind={path['role_kind']}",
+                    f"entity_read_operations={','.join(_path_entity_read_operations(path))}",
+                    f"matched_permissions={','.join(_string_values(path.get('matched_permissions')))}",
+                    f"scope_type={path['scope_type']}",
+                    f"scope={path['scope']}",
+                    f"resource_scope={path['resource_scope']}",
+                    f"condition_state={path['condition_state']}",
+                    f"condition_evaluation={path['condition_evaluation']}",
+                    "access_state=granted",
+                    "authorization_model=iam_authorized_server_api",
+                    "firestore_security_rules_evaluated=false",
                 )
             )
             for path in paths

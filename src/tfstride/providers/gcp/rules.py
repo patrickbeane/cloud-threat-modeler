@@ -83,6 +83,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-cloud-run-sensitive-environment-value-inline",
         "gcp-cloud-run-secret-access-blast-radius",
         "gcp-public-cloud-run-firestore-mutation-access",
+        "gcp-public-cloud-run-firestore-read-access",
         "gcp-public-cloud-run-gcs-mutation-access",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
@@ -239,6 +240,9 @@ def build_gcp_rule_contribution(
         "gcp-cloud-run-secret-access-blast-radius": gcp_detectors.detect_secret_access_blast_radius,
         "gcp-public-cloud-run-firestore-mutation-access": (
             cloud_run_firestore_detectors.detect_public_cloud_run_firestore_mutation_access
+        ),
+        "gcp-public-cloud-run-firestore-read-access": (
+            cloud_run_firestore_detectors.detect_public_cloud_run_firestore_read_access
         ),
         "gcp-public-cloud-run-gcs-mutation-access": (
             cloud_run_gcs_detectors.detect_public_cloud_run_gcs_mutation_access

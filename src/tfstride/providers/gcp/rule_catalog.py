@@ -757,6 +757,24 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-firestore-read-access",
+        title="Public Cloud Run identity has Firestore entity read grants",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Firestore entity read permissions and database scope required. Prefer database-name "
+            "conditions over project-applicable grants, and keep bulk export workflows on separate identities."
+        ),
+        tags=("gcp", "cloud-run", "firestore", "iam", "public-access", "nosql", "information-disclosure"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-gcs-mutation-access",
         title="Public Cloud Run service can modify GCS object storage",
         category=StrideCategory.TAMPERING,
