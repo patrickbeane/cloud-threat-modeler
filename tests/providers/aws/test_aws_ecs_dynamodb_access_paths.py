@@ -35,15 +35,22 @@ def _table(
     name: str = "orders",
     *,
     arn: str = _TABLE_ARN,
+    index_names: tuple[str, ...] = (),
+    local_index_names: tuple[str, ...] = (),
 ) -> TerraformResource:
+    values: dict[str, Any] = {
+        "id": name,
+        "name": name,
+        "arn": arn,
+    }
+    if index_names:
+        values["global_secondary_index"] = [{"name": index_name} for index_name in index_names]
+    if local_index_names:
+        values["local_secondary_index"] = [{"name": index_name} for index_name in local_index_names]
     return _resource(
         "aws_dynamodb_table",
         name,
-        {
-            "id": name,
-            "name": name,
-            "arn": arn,
-        },
+        values,
     )
 
 
@@ -192,6 +199,7 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
         self.assertEqual(
             path["access_classes"],
             [
+                "return_value_read",
                 "entity_write",
                 "entity_delete",
                 "destructive_administration",
@@ -243,6 +251,399 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
             )
             self.assertNotIn("access_state", relationship)
             self.assertNotIn("access_classes", relationship)
+
+    def test_table_read_actions_share_the_generic_access_path_facade(self) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:GetItem",
+                                "dynamodb:ConditionCheckItem",
+                                "dynamodb:BatchGetItem",
+                                "dynamodb:Query",
+                                "dynamodb:Scan",
+                                "dynamodb:PartiQLSelect",
+                            ],
+                            _TABLE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+                _service(),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        service = inventory.get_by_address("aws_ecs_service.orders")
+        assert task_definition is not None
+        assert service is not None
+
+        task_paths = aws_facts(task_definition).ecs_dynamodb_access_paths
+        service_paths = aws_facts(service).ecs_dynamodb_access_paths
+        self.assertEqual(len(task_paths), 1)
+        self.assertEqual(len(service_paths), 1)
+        path = service_paths[0]
+        self.assertEqual(path["workload_address"], service.address)
+        self.assertEqual(path["task_definition_address"], task_definition.address)
+        self.assertEqual(path["dynamodb_target_kind"], "table")
+        self.assertEqual(path["dynamodb_target_scope"], "exact_table")
+        self.assertEqual(path["dynamodb_target_name"], "orders")
+        self.assertEqual(path["dynamodb_target_arn"], _TABLE_ARN)
+        self.assertIsNone(path["dynamodb_index_name"])
+        self.assertIsNone(path["dynamodb_index_arn"])
+        self.assertEqual(path["access_classes"], ["read"])
+        self.assertEqual(
+            path["matched_actions"],
+            [
+                "dynamodb:GetItem",
+                "dynamodb:ConditionCheckItem",
+                "dynamodb:BatchGetItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:PartiQLSelect",
+            ],
+        )
+        self.assertEqual(path["resource_scopes"], ["exact_table"])
+        self.assertEqual(path["access_state"], "allowed")
+        self.assertEqual(
+            aws_facts(service).ecs_dynamodb_index_relationships,
+            [],
+        )
+
+    def test_index_read_actions_expand_only_to_modeled_indexes(self) -> None:
+        by_created_arn = f"{_TABLE_ARN}/index/by-created"
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(index_names=("by-status", "by-created")),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            "dynamodb:Query",
+                            _INDEX_ARN,
+                        ),
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:Scan",
+                                "dynamodb:PartiQLSelect",
+                            ],
+                            _INDEX_PATTERN_ARN,
+                        ),
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:GetItem",
+                                "dynamodb:BatchGetItem",
+                                "dynamodb:PutItem",
+                            ],
+                            _INDEX_PATTERN_ARN,
+                        ),
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        facts = aws_facts(task_definition)
+        self.assertEqual(
+            [path["dynamodb_index_arn"] for path in facts.ecs_dynamodb_access_paths],
+            [by_created_arn, _INDEX_ARN],
+        )
+        by_created, by_status = facts.ecs_dynamodb_access_paths
+        self.assertEqual(by_created["dynamodb_target_kind"], "index")
+        self.assertEqual(by_created["dynamodb_target_scope"], "exact_index")
+        self.assertEqual(by_created["dynamodb_index_name"], "by-created")
+        self.assertEqual(by_created["access_classes"], ["read"])
+        self.assertEqual(
+            by_created["matched_actions"],
+            ["dynamodb:Scan", "dynamodb:PartiQLSelect"],
+        )
+        self.assertEqual(by_created["resource_scopes"], ["index_pattern"])
+
+        self.assertEqual(by_status["dynamodb_index_name"], "by-status")
+        self.assertEqual(
+            by_status["matched_actions"],
+            [
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:PartiQLSelect",
+            ],
+        )
+        self.assertEqual(
+            by_status["resource_scopes"],
+            ["exact_index", "index_pattern"],
+        )
+        for path in facts.ecs_dynamodb_access_paths:
+            self.assertNotIn("dynamodb:GetItem", path["matched_actions"])
+            self.assertNotIn("dynamodb:BatchGetItem", path["matched_actions"])
+            self.assertNotIn("dynamodb:PutItem", path["matched_actions"])
+        self.assertEqual(len(facts.ecs_dynamodb_index_relationships), 3)
+
+    def test_local_secondary_index_read_resolves_exactly(self) -> None:
+        local_index_arn = f"{_TABLE_ARN}/index/by-created"
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(local_index_names=("by-created",)),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            "dynamodb:Query",
+                            local_index_arn,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        path = aws_facts(task_definition).ecs_dynamodb_access_paths[0]
+        self.assertEqual(path["dynamodb_target_kind"], "index")
+        self.assertEqual(path["dynamodb_index_name"], "by-created")
+        self.assertEqual(path["dynamodb_index_arn"], local_index_arn)
+        self.assertEqual(path["access_classes"], ["read"])
+        self.assertEqual(path["matched_actions"], ["dynamodb:Query"])
+
+    def test_partial_index_inventory_preserves_expanded_paths_and_uncertainty(
+        self,
+    ) -> None:
+        table = TerraformResource(
+            address="aws_dynamodb_table.orders",
+            mode="managed",
+            resource_type="aws_dynamodb_table",
+            name="orders",
+            provider_name="registry.terraform.io/hashicorp/aws",
+            values={
+                "id": "orders",
+                "name": "orders",
+                "arn": _TABLE_ARN,
+                "global_secondary_index": [
+                    {"name": "by-status"},
+                    {},
+                ],
+            },
+            unknown_values={
+                "global_secondary_index": [
+                    {},
+                    {"name": True},
+                ]
+            },
+        )
+        inventory = AwsNormalizer().normalize(
+            [
+                table,
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            "dynamodb:Scan",
+                            _INDEX_PATTERN_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        normalized_table = inventory.get_by_address("aws_dynamodb_table.orders")
+        assert task_definition is not None
+        assert normalized_table is not None
+
+        self.assertEqual(
+            aws_facts(normalized_table).dynamodb_index_inventory_state,
+            "partial",
+        )
+        facts = aws_facts(task_definition)
+        self.assertEqual(len(facts.ecs_dynamodb_access_paths), 1)
+        path = facts.ecs_dynamodb_access_paths[0]
+        self.assertEqual(path["dynamodb_index_name"], "by-status")
+        self.assertEqual(path["dynamodb_index_inventory_state"], "partial")
+        self.assertTrue(
+            any(
+                "may target additional indexes because the modeled index "
+                "inventory on aws_dynamodb_table.orders is partial" in uncertainty
+                for uncertainty in facts.ecs_dynamodb_access_path_uncertainties
+            )
+        )
+
+    def test_index_read_denies_conditions_and_incomplete_policy_stay_conservative(
+        self,
+    ) -> None:
+        condition = {
+            "ForAllValues:StringEquals": {
+                "dynamodb:LeadingKeys": ["tenant-123"],
+            }
+        }
+        policy_arn = "arn:aws:iam::aws:policy/ExternalDynamoDbRead"
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(index_names=("by-status",)),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            ["dynamodb:Query", "dynamodb:Scan"],
+                            _INDEX_ARN,
+                        ),
+                        _statement(
+                            "Deny",
+                            "dynamodb:Query",
+                            _INDEX_ARN,
+                        ),
+                        _statement(
+                            "Allow",
+                            "dynamodb:PartiQLSelect",
+                            _INDEX_ARN,
+                            condition=condition,
+                        ),
+                    ],
+                ),
+                _role_policy_attachment(_TASK_ROLE_ARN, policy_arn),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        facts = aws_facts(task_definition)
+        self.assertEqual(len(facts.ecs_dynamodb_access_paths), 1)
+        path = facts.ecs_dynamodb_access_paths[0]
+        self.assertEqual(path["dynamodb_index_arn"], _INDEX_ARN)
+        self.assertEqual(path["modeled_access_state"], "allowed")
+        self.assertEqual(path["access_state"], "unknown")
+        self.assertFalse(path["role_policy_complete"])
+        self.assertEqual(path["access_classes"], ["read"])
+        self.assertEqual(path["matched_actions"], ["dynamodb:Scan"])
+        self.assertEqual(path["denied_access_classes"], ["read"])
+        self.assertEqual(path["denied_actions"], ["dynamodb:Query"])
+        self.assertEqual(path["unknown_access_classes"], ["read"])
+        self.assertEqual(
+            path["unknown_actions"],
+            ["dynamodb:PartiQLSelect"],
+        )
+        self.assertTrue(path["explicit_deny"])
+        self.assertTrue(path["conditional_evaluation_required"])
+        self.assertTrue(any(policy_arn in uncertainty for uncertainty in facts.ecs_dynamodb_access_path_uncertainties))
+        self.assertTrue(
+            any(
+                "conditional identity-policy evidence" in uncertainty and "DynamoDB index by-status" in uncertainty
+                for uncertainty in facts.ecs_dynamodb_access_path_uncertainties
+            )
+        )
+
+    def test_mutation_return_values_are_distinct_from_direct_reads(self) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:PutItem",
+                                "dynamodb:UpdateItem",
+                                "dynamodb:DeleteItem",
+                                "dynamodb:PartiQLUpdate",
+                                "dynamodb:PartiQLDelete",
+                            ],
+                            _TABLE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        path = aws_facts(task_definition).ecs_dynamodb_access_paths[0]
+        self.assertEqual(
+            path["access_classes"],
+            ["return_value_read", "entity_write", "entity_delete"],
+        )
+        self.assertNotIn("read", path["access_classes"])
+
+    def test_bulk_export_is_not_flattened_into_ordinary_read(self) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            "dynamodb:ExportTableToPointInTime",
+                            _TABLE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        path = aws_facts(task_definition).ecs_dynamodb_access_paths[0]
+        self.assertEqual(path["access_classes"], ["bulk_export"])
+        self.assertEqual(
+            path["matched_actions"],
+            ["dynamodb:ExportTableToPointInTime"],
+        )
+
+    def test_deferred_stream_and_metadata_actions_do_not_create_read_paths(
+        self,
+    ) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _table(index_names=("by-status",)),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:GetRecords",
+                                "dynamodb:DescribeTable",
+                            ],
+                            [_TABLE_ARN, _INDEX_ARN],
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+            ]
+        )
+        task_definition = inventory.get_by_address("aws_ecs_task_definition.orders")
+        assert task_definition is not None
+
+        facts = aws_facts(task_definition)
+        self.assertEqual(facts.ecs_dynamodb_access_paths, [])
+        self.assertEqual(len(facts.ecs_dynamodb_index_relationships), 1)
+        self.assertEqual(
+            facts.ecs_dynamodb_index_relationships[0]["policy_actions"],
+            ["dynamodb:GetRecords", "dynamodb:DescribeTable"],
+        )
 
     def test_transaction_api_name_is_not_treated_as_an_iam_action(self) -> None:
         inventory = AwsNormalizer().normalize(
@@ -318,7 +719,7 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
     def test_execution_role_actions_do_not_create_runtime_paths(self) -> None:
         inventory = AwsNormalizer().normalize(
             [
-                _table(),
+                _table(index_names=("by-status",)),
                 _role("orders_task", _TASK_ROLE_ARN, []),
                 _role(
                     "orders_execution",
@@ -326,9 +727,14 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
                     [
                         _statement(
                             "Allow",
-                            "dynamodb:PutItem",
+                            ["dynamodb:GetItem", "dynamodb:PutItem"],
                             _TABLE_ARN,
-                        )
+                        ),
+                        _statement(
+                            "Allow",
+                            "dynamodb:Query",
+                            _INDEX_ARN,
+                        ),
                     ],
                 ),
                 _task_definition(),
@@ -416,15 +822,23 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
         self.assertEqual(path["access_state"], "allowed")
         self.assertEqual(
             path["access_classes"],
-            ["entity_delete", "configuration_administration"],
+            [
+                "return_value_read",
+                "entity_delete",
+                "configuration_administration",
+            ],
         )
         self.assertEqual(
             path["denied_access_classes"],
-            ["entity_write", "destructive_administration"],
+            [
+                "return_value_read",
+                "entity_write",
+                "destructive_administration",
+            ],
         )
         self.assertEqual(
             path["unknown_access_classes"],
-            ["entity_write"],
+            ["return_value_read", "entity_write"],
         )
         self.assertEqual(
             path["matched_actions"],
@@ -491,7 +905,10 @@ class AwsEcsDynamoDbAccessPathTests(unittest.TestCase):
         self.assertEqual(path["modeled_access_state"], "unknown")
         self.assertEqual(path["access_state"], "unknown")
         self.assertEqual(path["access_classes"], [])
-        self.assertEqual(path["unknown_access_classes"], ["entity_write"])
+        self.assertEqual(
+            path["unknown_access_classes"],
+            ["return_value_read", "entity_write"],
+        )
         self.assertEqual(path["matched_actions"], [])
         self.assertEqual(path["unknown_actions"], ["dynamodb:UpdateItem"])
         self.assertTrue(path["conditional_evaluation_required"])

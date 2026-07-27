@@ -17,6 +17,9 @@ from tfstride.providers.aws.ecs_path_rule_helpers import (
     public_service_network_path,
     resolved_public_load_balancers,
 )
+from tfstride.providers.aws.resource_decoration.ecs_dynamodb_access_paths import (
+    DYNAMODB_NON_MUTATION_ACTION_NAMES,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_DYNAMODB_TABLE = "aws_dynamodb_table"
@@ -206,7 +209,11 @@ def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
 
 
 def _mutation_actions(path: Mapping[str, Any]) -> list[str]:
-    return [action for action in _string_values(path.get("matched_actions")) if action.lower().startswith("dynamodb:")]
+    return [
+        action
+        for action in _string_values(path.get("matched_actions"))
+        if action.lower().startswith("dynamodb:") and action.lower() not in DYNAMODB_NON_MUTATION_ACTION_NAMES
+    ]
 
 
 def _mutation_severity(

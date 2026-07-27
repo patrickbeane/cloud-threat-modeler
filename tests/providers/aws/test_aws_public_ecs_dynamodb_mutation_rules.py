@@ -221,6 +221,40 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
             findings["dynamodb:UpdateTable"].rationale,
         )
 
+    def test_read_actions_do_not_leak_into_mutation_evidence(self) -> None:
+        _, _, findings = _evaluate(
+            [
+                *_public_edge(),
+                _table(),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            [
+                                "dynamodb:GetItem",
+                                "dynamodb:ConditionCheckItem",
+                                "dynamodb:ExportTableToPointInTime",
+                                "dynamodb:PutItem",
+                            ],
+                            _TABLE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+                _service(),
+            ]
+        )
+
+        self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
+        evidence = {item.key: item.values for item in findings[0].evidence}
+        mutation_path = evidence["dynamodb_mutation_paths"][0]
+        self.assertIn("actions=dynamodb:PutItem", mutation_path)
+        self.assertNotIn("dynamodb:GetItem", mutation_path)
+        self.assertNotIn("dynamodb:ConditionCheckItem", mutation_path)
+        self.assertNotIn("dynamodb:ExportTableToPointInTime", mutation_path)
+
     def test_exact_public_path_retains_identity_target_and_exposure_evidence(
         self,
     ) -> None:

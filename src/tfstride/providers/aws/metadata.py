@@ -65,6 +65,8 @@ class AwsResourceMetadata:
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     S3_POSTURE_UNCERTAINTIES = StringListMetadataField("s3_posture_uncertainties")
     DYNAMODB_POSTURE_UNCERTAINTIES = StringListMetadataField("dynamodb_posture_uncertainties")
+    DYNAMODB_INDEX_NAMES = StringListMetadataField("dynamodb_index_names")
+    DYNAMODB_INDEX_INVENTORY_STATE = OptionalStringMetadataField("dynamodb_index_inventory_state")
     RDS_POSTURE_UNCERTAINTIES = StringListMetadataField("rds_posture_uncertainties")
     RDS_ENABLED_CLOUDWATCH_LOGS_EXPORTS = StringListMetadataField("rds_enabled_cloudwatch_logs_exports")
     KMS_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_posture_uncertainties")

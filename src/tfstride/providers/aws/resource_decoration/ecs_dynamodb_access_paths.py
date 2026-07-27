@@ -11,16 +11,23 @@ from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import dedupe
 
 AccessClass = Literal[
+    "read",
+    "return_value_read",
+    "bulk_export",
     "entity_write",
     "entity_delete",
     "destructive_administration",
     "configuration_administration",
 ]
 ResourceScope = Literal["exact_table", "exact_index", "index_pattern"]
+TargetKind = Literal["table", "index"]
 
 _ECS_TASK_DEFINITION = "aws_ecs_task_definition"
 _ECS_SERVICE = "aws_ecs_service"
 _ACCESS_CLASS_ORDER: tuple[AccessClass, ...] = (
+    "read",
+    "return_value_read",
+    "bulk_export",
     "entity_write",
     "entity_delete",
     "destructive_administration",
@@ -41,20 +48,51 @@ class _DynamoDbResourceReference:
     scope: ResourceScope
 
 
+@dataclass(frozen=True, slots=True)
+class _DynamoDbTarget:
+    table: NormalizedResource
+    target_arn: str
+    target_kind: TargetKind
+    index_name: str | None = None
+
+
 # TransactWriteItems is an API operation, not an IAM policy action. AWS
 # authorizes its components through PutItem, UpdateItem, DeleteItem, and
-# ConditionCheckItem.
+# ConditionCheckItem. ConditionCheckItem can return ALL_OLD on failure, while
+# selected mutation actions can return stored values as part of their request.
 _DYNAMODB_ACTIONS = (
-    _DynamoDbAction("dynamodb:PutItem", ("entity_write",)),
-    _DynamoDbAction("dynamodb:UpdateItem", ("entity_write",)),
+    _DynamoDbAction("dynamodb:GetItem", ("read",)),
+    _DynamoDbAction("dynamodb:ConditionCheckItem", ("read",)),
+    _DynamoDbAction("dynamodb:BatchGetItem", ("read",)),
+    _DynamoDbAction("dynamodb:Query", ("read",)),
+    _DynamoDbAction("dynamodb:Scan", ("read",)),
+    _DynamoDbAction("dynamodb:PartiQLSelect", ("read",)),
+    _DynamoDbAction("dynamodb:ExportTableToPointInTime", ("bulk_export",)),
+    _DynamoDbAction(
+        "dynamodb:PutItem",
+        ("return_value_read", "entity_write"),
+    ),
+    _DynamoDbAction(
+        "dynamodb:UpdateItem",
+        ("return_value_read", "entity_write"),
+    ),
     _DynamoDbAction(
         "dynamodb:BatchWriteItem",
         ("entity_write", "entity_delete"),
     ),
     _DynamoDbAction("dynamodb:PartiQLInsert", ("entity_write",)),
-    _DynamoDbAction("dynamodb:PartiQLUpdate", ("entity_write",)),
-    _DynamoDbAction("dynamodb:DeleteItem", ("entity_delete",)),
-    _DynamoDbAction("dynamodb:PartiQLDelete", ("entity_delete",)),
+    _DynamoDbAction(
+        "dynamodb:PartiQLUpdate",
+        ("return_value_read", "entity_write"),
+    ),
+    _DynamoDbAction(
+        "dynamodb:DeleteItem",
+        ("return_value_read", "entity_delete"),
+    ),
+    _DynamoDbAction(
+        "dynamodb:PartiQLDelete",
+        ("return_value_read", "entity_delete"),
+    ),
     _DynamoDbAction("dynamodb:DeleteTable", ("destructive_administration",)),
     _DynamoDbAction(
         "dynamodb:DeleteTableReplica",
@@ -99,6 +137,18 @@ _DYNAMODB_ACTIONS = (
     ),
 )
 _ACTION_BY_NAME = {action.name: action for action in _DYNAMODB_ACTIONS}
+_INDEX_READ_ACTION_NAMES = frozenset(
+    {
+        "dynamodb:query",
+        "dynamodb:scan",
+        "dynamodb:partiqlselect",
+    }
+)
+
+_NON_MUTATION_ACCESS_CLASSES = frozenset({"read", "bulk_export"})
+DYNAMODB_NON_MUTATION_ACTION_NAMES = frozenset(
+    action.name.lower() for action in _DYNAMODB_ACTIONS if set(action.access_classes) <= _NON_MUTATION_ACCESS_CLASSES
+)
 
 
 class ModelEcsDynamoDbAccessPathsStage:
@@ -198,31 +248,41 @@ def _ecs_dynamodb_access(
         )
 
     role_facts = aws_facts(task_role)
+    role_policy_complete = not role_facts.unresolved_attached_policy_arns
     uncertainties = [
         f"{task_definition.address}: {task_role.address} has unresolved attached policy {policy_arn}"
         for policy_arn in role_facts.unresolved_attached_policy_arns
     ]
-    tables, table_uncertainties = _target_tables(task_role, context)
-    index_relationships, index_uncertainties = _index_relationships(
+    table_targets, table_uncertainties = _target_tables(task_role, context)
+    index_targets, index_target_uncertainties = _target_indexes(
+        task_role,
+        context,
+    )
+    index_relationships, index_relationship_uncertainties = _index_relationships(
         task_definition,
         task_role,
         context,
-        role_policy_complete=not role_facts.unresolved_attached_policy_arns,
+        role_policy_complete=role_policy_complete,
     )
-    uncertainties.extend(f"{task_definition.address}: {message}" for message in table_uncertainties)
-    uncertainties.extend(f"{task_definition.address}: {message}" for message in index_uncertainties)
+    for message in (
+        *table_uncertainties,
+        *index_target_uncertainties,
+        *index_relationship_uncertainties,
+    ):
+        uncertainties.append(f"{task_definition.address}: {message}")
 
+    targets = [*table_targets, *index_targets]
+    targets.sort(
+        key=lambda target: (
+            0 if target.target_kind == "table" else 1,
+            target.target_arn,
+        )
+    )
     paths: list[dict[str, Any]] = []
-    for table in tables:
-        table_arn = aws_facts(table).dynamodb_table_arn or table.arn
-        if not table_arn:
-            uncertainties.append(
-                f"{task_definition.address}: DynamoDB table {table.address} has no resolved ARN for IAM scope matching"
-            )
-            continue
+    for target in targets:
         statement_records = _matching_statement_records(
             task_role.policy_statements,
-            table_arn,
+            target,
         )
         if not statement_records:
             continue
@@ -230,17 +290,17 @@ def _ecs_dynamodb_access(
         if assessment["conditional_actions"]:
             uncertainties.append(
                 f"{task_definition.address}: {task_role.address} targeting "
-                f"{table.address} has conditional identity-policy evidence for "
-                "actions: " + ", ".join(assessment["conditional_actions"])
+                f"{_target_description(target)} has conditional "
+                "identity-policy evidence for actions: " + ", ".join(assessment["conditional_actions"])
             )
         paths.append(
             _access_path_record(
                 task_definition,
-                table,
+                target,
                 task_role,
                 statement_records,
                 assessment,
-                role_policy_complete=not role_facts.unresolved_attached_policy_arns,
+                role_policy_complete=role_policy_complete,
             )
         )
 
@@ -250,11 +310,11 @@ def _ecs_dynamodb_access(
 def _target_tables(
     role: NormalizedResource,
     context: AwsDecorationContext,
-) -> tuple[list[NormalizedResource], list[str]]:
-    tables: dict[str, NormalizedResource] = {}
+) -> tuple[list[_DynamoDbTarget], list[str]]:
+    targets: dict[str, _DynamoDbTarget] = {}
     uncertainties: list[str] = []
     for statement in role.policy_statements:
-        if not _has_mutation_action_pattern(statement):
+        if not _has_modeled_action_pattern(statement):
             continue
         for resource in statement.resources:
             reference = _dynamodb_resource_reference(resource)
@@ -268,13 +328,80 @@ def _target_tables(
                         f"{reference.table_arn}, which is not modeled in the plan"
                     )
                     continue
-                tables[table.address] = table
+                targets[table.address] = _DynamoDbTarget(
+                    table,
+                    reference.table_arn,
+                    "table",
+                )
                 continue
             if _could_target_dynamodb(resource):
                 uncertainties.append(
                     f"{role.address} DynamoDB policy resource {resource!r} does not identify an exact table"
                 )
-    return [tables[address] for address in sorted(tables)], dedupe(uncertainties)
+    return [targets[address] for address in sorted(targets)], dedupe(uncertainties)
+
+
+def _target_indexes(
+    role: NormalizedResource,
+    context: AwsDecorationContext,
+) -> tuple[list[_DynamoDbTarget], list[str]]:
+    targets: dict[str, _DynamoDbTarget] = {}
+    uncertainties: list[str] = []
+    for statement in role.policy_statements:
+        if not _has_index_read_action_pattern(statement):
+            continue
+        for resource in statement.resources:
+            reference = _dynamodb_resource_reference(resource)
+            if reference is None or reference.scope == "exact_table":
+                continue
+            table = context.index.dynamodb_tables.get(reference.table_arn)
+            if table is None:
+                uncertainties.append(
+                    f"{role.address} DynamoDB read policy targets "
+                    f"{reference.resource_arn}, but parent table "
+                    f"{reference.table_arn} is not modeled in the plan"
+                )
+                continue
+
+            table_facts = aws_facts(table)
+            inventory_state = table_facts.dynamodb_index_inventory_state or "unknown"
+            matched = False
+            for index_name in table_facts.dynamodb_index_names:
+                index_arn = f"{reference.table_arn}/index/{index_name}"
+                if not fnmatchcase(index_arn, reference.resource_arn):
+                    continue
+                matched = True
+                targets[index_arn] = _DynamoDbTarget(
+                    table,
+                    index_arn,
+                    "index",
+                    index_name=index_name,
+                )
+
+            if inventory_state != "complete":
+                if reference.scope == "index_pattern":
+                    qualifier = "additional indexes" if matched else "unresolved indexes"
+                    uncertainties.append(
+                        f"{role.address} DynamoDB index policy "
+                        f"{reference.resource_arn} may target {qualifier} "
+                        "because the modeled index inventory on "
+                        f"{table.address} is {inventory_state}"
+                    )
+                elif not matched:
+                    uncertainties.append(
+                        f"{role.address} DynamoDB index policy "
+                        f"{reference.resource_arn} may target an unresolved index "
+                        "because the modeled index inventory on "
+                        f"{table.address} is {inventory_state}"
+                    )
+            elif not matched:
+                uncertainties.append(
+                    f"{role.address} DynamoDB read policy target "
+                    f"{reference.resource_arn} does not match a modeled index "
+                    f"on {table.address}"
+                )
+
+    return [targets[arn] for arn in sorted(targets)], dedupe(uncertainties)
 
 
 def _index_relationships(
@@ -314,10 +441,18 @@ def _index_relationships(
     return relationships, dedupe(uncertainties)
 
 
-def _has_mutation_action_pattern(statement: IAMPolicyStatement) -> bool:
+def _has_modeled_action_pattern(statement: IAMPolicyStatement) -> bool:
     return any(
         fnmatchcase(action.name.lower(), pattern.lower())
         for action in _DYNAMODB_ACTIONS
+        for pattern in statement.actions
+    )
+
+
+def _has_index_read_action_pattern(statement: IAMPolicyStatement) -> bool:
+    return any(
+        fnmatchcase(action_name, pattern.lower())
+        for action_name in _INDEX_READ_ACTION_NAMES
         for pattern in statement.actions
     )
 
@@ -379,7 +514,7 @@ def _could_target_dynamodb(value: object) -> bool:
 
 def _matching_statement_records(
     statements: tuple[IAMPolicyStatement, ...],
-    table_arn: str,
+    target: _DynamoDbTarget,
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for statement in statements:
@@ -390,15 +525,20 @@ def _matching_statement_records(
         matched_actions: list[str] = []
         matching_patterns: set[str] = set()
         for action in _DYNAMODB_ACTIONS:
-            action_patterns = _matching_action_patterns(statement, action.name)
+            if not _action_applies_to_target(action, target):
+                continue
+            action_patterns = _matching_action_patterns(
+                statement,
+                action.name,
+            )
             if not action_patterns:
                 continue
             matched_actions.append(action.name)
             matching_patterns.update(action_patterns)
 
-        matching_resources = _matching_table_resources(
+        matching_resources = _matching_target_resources(
             statement,
-            table_arn,
+            target,
             effect=effect,
         )
         if not matched_actions or not matching_resources:
@@ -416,7 +556,7 @@ def _matching_statement_records(
                 "matching_resources": sorted(matching_resources),
                 "resource_scopes": _resource_scopes(
                     matching_resources,
-                    table_arn,
+                    target,
                 ),
                 "access_classes": _access_classes(matched_actions),
                 "conditions": [_condition_record(condition) for condition in statement.conditions],
@@ -433,17 +573,39 @@ def _matching_action_patterns(
     return {pattern for pattern in statement.actions if fnmatchcase(action.lower(), pattern.lower())}
 
 
-def _matching_table_resources(
+def _action_applies_to_target(
+    action: _DynamoDbAction,
+    target: _DynamoDbTarget,
+) -> bool:
+    return target.target_kind == "table" or action.name.lower() in _INDEX_READ_ACTION_NAMES
+
+
+def _matching_target_resources(
     statement: IAMPolicyStatement,
-    table_arn: str,
+    target: _DynamoDbTarget,
     *,
     effect: str,
 ) -> set[str]:
+    resources = {resource for resource in statement.resources if isinstance(resource, str)}
     if effect == "allow":
-        return {resource for resource in statement.resources if isinstance(resource, str) and resource == table_arn}
-    return {
-        resource for resource in statement.resources if isinstance(resource, str) and fnmatchcase(table_arn, resource)
-    }
+        return {resource for resource in resources if _allow_resource_matches_target(resource, target)}
+    return {resource for resource in resources if fnmatchcase(target.target_arn, resource)}
+
+
+def _allow_resource_matches_target(
+    resource: str,
+    target: _DynamoDbTarget,
+) -> bool:
+    if target.target_kind == "table":
+        return resource == target.target_arn
+
+    reference = _dynamodb_resource_reference(resource)
+    return bool(
+        reference is not None
+        and reference.scope != "exact_table"
+        and reference.table_arn == _target_table_arn(target)
+        and fnmatchcase(target.target_arn, reference.resource_arn)
+    )
 
 
 def _condition_record(condition: IAMPolicyCondition) -> dict[str, Any]:
@@ -489,7 +651,7 @@ def _assess_actions(
 
 def _access_path_record(
     task_definition: NormalizedResource,
-    table: NormalizedResource,
+    target: _DynamoDbTarget,
     task_role: NormalizedResource,
     statement_records: list[dict[str, Any]],
     assessment: dict[str, list[str]],
@@ -500,17 +662,26 @@ def _access_path_record(
     deny_records = [record for record in statement_records if record["effect"] == "deny"]
     modeled_access_state = _modeled_access_state(assessment)
     access_state = modeled_access_state if role_policy_complete else "unknown"
-    table_arn = aws_facts(table).dynamodb_table_arn or table.arn
+    table = target.table
+    table_arn = _target_table_arn(target)
+    target_name = target.index_name if target.target_kind == "index" else table.identifier or table.name
     return {
         "workload_address": task_definition.address,
         "workload_type": task_definition.resource_type,
+        "dynamodb_target_kind": target.target_kind,
+        "dynamodb_target_scope": f"exact_{target.target_kind}",
+        "dynamodb_target_name": target_name,
+        "dynamodb_target_arn": target.target_arn,
         "dynamodb_table_address": table.address,
         "dynamodb_table_name": table.identifier or table.name,
         "dynamodb_table_arn": table_arn,
+        "dynamodb_index_inventory_state": (aws_facts(table).dynamodb_index_inventory_state),
+        "dynamodb_index_name": target.index_name,
+        "dynamodb_index_arn": (target.target_arn if target.target_kind == "index" else None),
         "role_kind": "ecs_task_role",
         "credential_context": "workload_runtime",
         "role_address": task_role.address,
-        "role_arn": task_role.arn or aws_facts(task_definition).task_role_arn,
+        "role_arn": (task_role.arn or aws_facts(task_definition).task_role_arn),
         "role_policy_complete": role_policy_complete,
         "evaluation_basis": "modeled_identity_policy",
         "modeled_access_state": modeled_access_state,
@@ -562,6 +733,7 @@ def _index_relationship_record(
         "dynamodb_table_address": table.address,
         "dynamodb_table_name": table.identifier or table.name,
         "dynamodb_table_arn": reference.table_arn,
+        "dynamodb_index_inventory_state": (aws_facts(table).dynamodb_index_inventory_state),
         "dynamodb_index_resource_arn": reference.resource_arn,
         "resource_scope": reference.scope,
         "role_kind": "ecs_task_role",
@@ -604,19 +776,48 @@ def _statement_values(
 
 def _resource_scopes(
     resources: set[str],
-    table_arn: str,
+    target: _DynamoDbTarget,
 ) -> list[str]:
-    scopes = {_resource_scope(resource, table_arn) for resource in resources}
-    order = ("exact_table", "table_pattern", "all_resources")
+    scopes = {_resource_scope(resource, target) for resource in resources}
+    order = (
+        "exact_table",
+        "exact_index",
+        "index_pattern",
+        "table_pattern",
+        "all_resources",
+    )
     return [scope for scope in order if scope in scopes]
 
 
-def _resource_scope(resource: str, table_arn: str) -> str:
-    if resource == table_arn:
-        return "exact_table"
+def _resource_scope(
+    resource: str,
+    target: _DynamoDbTarget,
+) -> str:
+    if resource == target.target_arn:
+        return f"exact_{target.target_kind}"
     if resource == "*":
         return "all_resources"
+    if target.target_kind == "index":
+        reference = _dynamodb_resource_reference(resource)
+        if (
+            reference is not None
+            and reference.scope != "exact_table"
+            and reference.table_arn == _target_table_arn(target)
+        ):
+            return reference.scope
+        return "index_pattern"
     return "table_pattern"
+
+
+def _target_table_arn(target: _DynamoDbTarget) -> str:
+    table_arn = aws_facts(target.table).dynamodb_table_arn or target.table.arn
+    return table_arn or target.target_arn
+
+
+def _target_description(target: _DynamoDbTarget) -> str:
+    if target.target_kind == "index":
+        return f"DynamoDB index {target.index_name or target.target_arn} on {target.table.address}"
+    return target.table.address
 
 
 def _has_wildcard(value: str) -> bool:

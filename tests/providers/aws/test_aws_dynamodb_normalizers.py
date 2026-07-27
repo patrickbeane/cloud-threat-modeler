@@ -92,6 +92,91 @@ class AwsDynamoDbNormalizerTests(unittest.TestCase):
         )
         self.assertEqual(facts.dynamodb_posture_uncertainties, [])
 
+    def test_normalizes_global_and_local_secondary_index_names(self) -> None:
+        facts = aws_facts(
+            normalize_dynamodb_table(
+                _table(
+                    {
+                        "name": "orders",
+                        "arn": _TABLE_ARN,
+                        "global_secondary_index": [
+                            {"name": "by-status"},
+                            {"name": "by-customer"},
+                        ],
+                        "local_secondary_index": [
+                            {"name": "by-created"},
+                        ],
+                    }
+                )
+            )
+        )
+
+        self.assertEqual(
+            facts.dynamodb_index_names,
+            ["by-created", "by-customer", "by-status"],
+        )
+        self.assertEqual(facts.dynamodb_index_inventory_state, "complete")
+        self.assertEqual(facts.dynamodb_posture_uncertainties, [])
+
+    def test_unknown_index_names_remain_unmodeled(self) -> None:
+        facts = aws_facts(
+            normalize_dynamodb_table(
+                _table(
+                    {
+                        "name": "orders",
+                        "arn": _TABLE_ARN,
+                        "global_secondary_index": [
+                            {},
+                            {"name": "by-status"},
+                        ],
+                    },
+                    unknown_values={
+                        "global_secondary_index": [
+                            {"name": True},
+                            {},
+                        ],
+                        "local_secondary_index": True,
+                    },
+                )
+            )
+        )
+
+        self.assertEqual(facts.dynamodb_index_names, ["by-status"])
+        self.assertEqual(facts.dynamodb_index_inventory_state, "partial")
+        self.assertEqual(
+            facts.dynamodb_posture_uncertainties,
+            [
+                "global_secondary_index[0].name is unknown after planning",
+                "local_secondary_index is unknown after planning",
+            ],
+        )
+
+    def test_index_inventory_distinguishes_unknown_and_invalid(self) -> None:
+        unknown = aws_facts(
+            normalize_dynamodb_table(
+                _table(
+                    {"name": "unknown", "arn": _TABLE_ARN},
+                    unknown_values={"global_secondary_index": True},
+                )
+            )
+        )
+        invalid = aws_facts(
+            normalize_dynamodb_table(
+                _table(
+                    {
+                        "name": "invalid",
+                        "arn": _TABLE_ARN,
+                        "local_secondary_index": [{}],
+                    }
+                )
+            )
+        )
+
+        self.assertEqual(unknown.dynamodb_index_names, [])
+        self.assertEqual(unknown.dynamodb_index_inventory_state, "unknown")
+        self.assertEqual(invalid.dynamodb_index_names, [])
+        self.assertEqual(invalid.dynamodb_index_inventory_state, "invalid")
+
     def test_distinguishes_aws_owned_aws_managed_and_customer_managed_encryption(self) -> None:
         cases = (
             ({}, "aws_owned", "not_configured", None),

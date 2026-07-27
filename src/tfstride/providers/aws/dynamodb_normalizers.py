@@ -43,6 +43,11 @@ def normalize_dynamodb_table(resource: TerraformResource) -> NormalizedResource:
         "deletion_protection_enabled",
         uncertainties,
     )
+    index_names, index_inventory_state = _index_inventory(
+        values,
+        unknown_values,
+        uncertainties,
+    )
 
     normalized = NormalizedResource(
         address=resource.address,
@@ -62,6 +67,8 @@ def normalize_dynamodb_table(resource: TerraformResource) -> NormalizedResource:
             AwsResourceMetadata.DYNAMODB_PITR_STATE: pitr_state,
             AwsResourceMetadata.DYNAMODB_PITR_RECOVERY_PERIOD_DAYS: pitr_recovery_period_days,
             AwsResourceMetadata.DYNAMODB_DELETION_PROTECTION_STATE: deletion_protection_state,
+            AwsResourceMetadata.DYNAMODB_INDEX_NAMES: index_names,
+            AwsResourceMetadata.DYNAMODB_INDEX_INVENTORY_STATE: index_inventory_state,
             AwsResourceMetadata.DYNAMODB_REPLICAS: _replicas(
                 values.get("replica"),
                 unknown_values.get("replica"),
@@ -226,6 +233,71 @@ def _top_level_bool_state(
     if value is False:
         return STATE_DISABLED
     return STATE_UNKNOWN if len(uncertainties) > uncertainty_count else STATE_NOT_CONFIGURED
+
+
+def _index_inventory(
+    values: Mapping[str, Any],
+    unknown_values: Mapping[str, Any],
+    uncertainties: list[str],
+) -> tuple[list[str], str]:
+    names: set[str] = set()
+    has_unknown = False
+    has_invalid = False
+    for block_name in (
+        "global_secondary_index",
+        "local_secondary_index",
+    ):
+        raw_blocks = values.get(block_name)
+        raw_unknown_blocks = unknown_values.get(block_name)
+        if raw_unknown_blocks is True:
+            uncertainties.append(f"{block_name} is unknown after planning")
+            has_unknown = True
+            continue
+
+        blocks = as_list(raw_blocks)
+        unknown_blocks = as_list(raw_unknown_blocks)
+        if not blocks and raw_blocks not in (None, [], {}):
+            uncertainties.append(f"{block_name} has an unrecognized value shape")
+            has_invalid = True
+            continue
+        if not blocks and raw_unknown_blocks not in (None, [], {}):
+            uncertainties.append(f"{block_name} is unknown after planning")
+            has_unknown = True
+            continue
+        if len(unknown_blocks) > len(blocks):
+            uncertainties.append(f"{block_name} contains additional unknown entries after planning")
+            has_unknown = True
+
+        for index, block in enumerate(blocks):
+            path = f"{block_name}[{index}]"
+            if not isinstance(block, Mapping):
+                uncertainties.append(f"{path} has an unrecognized value shape")
+                has_invalid = True
+                continue
+            unknown_block = unknown_blocks[index] if index < len(unknown_blocks) else None
+            name_unknown = attribute_unknown(unknown_block, "name")
+            name = known_block_string(
+                block,
+                unknown_block,
+                "name",
+                uncertainties,
+                path=path,
+            )
+            if name:
+                names.add(name)
+            elif name_unknown:
+                has_unknown = True
+            else:
+                uncertainties.append(f"{path}.name is not represented in the Terraform plan")
+                has_invalid = True
+
+    if has_invalid:
+        state = "invalid"
+    elif has_unknown:
+        state = "partial" if names else "unknown"
+    else:
+        state = "complete"
+    return sorted(names), state
 
 
 def _replicas(

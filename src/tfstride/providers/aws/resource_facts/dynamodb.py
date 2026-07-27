@@ -50,5 +50,13 @@ class AwsDynamoDbFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.DYNAMODB_REPLICAS)
 
     @property
+    def dynamodb_index_names(self) -> list[str]:
+        return self.get(AwsResourceMetadata.DYNAMODB_INDEX_NAMES)
+
+    @property
+    def dynamodb_index_inventory_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.DYNAMODB_INDEX_INVENTORY_STATE)
+
+    @property
     def dynamodb_posture_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.DYNAMODB_POSTURE_UNCERTAINTIES)

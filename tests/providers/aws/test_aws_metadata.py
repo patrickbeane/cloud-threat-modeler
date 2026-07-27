@@ -85,6 +85,8 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "ECR_WRITE_PATH_UNCERTAINTIES": "ecr_write_path_uncertainties",
             "RDS_PUBLICLY_ACCESSIBLE_STATE": "rds_publicly_accessible_state",
             "DYNAMODB_POSTURE_UNCERTAINTIES": "dynamodb_posture_uncertainties",
+            "DYNAMODB_INDEX_NAMES": "dynamodb_index_names",
+            "DYNAMODB_INDEX_INVENTORY_STATE": "dynamodb_index_inventory_state",
             "DYNAMODB_TABLE_ARN": "dynamodb_table_arn",
             "DYNAMODB_KMS_KEY_ARN": "dynamodb_kms_key_arn",
             "DYNAMODB_ENCRYPTION_OWNERSHIP_STATE": "dynamodb_encryption_ownership_state",

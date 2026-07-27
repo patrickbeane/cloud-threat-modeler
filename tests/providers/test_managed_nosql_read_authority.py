@@ -122,7 +122,7 @@ def _azure_reader_resources(
 class ManagedNosqlReadAuthorityCharacterizationTests(unittest.TestCase):
     """Pin read-path prerequisites without introducing disclosure findings."""
 
-    def test_aws_index_policy_evidence_is_not_yet_an_access_claim(self) -> None:
+    def test_aws_read_paths_preserve_index_policy_relationship_evidence(self) -> None:
         condition = {
             "ForAllValues:StringEquals": {
                 "dynamodb:LeadingKeys": ["tenant-123"],
@@ -131,7 +131,7 @@ class ManagedNosqlReadAuthorityCharacterizationTests(unittest.TestCase):
         inventory = AwsNormalizer().normalize(
             [
                 *aws_public_edge(),
-                aws_table(),
+                aws_table(index_names=("by-status",)),
                 aws_role(
                     "orders_task",
                     AWS_TASK_ROLE_ARN,
@@ -171,9 +171,27 @@ class ManagedNosqlReadAuthorityCharacterizationTests(unittest.TestCase):
             ["aws_lb.public"],
         )
         self.assertEqual(facts.task_role_arn, AWS_TASK_ROLE_ARN)
-        self.assertEqual(facts.ecs_dynamodb_access_paths, [])
-        self.assertEqual(len(facts.ecs_dynamodb_index_relationships), 2)
+        self.assertEqual(len(facts.ecs_dynamodb_access_paths), 2)
+        table_path, index_path = facts.ecs_dynamodb_access_paths
+        self.assertEqual(table_path["dynamodb_target_kind"], "table")
+        self.assertEqual(table_path["matched_actions"], ["dynamodb:GetItem"])
+        self.assertEqual(table_path["access_classes"], ["read"])
+        self.assertEqual(table_path["modeled_access_state"], "allowed")
+        self.assertEqual(table_path["access_state"], "unknown")
+        self.assertFalse(table_path["role_policy_complete"])
 
+        self.assertEqual(index_path["dynamodb_target_kind"], "index")
+        self.assertEqual(index_path["dynamodb_index_name"], "by-status")
+        self.assertEqual(index_path["dynamodb_index_arn"], AWS_INDEX_ARN)
+        self.assertEqual(index_path["access_classes"], [])
+        self.assertEqual(index_path["denied_actions"], ["dynamodb:Scan"])
+        self.assertEqual(index_path["unknown_actions"], ["dynamodb:Query"])
+        self.assertEqual(index_path["modeled_access_state"], "unknown")
+        self.assertEqual(index_path["access_state"], "unknown")
+        self.assertTrue(index_path["explicit_deny"])
+        self.assertTrue(index_path["conditional_evaluation_required"])
+
+        self.assertEqual(len(facts.ecs_dynamodb_index_relationships), 2)
         exact_index, index_pattern = facts.ecs_dynamodb_index_relationships
         self.assertEqual(
             (
