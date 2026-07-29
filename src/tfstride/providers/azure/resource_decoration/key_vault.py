@@ -43,7 +43,13 @@ class DecorateKeyVaultRelationshipsStage:
                     facts.set_key_vault_uri(vault_facts.key_vault_uri)
                 if resource.resource_type == AzureResourceType.KEY_VAULT_SECRET:
                     _derive_secret_identity(facts, vault_facts.key_vault_uri)
-            elif vault_facts.key_vault_identity_uncertainties:
+            if resource.resource_type == AzureResourceType.KEY_VAULT_KEY:
+                _derive_key_identity(
+                    facts,
+                    vault_facts.key_vault_uri,
+                    vault_facts.key_vault_id,
+                )
+            if vault_facts.key_vault_uri is None and vault_facts.key_vault_identity_uncertainties:
                 facts.extend_key_vault_identity_uncertainties(
                     [f"{vault.address}: {uncertainty}" for uncertainty in vault_facts.key_vault_identity_uncertainties]
                 )
@@ -131,6 +137,56 @@ def _derive_secret_identity(facts: AzureResourceFacts, vault_uri: str) -> None:
         versionless_uri=versionless_uri,
         secret_uri=versioned_uri or versionless_uri,
     )
+
+
+def _derive_key_identity(
+    facts: AzureResourceFacts,
+    vault_uri: str | None,
+    vault_id: str | None,
+) -> None:
+    key_name = facts.key_vault_key_name
+    if key_name is None or not _valid_secret_path_segment(key_name):
+        return
+
+    versionless_uri = f"{vault_uri}/keys/{key_name}" if vault_uri is not None else None
+    version = facts.key_vault_key_version
+    key_uri: str | None = None
+    if versionless_uri is not None and version is not None and _valid_secret_path_segment(version):
+        key_uri = f"{versionless_uri}/{version}"
+
+    versionless_resource_id, resource_id = _derive_key_resource_ids(vault_id, key_name, version)
+    facts.set_key_vault_key_identity(
+        versionless_uri=versionless_uri,
+        key_uri=key_uri,
+        version=version,
+        versionless_resource_id=versionless_resource_id,
+        resource_id=resource_id,
+    )
+
+
+def _derive_key_resource_ids(
+    vault_id: str | None,
+    key_name: str,
+    version: str | None,
+) -> tuple[str | None, str | None]:
+    if vault_id is None:
+        return None, None
+    segments = [segment for segment in vault_id.strip().split("/") if segment]
+    if (
+        len(segments) != 8
+        or segments[0].lower() != "subscriptions"
+        or segments[2].lower() != "resourcegroups"
+        or segments[4].lower() != "providers"
+        or segments[5].lower() != "microsoft.keyvault"
+        or segments[6].lower() != "vaults"
+        or not all(segments[index] for index in (1, 3, 7))
+        or not _valid_secret_path_segment(key_name)
+    ):
+        return None, None
+    versionless_resource_id = "/" + "/".join(segments) + f"/keys/{key_name}"
+    if version is None or not _valid_secret_path_segment(version):
+        return versionless_resource_id, None
+    return versionless_resource_id, f"{versionless_resource_id}/{version}"
 
 
 def _valid_secret_path_segment(value: str) -> bool:

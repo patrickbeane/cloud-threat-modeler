@@ -25,7 +25,14 @@ from tfstride.providers.coercion import tls_version_below_1_2 as tls_version_bel
 from tfstride.providers.coercion import unknown_block_at as unknown_block_at
 from tfstride.providers.coercion import value_is_unknown as value_is_unknown
 
-_AZURE_REFERENCE_SUFFIXES = (".resource_manager_id", ".id", ".name")
+_AZURE_REFERENCE_SUFFIXES = (
+    ".resource_manager_id",
+    ".resource_versionless_id",
+    ".versionless_id",
+    ".resource_id",
+    ".id",
+    ".name",
+)
 
 
 def azure_reference_key(value: str | None) -> str:
@@ -48,16 +55,32 @@ def azure_resource_references(resource: NormalizedResource) -> tuple[str, ...]:
         f"{resource.address}.id",
         f"{resource.address}.name",
         f"{resource.address}.resource_manager_id",
+        f"{resource.address}.resource_id",
+        f"{resource.address}.versionless_id",
+        f"{resource.address}.resource_versionless_id",
     }
+    ambiguous_key_identity = (
+        resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_KEY_IDENTITY_STATE) == "ambiguous"
+    )
     for value in (
-        resource.identifier,
-        resource.get_metadata_field(AzureResourceMetadata.NAME),
+        None if ambiguous_key_identity else resource.identifier,
+        None if ambiguous_key_identity else resource.get_metadata_field(AzureResourceMetadata.NAME),
         resource.get_metadata_field(AzureResourceMetadata.STORAGE_ACCOUNT_ID),
-        resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_ID),
-        resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_URI),
+        None if ambiguous_key_identity else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_ID),
+        None if ambiguous_key_identity else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_URI),
         resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_SECRET_URI),
         resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_SECRET_VERSIONLESS_URI),
         resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_SECRET_RESOURCE_ID),
+        None if ambiguous_key_identity else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_KEY_URI),
+        None
+        if ambiguous_key_identity
+        else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_URI),
+        None
+        if ambiguous_key_identity
+        else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_KEY_RESOURCE_ID),
+        None
+        if ambiguous_key_identity
+        else resource.get_metadata_field(AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID),
         resource.get_metadata_field(AzureResourceMetadata.CLIENT_ID),
         resource.get_metadata_field(AzureResourceMetadata.PRINCIPAL_ID),
         resource.get_metadata_field(AzureResourceMetadata.PUBLIC_IP_ADDRESS),

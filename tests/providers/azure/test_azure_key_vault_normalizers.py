@@ -14,6 +14,7 @@ from tfstride.providers.azure.key_vault_normalizers import (
 from tfstride.providers.azure.normalizer import AzureNormalizer
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
+from tfstride.providers.azure.resource_utils import azure_resource_references
 
 
 def _resource(
@@ -245,6 +246,313 @@ class AzureKeyVaultNormalizerTests(unittest.TestCase):
             "/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application/secrets/api-key",
         )
         self.assertEqual(facts.key_vault_identity_uncertainties, [])
+
+    def test_key_vault_key_preserves_exact_versioned_and_versionless_identities(self) -> None:
+        vault = _resource(
+            AzureResourceType.KEY_VAULT,
+            {
+                "id": ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application"),
+                "name": "application",
+                "vault_uri": "https://application.vault.azure.net",
+            },
+            name="application",
+        )
+        key = _resource(
+            AzureResourceType.KEY_VAULT_KEY,
+            {
+                "id": "https://application.vault.azure.net/keys/signing/v-001",
+                "versionless_id": "https://application.vault.azure.net/keys/signing",
+                "resource_id": (
+                    "/subscriptions/example/resourceGroups/app/providers/"
+                    "Microsoft.KeyVault/vaults/application/keys/signing/v-001"
+                ),
+                "resource_versionless_id": (
+                    "/subscriptions/example/resourceGroups/app/providers/"
+                    "Microsoft.KeyVault/vaults/application/keys/signing"
+                ),
+                "name": "signing",
+                "version": "v-001",
+                "key_vault_id": "azurerm_key_vault.application.id",
+                "expiration_date": "2027-01-01T00:00:00Z",
+                "key_type": "RSA-HSM",
+                "key_size": 2048,
+                "key_opts": ["decrypt", "encrypt", "sign", "verify"],
+            },
+            name="signing",
+        )
+
+        inventory = AzureNormalizer().normalize([vault, key])
+        normalized_key = inventory.get_by_address("azurerm_key_vault_key.signing")
+        assert normalized_key is not None
+        facts = azure_facts(normalized_key)
+
+        self.assertEqual(facts.resolved_key_vault_address, "azurerm_key_vault.application")
+        self.assertEqual(facts.key_vault_key_name, "signing")
+        self.assertEqual(
+            facts.key_vault_key_uri,
+            "https://application.vault.azure.net/keys/signing/v-001",
+        )
+        self.assertEqual(
+            facts.key_vault_key_versionless_uri,
+            "https://application.vault.azure.net/keys/signing",
+        )
+        self.assertEqual(facts.key_vault_key_version, "v-001")
+        self.assertEqual(
+            facts.key_vault_key_resource_id,
+            (
+                "/subscriptions/example/resourceGroups/app/providers/"
+                "Microsoft.KeyVault/vaults/application/keys/signing/v-001"
+            ),
+        )
+        self.assertEqual(
+            facts.key_vault_key_versionless_resource_id,
+            ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application/keys/signing"),
+        )
+        self.assertEqual(facts.key_vault_key_expiration_state, "configured")
+        self.assertEqual(facts.key_vault_key_type, "RSA-HSM")
+        self.assertEqual(facts.key_vault_key_ops, ["decrypt", "encrypt", "sign", "verify"])
+        self.assertEqual(facts.key_vault_identity_uncertainties, [])
+        self.assertEqual(facts.key_vault_key_identity_state, "resolved")
+
+    def test_key_vault_key_equivalent_casing_does_not_create_uncertainty(self) -> None:
+        key = normalize_key_vault_key(
+            _resource(
+                AzureResourceType.KEY_VAULT_KEY,
+                {
+                    "id": "https://Application.vault.azure.net/keys/Signing/V-001",
+                    "versionless_id": "https://application.vault.azure.net/keys/signing",
+                    "resource_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/Application/keys/Signing/V-001"
+                    ),
+                    "resource_versionless_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/application/keys/signing"
+                    ),
+                    "name": "signing",
+                    "version": "v-001",
+                },
+            )
+        )
+        facts = azure_facts(key)
+
+        self.assertEqual(facts.key_vault_key_identity_state, "resolved")
+        self.assertEqual(facts.key_vault_identity_uncertainties, [])
+        self.assertEqual(
+            facts.key_vault_key_uri,
+            "https://application.vault.azure.net/keys/Signing/V-001",
+        )
+
+    def test_conflicting_key_uris_are_ambiguous_and_not_indexed(self) -> None:
+        key = normalize_key_vault_key(
+            _resource(
+                AzureResourceType.KEY_VAULT_KEY,
+                {
+                    "id": "https://vault-a.vault.azure.net/keys/signing/v-001",
+                    "versionless_id": "https://vault-b.vault.azure.net/keys/signing",
+                    "name": "signing",
+                },
+            )
+        )
+        facts = azure_facts(key)
+        references = azure_resource_references(key)
+
+        self.assertEqual(facts.key_vault_key_identity_state, "ambiguous")
+        self.assertIsNone(facts.key_vault_key_uri)
+        self.assertIsNone(facts.key_vault_key_versionless_uri)
+        self.assertTrue(
+            any("conflicting Key Vault key vault" in item for item in facts.key_vault_identity_uncertainties)
+        )
+        self.assertNotIn("https://vault-a.vault.azure.net/keys/signing/v-001", references)
+        self.assertNotIn("https://vault-b.vault.azure.net/keys/signing", references)
+
+    def test_conflicting_key_resource_ids_are_ambiguous_and_not_indexed(self) -> None:
+        key = normalize_key_vault_key(
+            _resource(
+                AzureResourceType.KEY_VAULT_KEY,
+                {
+                    "resource_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/vault-a/keys/signing/v-001"
+                    ),
+                    "resource_versionless_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/vault-b/keys/signing"
+                    ),
+                    "name": "signing",
+                },
+            )
+        )
+        facts = azure_facts(key)
+        references = azure_resource_references(key)
+
+        self.assertEqual(facts.key_vault_key_identity_state, "ambiguous")
+        self.assertIsNone(facts.key_vault_key_resource_id)
+        self.assertIsNone(facts.key_vault_key_versionless_resource_id)
+        self.assertTrue(
+            any("conflicting Key Vault key vault" in item for item in facts.key_vault_identity_uncertainties)
+        )
+        self.assertFalse(any("vault-a" in reference or "vault-b" in reference for reference in references))
+
+    def test_key_identity_conflicting_with_resolved_vault_is_ambiguous(self) -> None:
+        vault = _resource(
+            AzureResourceType.KEY_VAULT,
+            {
+                "id": ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application"),
+                "name": "application",
+                "vault_uri": "https://application.vault.azure.net",
+            },
+            name="application",
+        )
+        key = _resource(
+            AzureResourceType.KEY_VAULT_KEY,
+            {
+                "id": "https://different.vault.azure.net/keys/signing/v-001",
+                "name": "signing",
+                "version": "v-001",
+                "key_vault_id": "azurerm_key_vault.application.id",
+            },
+            name="signing",
+        )
+
+        inventory = AzureNormalizer().normalize([vault, key])
+        normalized_key = inventory.get_by_address("azurerm_key_vault_key.signing")
+        assert normalized_key is not None
+        facts = azure_facts(normalized_key)
+        references = azure_resource_references(normalized_key)
+
+        self.assertEqual(facts.resolved_key_vault_address, "azurerm_key_vault.application")
+        self.assertEqual(facts.key_vault_key_identity_state, "ambiguous")
+        self.assertIsNone(facts.key_vault_key_uri)
+        self.assertFalse(any("different.vault.azure.net" in reference for reference in references))
+        self.assertTrue(
+            any("conflicting versionless Key Vault key URI" in item for item in facts.key_vault_identity_uncertainties)
+        )
+
+    def test_key_vault_key_derives_identities_from_exact_vault_ancestry(self) -> None:
+        vault = _resource(
+            AzureResourceType.KEY_VAULT,
+            {
+                "id": ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application"),
+                "name": "application",
+                "vault_uri": "https://application.vault.azure.net/",
+            },
+            name="application",
+        )
+        key = _resource(
+            AzureResourceType.KEY_VAULT_KEY,
+            {
+                "name": "signing",
+                "version": "v-001",
+                "key_vault_id": "azurerm_key_vault.application.id",
+                "key_type": "RSA-HSM",
+                "key_opts": ["sign", "verify"],
+            },
+            name="signing",
+        )
+
+        inventory = AzureNormalizer().normalize([vault, key])
+        normalized_key = inventory.get_by_address("azurerm_key_vault_key.signing")
+        assert normalized_key is not None
+        facts = azure_facts(normalized_key)
+
+        self.assertEqual(facts.key_vault_uri, "https://application.vault.azure.net")
+        self.assertEqual(
+            facts.key_vault_key_uri,
+            "https://application.vault.azure.net/keys/signing/v-001",
+        )
+        self.assertEqual(
+            facts.key_vault_key_versionless_uri,
+            "https://application.vault.azure.net/keys/signing",
+        )
+        self.assertEqual(
+            facts.key_vault_key_resource_id,
+            (
+                "/subscriptions/example/resourceGroups/app/providers/"
+                "Microsoft.KeyVault/vaults/application/keys/signing/v-001"
+            ),
+        )
+        self.assertEqual(
+            facts.key_vault_key_versionless_resource_id,
+            ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application/keys/signing"),
+        )
+        self.assertEqual(facts.key_vault_key_identity_state, "resolved")
+
+    def test_key_without_known_version_preserves_only_versionless_identities(self) -> None:
+        vault = _resource(
+            AzureResourceType.KEY_VAULT,
+            {
+                "id": ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application"),
+                "name": "application",
+                "vault_uri": "https://application.vault.azure.net/",
+            },
+            name="application",
+        )
+        key = _resource(
+            AzureResourceType.KEY_VAULT_KEY,
+            {
+                "name": "signing",
+                "key_vault_id": "azurerm_key_vault.application.id",
+                "key_type": "RSA",
+                "key_opts": ["sign", "verify"],
+            },
+            name="signing",
+        )
+
+        inventory = AzureNormalizer().normalize([vault, key])
+        normalized_key = inventory.get_by_address("azurerm_key_vault_key.signing")
+        assert normalized_key is not None
+        facts = azure_facts(normalized_key)
+
+        self.assertIsNotNone(facts.key_vault_key_versionless_uri)
+        self.assertIsNone(facts.key_vault_key_uri)
+        self.assertIsNotNone(facts.key_vault_key_versionless_resource_id)
+        self.assertIsNone(facts.key_vault_key_resource_id)
+        self.assertIsNone(facts.key_vault_key_version)
+        self.assertEqual(facts.key_vault_key_identity_state, "resolved")
+
+    def test_key_vault_key_preserves_unresolved_identity_and_lifecycle_state(self) -> None:
+        key = normalize_key_vault_key(
+            _resource(
+                AzureResourceType.KEY_VAULT_KEY,
+                {
+                    "name": "pending",
+                    "key_vault_id": "azurerm_key_vault.application.id",
+                    "id": None,
+                    "versionless_id": None,
+                    "resource_id": None,
+                    "resource_versionless_id": None,
+                    "expiration_date": None,
+                },
+                unknown_values={
+                    "id": True,
+                    "versionless_id": True,
+                    "resource_id": True,
+                    "resource_versionless_id": True,
+                    "expiration_date": True,
+                },
+            )
+        )
+        facts = azure_facts(key)
+
+        self.assertIsNone(facts.key_vault_key_uri)
+        self.assertIsNone(facts.key_vault_key_versionless_uri)
+        self.assertIsNone(facts.key_vault_key_version)
+        self.assertEqual(facts.key_vault_key_identity_state, "unknown")
+        self.assertEqual(facts.key_vault_key_expiration_state, "unknown")
+        self.assertEqual(
+            facts.key_vault_identity_uncertainties,
+            [
+                "id is unknown after planning",
+                "versionless_id is unknown after planning",
+                "resource_id is unknown after planning",
+                "resource_versionless_id is unknown after planning",
+            ],
+        )
+        self.assertEqual(
+            facts.key_vault_lifecycle_uncertainties,
+            ["expiration_date is unknown after planning"],
+        )
 
     def test_key_vault_relationship_derives_secret_identifiers_from_exact_vault_uri(self) -> None:
         vault = _resource(

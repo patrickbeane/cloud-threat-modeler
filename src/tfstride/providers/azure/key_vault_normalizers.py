@@ -25,6 +25,11 @@ from tfstride.providers.azure.resource_utils import (
 from tfstride.providers.azure.resource_utils import (
     known_bool as known_optional_bool,
 )
+from tfstride.providers.coercion import (
+    STATE_CONFIGURED,
+    STATE_NOT_CONFIGURED,
+    STATE_UNKNOWN,
+)
 
 AZURE_PROVIDER = "azure"
 _PERMISSION_FIELDS = (
@@ -175,6 +180,8 @@ def _normalize_key_vault_child(resource: TerraformResource) -> NormalizedResourc
     }
     if resource.resource_type == AzureResourceType.KEY_VAULT_SECRET:
         metadata.update(_key_vault_secret_identity_metadata(resource, known_name, identity_uncertainties))
+    elif resource.resource_type == AzureResourceType.KEY_VAULT_KEY:
+        metadata.update(_key_vault_key_identity_metadata(resource, known_name, identity_uncertainties))
     _set_key_vault_child_lifecycle(metadata, resource, values)
     if identity_uncertainties:
         metadata[AzureResourceMetadata.KEY_VAULT_IDENTITY_UNCERTAINTIES] = identity_uncertainties
@@ -259,6 +266,258 @@ def _key_vault_secret_identity_metadata(
     return metadata
 
 
+def _key_vault_key_identity_metadata(
+    resource: TerraformResource,
+    known_name: str | None,
+    uncertainties: list[str],
+) -> dict[Any, Any]:
+    values = resource.values
+    identity_uncertainty_start = len(uncertainties)
+    identity_values: dict[str, str] = {}
+    conflicting_fields: set[str] = set()
+
+    if known_name is not None:
+        if _valid_secret_path_segment(known_name):
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "key_name",
+                known_name,
+                "Key Vault key name",
+                uncertainties,
+            )
+        else:
+            uncertainties.append("name has an unrecognized Key Vault key shape")
+
+    explicit_version = _known_exact_identifier(resource, "version", uncertainties)
+    if explicit_version is not None:
+        if _valid_secret_path_segment(explicit_version):
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "version",
+                explicit_version,
+                "Key Vault key version",
+                uncertainties,
+            )
+        else:
+            uncertainties.append("version has an unrecognized Key Vault key shape")
+
+    raw_identifiers = {
+        key: _known_exact_identifier(resource, key, uncertainties)
+        for key in ("id", "versionless_id", "resource_id", "resource_versionless_id")
+    }
+    for source, value in raw_identifiers.items():
+        if value is None:
+            continue
+
+        if source in {"id", "versionless_id"}:
+            parsed = _normalize_key_vault_key_uri(value)
+            if parsed is None:
+                uncertainties.append(f"{source} has an unrecognized Key Vault key URI shape")
+                continue
+            versionless_uri, versioned_uri, vault_name, key_name, version = parsed
+            if source == "id" and versioned_uri is None:
+                uncertainties.append("id must be a versioned Key Vault key URI")
+                continue
+            if source == "versionless_id" and versioned_uri is not None:
+                uncertainties.append("versionless_id must be a versionless Key Vault key URI")
+                continue
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "vault_name",
+                vault_name,
+                "Key Vault key vault",
+                uncertainties,
+            )
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "key_name",
+                key_name,
+                "Key Vault key name",
+                uncertainties,
+            )
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "versionless_uri",
+                versionless_uri,
+                "versionless Key Vault key URI",
+                uncertainties,
+            )
+            if versioned_uri is not None:
+                _record_identity_value(
+                    identity_values,
+                    conflicting_fields,
+                    "uri",
+                    versioned_uri,
+                    "versioned Key Vault key URI",
+                    uncertainties,
+                )
+            if version is not None:
+                _record_identity_value(
+                    identity_values,
+                    conflicting_fields,
+                    "version",
+                    version,
+                    "Key Vault key version",
+                    uncertainties,
+                )
+            continue
+
+        parsed = _normalize_key_vault_key_resource_id(value)
+        if parsed is None:
+            uncertainties.append(f"{source} has an unrecognized Key Vault key resource ID shape")
+            continue
+        versionless_resource_id, resource_id, vault_name, key_name, version = parsed
+        if source == "resource_id" and resource_id is None:
+            uncertainties.append("resource_id must be a versioned Key Vault key resource ID")
+            continue
+        if source == "resource_versionless_id" and resource_id is not None:
+            uncertainties.append("resource_versionless_id must be a versionless Key Vault key resource ID")
+            continue
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "vault_name",
+            vault_name,
+            "Key Vault key vault",
+            uncertainties,
+        )
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "key_name",
+            key_name,
+            "Key Vault key name",
+            uncertainties,
+        )
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "versionless_resource_id",
+            versionless_resource_id,
+            "versionless Key Vault key resource ID",
+            uncertainties,
+        )
+        if resource_id is not None:
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "resource_id",
+                resource_id,
+                "versioned Key Vault key resource ID",
+                uncertainties,
+            )
+        if version is not None:
+            _record_identity_value(
+                identity_values,
+                conflicting_fields,
+                "version",
+                version,
+                "Key Vault key version",
+                uncertainties,
+            )
+
+    vault_uri = _known_key_vault_uri(resource, "vault_uri", uncertainties)
+    if vault_uri is None and "key_vault_uri" in values:
+        vault_uri = _known_key_vault_uri(resource, "key_vault_uri", uncertainties)
+
+    if vault_uri is not None and known_name is not None and _valid_secret_path_segment(known_name):
+        derived_uri = f"{vault_uri}/keys/{known_name}"
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "versionless_uri",
+            derived_uri,
+            "versionless Key Vault key URI",
+            uncertainties,
+        )
+    elif vault_uri is not None and known_name is not None:
+        uncertainties.append("name has an unrecognized Key Vault key shape")
+
+    version = identity_values.get("version")
+    versionless_uri = identity_values.get("versionless_uri")
+    if versionless_uri is not None and version is not None:
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "uri",
+            f"{versionless_uri}/{version}",
+            "versioned Key Vault key URI",
+            uncertainties,
+        )
+
+    versionless_resource_id = identity_values.get("versionless_resource_id")
+    if versionless_resource_id is not None and version is not None:
+        _record_identity_value(
+            identity_values,
+            conflicting_fields,
+            "resource_id",
+            f"{versionless_resource_id}/{version}",
+            "versioned Key Vault key resource ID",
+            uncertainties,
+        )
+
+    if conflicting_fields:
+        identity_state = "ambiguous"
+        identity_values.clear()
+    elif len(uncertainties) > identity_uncertainty_start:
+        identity_state = "unknown"
+    elif any(
+        field in identity_values for field in ("uri", "versionless_uri", "resource_id", "versionless_resource_id")
+    ):
+        identity_state = "resolved"
+    else:
+        identity_state = "partial"
+
+    metadata: dict[Any, Any] = {
+        AzureResourceMetadata.KEY_VAULT_KEY_NAME: identity_values.get("key_name")
+        if "key_name" not in conflicting_fields
+        else None,
+        AzureResourceMetadata.KEY_VAULT_KEY_IDENTITY_STATE: identity_state,
+    }
+    if vault_uri is not None:
+        metadata[AzureResourceMetadata.KEY_VAULT_URI] = vault_uri
+    if identity_state != "ambiguous":
+        if identity_values.get("versionless_uri") is not None:
+            metadata[AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_URI] = identity_values["versionless_uri"]
+        if identity_values.get("uri") is not None:
+            metadata[AzureResourceMetadata.KEY_VAULT_KEY_URI] = identity_values["uri"]
+        if identity_values.get("version") is not None:
+            metadata[AzureResourceMetadata.KEY_VAULT_KEY_VERSION] = identity_values["version"]
+        if identity_values.get("resource_id") is not None:
+            metadata[AzureResourceMetadata.KEY_VAULT_KEY_RESOURCE_ID] = identity_values["resource_id"]
+        if identity_values.get("versionless_resource_id") is not None:
+            metadata[AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID] = identity_values[
+                "versionless_resource_id"
+            ]
+    return metadata
+
+
+def _record_identity_value(
+    values: dict[str, str],
+    conflicting_fields: set[str],
+    field: str,
+    candidate: str,
+    label: str,
+    uncertainties: list[str],
+) -> None:
+    if field in conflicting_fields:
+        return
+    current = values.get(field)
+    if current is None:
+        values[field] = candidate
+        return
+    if current.casefold() == candidate.casefold():
+        return
+    conflicting_fields.add(field)
+    values.pop(field, None)
+    uncertainties.append(f"conflicting {label} values are present")
+
+
 def _known_key_vault_uri(
     resource: TerraformResource,
     key: str,
@@ -333,13 +592,66 @@ def _normalize_key_vault_secret_uri(value: str) -> tuple[str, str | None, str | 
     return versionless_uri, versioned_uri, segments[2] if len(segments) == 3 else None
 
 
-def _is_key_vault_host(host: str) -> bool:
-    normalized = host.lower().rstrip(".")
+def _normalize_key_vault_key_uri(
+    value: str,
+) -> tuple[str, str | None, str, str, str | None] | None:
+    parsed = urlsplit(value.strip())
+    host = parsed.hostname
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    vault_name = _key_vault_host_name(host) if host is not None else None
+    if (
+        parsed.scheme.lower() != "https"
+        or host is None
+        or parsed.netloc.casefold() != host.casefold()
+        or parsed.query
+        or parsed.fragment
+        or len(segments) not in {2, 3}
+        or segments[0].casefold() != "keys"
+        or not all(_valid_secret_path_segment(segment) for segment in segments[1:])
+        or vault_name is None
+    ):
+        return None
+    versionless_uri = f"https://{host.lower()}/keys/{segments[1]}"
+    versioned_uri = f"{versionless_uri}/{segments[2]}" if len(segments) == 3 else None
+    return versionless_uri, versioned_uri, vault_name, segments[1], segments[2] if len(segments) == 3 else None
+
+
+def _normalize_key_vault_key_resource_id(
+    value: str,
+) -> tuple[str, str | None, str, str, str | None] | None:
+    segments = [segment for segment in value.strip().split("/") if segment]
+    if (
+        len(segments) not in {10, 11}
+        or segments[0].casefold() != "subscriptions"
+        or segments[2].casefold() != "resourcegroups"
+        or segments[4].casefold() != "providers"
+        or segments[5].casefold() != "microsoft.keyvault"
+        or segments[6].casefold() != "vaults"
+        or segments[8].casefold() != "keys"
+        or not all(segments[index] for index in (1, 3, 7, 9))
+        or not _valid_secret_path_segment(segments[9])
+        or (len(segments) == 11 and not _valid_secret_path_segment(segments[10]))
+    ):
+        return None
+    versionless_resource_id = "/" + "/".join(segments[:10])
+    resource_id = "/" + "/".join(segments) if len(segments) == 11 else None
+    return versionless_resource_id, resource_id, segments[7], segments[9], segments[10] if len(segments) == 11 else None
+
+
+def _key_vault_host_name(host: str | None) -> str | None:
+    if host is None:
+        return None
+    normalized = host.casefold().rstrip(".")
     for suffix in _KEY_VAULT_DNS_SUFFIXES:
         if normalized.endswith(suffix):
             vault_name = normalized[: -len(suffix)]
-            return bool(vault_name) and "." not in vault_name
-    return False
+            if vault_name and "." not in vault_name:
+                return vault_name
+    return None
+
+
+def _is_key_vault_host(host: str) -> bool:
+    return _key_vault_host_name(host) is not None
 
 
 def _valid_secret_path_segment(value: str) -> bool:
@@ -428,6 +740,18 @@ def _set_key_vault_key_posture(
         metadata[AzureResourceMetadata.KEY_VAULT_KEY_SIZE] = key_size
     if key_ops:
         metadata[AzureResourceMetadata.KEY_VAULT_KEY_OPS] = key_ops
+
+    if attribute_unknown(resource.unknown_values, "expiration_date"):
+        expiration_state = STATE_UNKNOWN
+    else:
+        expiration_value = values.get("expiration_date")
+        if expiration_value is None or (isinstance(expiration_value, str) and not expiration_value.strip()):
+            expiration_state = STATE_NOT_CONFIGURED
+        elif isinstance(expiration_value, str):
+            expiration_state = STATE_CONFIGURED
+        else:
+            expiration_state = STATE_UNKNOWN
+    metadata[AzureResourceMetadata.KEY_VAULT_KEY_EXPIRATION_STATE] = expiration_state
 
     _set_key_vault_key_rotation_policy(metadata, resource, values, uncertainties)
 

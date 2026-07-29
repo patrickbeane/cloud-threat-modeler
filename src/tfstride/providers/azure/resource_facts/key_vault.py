@@ -46,6 +46,38 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.KEY_VAULT_SECRET_RESOURCE_ID)
 
     @property
+    def key_vault_key_name(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_NAME)
+
+    @property
+    def key_vault_key_uri(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_URI)
+
+    @property
+    def key_vault_key_versionless_uri(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_URI)
+
+    @property
+    def key_vault_key_version(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_VERSION)
+
+    @property
+    def key_vault_key_resource_id(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_RESOURCE_ID)
+
+    @property
+    def key_vault_key_versionless_resource_id(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID)
+
+    @property
+    def key_vault_key_identity_state(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_IDENTITY_STATE)
+
+    @property
+    def key_vault_key_expiration_state(self) -> str | None:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_EXPIRATION_STATE)
+
+    @property
     def key_vault_expiration_date(self) -> str | None:
         return self.get(AzureResourceMetadata.KEY_VAULT_EXPIRATION_DATE)
 
@@ -161,6 +193,83 @@ class AzureKeyVaultFacts(AzureBaseFacts):
             self.set(AzureResourceMetadata.KEY_VAULT_SECRET_URI, secret_uri)
         if version is not None and self.key_vault_secret_version is None:
             self.set(AzureResourceMetadata.KEY_VAULT_SECRET_VERSION, version)
+
+    def set_key_vault_key_identity(
+        self,
+        *,
+        versionless_uri: str | None = None,
+        key_uri: str | None = None,
+        version: str | None = None,
+        versionless_resource_id: str | None = None,
+        resource_id: str | None = None,
+    ) -> None:
+        if self.key_vault_key_identity_state == "ambiguous":
+            return
+        candidates = (
+            (
+                AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_URI,
+                self.key_vault_key_versionless_uri,
+                versionless_uri,
+                "versionless Key Vault key URI",
+            ),
+            (
+                AzureResourceMetadata.KEY_VAULT_KEY_URI,
+                self.key_vault_key_uri,
+                key_uri,
+                "versioned Key Vault key URI",
+            ),
+            (
+                AzureResourceMetadata.KEY_VAULT_KEY_VERSION,
+                self.key_vault_key_version,
+                version,
+                "Key Vault key version",
+            ),
+            (
+                AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID,
+                self.key_vault_key_versionless_resource_id,
+                versionless_resource_id,
+                "versionless Key Vault key resource ID",
+            ),
+            (
+                AzureResourceMetadata.KEY_VAULT_KEY_RESOURCE_ID,
+                self.key_vault_key_resource_id,
+                resource_id,
+                "versioned Key Vault key resource ID",
+            ),
+        )
+        for field, current, candidate, label in candidates:
+            if candidate is None:
+                continue
+            if current is not None and current.casefold() != candidate.casefold():
+                self.mark_key_vault_key_identity_ambiguous(f"conflicting {label} values are present")
+                return
+            if current is None:
+                self.set(field, candidate)
+
+        if self.key_vault_key_identity_state == "partial" or self.key_vault_key_identity_state is None:
+            if any(
+                value is not None
+                for value in (
+                    self.key_vault_key_uri,
+                    self.key_vault_key_versionless_uri,
+                    self.key_vault_key_resource_id,
+                    self.key_vault_key_versionless_resource_id,
+                )
+            ):
+                self.set(AzureResourceMetadata.KEY_VAULT_KEY_IDENTITY_STATE, "resolved")
+
+    def mark_key_vault_key_identity_ambiguous(self, uncertainty: str) -> None:
+        for field in (
+            AzureResourceMetadata.KEY_VAULT_KEY_NAME,
+            AzureResourceMetadata.KEY_VAULT_KEY_URI,
+            AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_URI,
+            AzureResourceMetadata.KEY_VAULT_KEY_VERSION,
+            AzureResourceMetadata.KEY_VAULT_KEY_RESOURCE_ID,
+            AzureResourceMetadata.KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID,
+        ):
+            self.set(field, None)
+        self.set(AzureResourceMetadata.KEY_VAULT_KEY_IDENTITY_STATE, "ambiguous")
+        self.append(AzureResourceMetadata.KEY_VAULT_IDENTITY_UNCERTAINTIES, uncertainty)
 
     def extend_key_vault_identity_uncertainties(self, uncertainties: Sequence[str | None]) -> None:
         self.extend(AzureResourceMetadata.KEY_VAULT_IDENTITY_UNCERTAINTIES, uncertainties)

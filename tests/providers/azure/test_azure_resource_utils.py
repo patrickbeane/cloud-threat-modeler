@@ -23,6 +23,14 @@ class AzureResourceUtilsTests(unittest.TestCase):
         self.assertEqual(azure_reference_key("${azurerm_subnet.app.id}"), "azurerm_subnet.app")
         self.assertEqual(azure_reference_key("azurerm_virtual_network.main.name"), "azurerm_virtual_network.main")
         self.assertEqual(
+            azure_reference_key("azurerm_key_vault_key.signing.versionless_id"),
+            "azurerm_key_vault_key.signing",
+        )
+        self.assertEqual(
+            azure_reference_key("azurerm_key_vault_key.signing.resource_id"),
+            "azurerm_key_vault_key.signing",
+        )
+        self.assertEqual(
             azure_reference_key(
                 "/subscriptions/EXAMPLE/resourceGroups/App/providers/Microsoft.Network/virtualNetworks/Main"
             ),
