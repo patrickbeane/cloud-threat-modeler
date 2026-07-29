@@ -6,7 +6,6 @@ from typing import Any
 from tfstride.models import TerraformResource
 from tfstride.providers.aws.data_normalizers import (
     normalize_db_instance,
-    normalize_kms_key,
     normalize_s3_bucket_lifecycle_configuration,
     normalize_s3_bucket_object_lock_configuration,
     normalize_s3_bucket_server_side_encryption_configuration,
@@ -14,6 +13,7 @@ from tfstride.providers.aws.data_normalizers import (
     normalize_secretsmanager_secret,
     normalize_secretsmanager_secret_rotation,
 )
+from tfstride.providers.aws.kms_normalizers import normalize_kms_key
 from tfstride.providers.aws.resource_facts import aws_facts
 
 

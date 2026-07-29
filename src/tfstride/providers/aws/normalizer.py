@@ -35,7 +35,6 @@ from tfstride.providers.aws.compute_normalizers import (
 )
 from tfstride.providers.aws.data_normalizers import (
     normalize_db_instance,
-    normalize_kms_key,
     normalize_s3_bucket,
     normalize_s3_bucket_lifecycle_configuration,
     normalize_s3_bucket_object_lock_configuration,
@@ -63,6 +62,12 @@ from tfstride.providers.aws.iam_normalizers import (
     normalize_iam_role,
     normalize_iam_role_policy,
     normalize_iam_role_policy_attachment,
+)
+from tfstride.providers.aws.kms_normalizers import (
+    normalize_kms_alias,
+    normalize_kms_grant,
+    normalize_kms_key,
+    normalize_kms_key_policy,
 )
 from tfstride.providers.aws.network_normalizers import (
     normalize_cloudfront_distribution,
@@ -123,7 +128,10 @@ _AWS_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     "aws_iam_role_policy_attachment": normalize_iam_role_policy_attachment,
     "aws_instance": normalize_instance,
     "aws_internet_gateway": normalize_internet_gateway,
+    "aws_kms_alias": normalize_kms_alias,
+    "aws_kms_grant": normalize_kms_grant,
     "aws_kms_key": normalize_kms_key,
+    "aws_kms_key_policy": normalize_kms_key_policy,
     "aws_lambda_function": normalize_lambda_function,
     "aws_lambda_function_url": normalize_lambda_function_url,
     "aws_lambda_permission": normalize_lambda_permission,

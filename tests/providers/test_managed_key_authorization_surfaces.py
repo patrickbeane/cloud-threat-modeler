@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from tfstride.models import TerraformResource
 from tfstride.providers.aws.normalizer import AwsNormalizer
+from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.normalizer import AzureNormalizer
 from tfstride.providers.azure.resource_facts import azure_facts
@@ -191,7 +192,7 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
         self.assertEqual(deny.principals, ["*"])
         self.assertEqual(deny.conditions, [])
 
-    def test_aws_alias_and_grant_inputs_remain_explicitly_unsupported(self) -> None:
+    def test_aws_alias_and_grant_inputs_resolve_to_exact_key_facts(self) -> None:
         inventory = AwsNormalizer().normalize(
             [
                 _aws_key(),
@@ -200,8 +201,11 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                     "aws_kms_alias",
                     "customer",
                     {
+                        "id": "alias/customer",
                         "name": "alias/customer",
+                        "arn": f"arn:aws:kms:us-east-1:{_AWS_ACCOUNT_ID}:alias/customer",
                         "target_key_id": "aws_kms_key.customer.key_id",
+                        "target_key_arn": _AWS_KEY_ARN,
                     },
                 ),
                 _resource(
@@ -209,8 +213,12 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                     "aws_kms_grant",
                     "runtime",
                     {
+                        "id": "grant-0001",
+                        "grant_id": "grant-0001",
+                        "name": "runtime",
                         "key_id": "aws_kms_key.customer.key_id",
                         "grantee_principal": _AWS_RUNTIME_ROLE_ARN,
+                        "retiring_principal": _AWS_RUNTIME_ROLE_ARN,
                         "operations": ["Decrypt", "GenerateDataKey"],
                         "constraints": [
                             {
@@ -219,19 +227,34 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                                 }
                             }
                         ],
+                        "retire_on_delete": True,
                     },
                 ),
             ]
         )
 
-        self.assertIsNotNone(inventory.get_by_address("aws_kms_key.customer"))
-        self.assertEqual(
-            inventory.unsupported_resources,
-            [
-                "aws_kms_alias.customer",
-                "aws_kms_grant.runtime",
-            ],
-        )
+        key = inventory.get_by_address("aws_kms_key.customer")
+        alias = inventory.get_by_address("aws_kms_alias.customer")
+        grant = inventory.get_by_address("aws_kms_grant.runtime")
+        assert key is not None
+        assert alias is not None
+        assert grant is not None
+        self.assertEqual(inventory.unsupported_resources, [])
+
+        alias_facts = aws_facts(alias)
+        grant_facts = aws_facts(grant)
+        key_facts = aws_facts(key)
+        self.assertEqual(alias_facts.kms_alias_name, "alias/customer")
+        self.assertEqual(alias_facts.kms_alias_target_key_reference, "aws_kms_key.customer.key_id")
+        self.assertEqual(alias_facts.kms_alias_resolved_key_address, key.address)
+        self.assertEqual(grant_facts.kms_grant_id, "grant-0001")
+        self.assertEqual(grant_facts.kms_grant_operations, ["Decrypt", "GenerateDataKey"])
+        self.assertEqual(grant_facts.kms_grant_constraints, {"encryption_context_equals": {"service": "orders"}})
+        self.assertEqual(grant_facts.kms_grant_resolved_key_address, key.address)
+        self.assertEqual(len(key_facts.kms_aliases), 1)
+        self.assertEqual(len(key_facts.kms_grants), 1)
+        self.assertEqual(key_facts.kms_aliases[0]["resolved_key_address"], key.address)
+        self.assertEqual(key_facts.kms_grants[0]["grantee_principal"], _AWS_RUNTIME_ROLE_ARN)
 
     def test_gcp_key_and_key_ring_iam_preserve_native_scopes_and_conditions(self) -> None:
         version_condition = {

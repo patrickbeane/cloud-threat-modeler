@@ -119,6 +119,14 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.RDS_POSTURE_UNCERTAINTIES)
 
     @property
+    def kms_key_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_ID)
+
+    @property
+    def kms_key_arn(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_ARN)
+
+    @property
     def kms_key_usage(self) -> str | None:
         return self.get(AwsResourceMetadata.KMS_KEY_USAGE)
 
@@ -129,6 +137,26 @@ class AwsDataFacts(AwsBaseFacts):
     @property
     def kms_customer_master_key_spec(self) -> str | None:
         return self.get(AwsResourceMetadata.KMS_CUSTOMER_MASTER_KEY_SPEC)
+
+    @property
+    def kms_key_origin(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_ORIGIN)
+
+    @property
+    def kms_multi_region_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_MULTI_REGION_STATE)
+
+    @property
+    def kms_multi_region(self) -> bool | None:
+        return _bool_from_state(self.kms_multi_region_state)
+
+    @property
+    def kms_custom_key_store_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_CUSTOM_KEY_STORE_ID)
+
+    @property
+    def kms_xks_key_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_XKS_KEY_ID)
 
     @property
     def kms_enable_key_rotation_state(self) -> str | None:
@@ -143,8 +171,162 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.KMS_DELETION_WINDOW_IN_DAYS)
 
     @property
+    def kms_rotation_period_in_days(self) -> int | None:
+        return self.get(AwsResourceMetadata.KMS_ROTATION_PERIOD_IN_DAYS)
+
+    @property
+    def kms_policy_configuration_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_POLICY_CONFIGURATION_STATE)
+
+    @property
+    def kms_policy_completeness_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_POLICY_COMPLETENESS_STATE)
+
+    @property
+    def kms_policy_source_addresses(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_POLICY_SOURCE_ADDRESSES)
+
+    @property
+    def kms_policy_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_POLICY_POSTURE_UNCERTAINTIES)
+
+    @property
+    def kms_aliases(self) -> list[dict[str, Any]]:
+        return self.get(AwsResourceMetadata.KMS_ALIASES)
+
+    @property
+    def kms_grants(self) -> list[dict[str, Any]]:
+        return self.get(AwsResourceMetadata.KMS_GRANTS)
+
+    @property
+    def kms_key_policies(self) -> list[dict[str, Any]]:
+        return self.get(AwsResourceMetadata.KMS_KEY_POLICIES)
+
+    @property
+    def kms_unresolved_key_references(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_UNRESOLVED_KEY_REFERENCES)
+
+    @property
+    def kms_alias_name(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_NAME)
+
+    @property
+    def kms_alias_name_prefix(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_NAME_PREFIX)
+
+    @property
+    def kms_alias_arn(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_ARN)
+
+    @property
+    def kms_alias_target_key_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_TARGET_KEY_ID)
+
+    @property
+    def kms_alias_target_key_arn(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_TARGET_KEY_ARN)
+
+    @property
+    def kms_alias_target_key_reference(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_TARGET_KEY_REFERENCE)
+
+    @property
+    def kms_alias_resolved_key_address(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_RESOLVED_KEY_ADDRESS)
+
+    @property
+    def kms_alias_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_ALIAS_POSTURE_UNCERTAINTIES)
+
+    @property
+    def kms_grant_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_ID)
+
+    @property
+    def kms_grant_name(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_NAME)
+
+    @property
+    def kms_grant_key_reference(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_KEY_REFERENCE)
+
+    @property
+    def kms_grant_grantee_principal(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_GRANTEE_PRINCIPAL)
+
+    @property
+    def kms_grant_operations(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_GRANT_OPERATIONS)
+
+    @property
+    def kms_grant_retiring_principal(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_RETIRING_PRINCIPAL)
+
+    @property
+    def kms_grant_constraints(self) -> dict[str, Any]:
+        return self.get(AwsResourceMetadata.KMS_GRANT_CONSTRAINTS)
+
+    @property
+    def kms_grant_retire_on_delete_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_RETIRE_ON_DELETE_STATE)
+
+    @property
+    def kms_grant_resolved_key_address(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_GRANT_RESOLVED_KEY_ADDRESS)
+
+    @property
+    def kms_grant_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_GRANT_POSTURE_UNCERTAINTIES)
+
+    @property
+    def kms_key_policy_key_reference(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_POLICY_KEY_REFERENCE)
+
+    @property
+    def kms_key_policy_resolved_key_address(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_POLICY_RESOLVED_KEY_ADDRESS)
+
+    @property
+    def kms_key_policy_bypass_lockout_safety_check_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.KMS_KEY_POLICY_BYPASS_LOCKOUT_SAFETY_CHECK_STATE)
+
+    @property
+    def kms_key_policy_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_KEY_POLICY_POSTURE_UNCERTAINTIES)
+
+    @property
     def kms_posture_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.KMS_POSTURE_UNCERTAINTIES)
+
+    def add_kms_alias(self, record: dict[str, Any]) -> None:
+        self.set(AwsResourceMetadata.KMS_ALIASES, [*self.kms_aliases, record])
+
+    def add_kms_grant(self, record: dict[str, Any]) -> None:
+        self.set(AwsResourceMetadata.KMS_GRANTS, [*self.kms_grants, record])
+
+    def add_kms_key_policy(self, record: dict[str, Any]) -> None:
+        self.set(AwsResourceMetadata.KMS_KEY_POLICIES, [*self.kms_key_policies, record])
+
+    def add_kms_policy_source_address(self, value: str | None) -> None:
+        self.append(AwsResourceMetadata.KMS_POLICY_SOURCE_ADDRESSES, value)
+
+    def add_unresolved_kms_key_reference(self, value: str | None) -> None:
+        self.append(AwsResourceMetadata.KMS_UNRESOLVED_KEY_REFERENCES, value)
+
+    def extend_kms_policy_posture_uncertainties(self, values: Sequence[str | None]) -> None:
+        self.extend(AwsResourceMetadata.KMS_POLICY_POSTURE_UNCERTAINTIES, values)
+
+    def extend_kms_posture_uncertainties(self, values: Sequence[str | None]) -> None:
+        self.extend(AwsResourceMetadata.KMS_POSTURE_UNCERTAINTIES, values)
+
+    def extend_kms_alias_posture_uncertainties(self, values: Sequence[str | None]) -> None:
+        self.extend(AwsResourceMetadata.KMS_ALIAS_POSTURE_UNCERTAINTIES, values)
+
+    def extend_kms_grant_posture_uncertainties(self, values: Sequence[str | None]) -> None:
+        self.extend(AwsResourceMetadata.KMS_GRANT_POSTURE_UNCERTAINTIES, values)
+
+    def extend_kms_key_policy_posture_uncertainties(self, values: Sequence[str | None]) -> None:
+        self.extend(AwsResourceMetadata.KMS_KEY_POLICY_POSTURE_UNCERTAINTIES, values)
 
     def set_secrets_manager_rotation_posture(
         self,

@@ -381,47 +381,6 @@ def normalize_s3_bucket_lifecycle_configuration(resource: TerraformResource) -> 
     )
 
 
-def normalize_kms_key(resource: TerraformResource) -> NormalizedResource:
-    values = resource.values
-    unknown_values = resource.unknown_values
-    uncertainties: list[str] = []
-    policy_document = load_json_document(values.get("policy"))
-    return NormalizedResource(
-        address=resource.address,
-        provider=AWS_PROVIDER,
-        resource_type=resource.resource_type,
-        name=resource.name,
-        category=ResourceCategory.DATA,
-        identifier=values.get("key_id") or values.get("id"),
-        arn=values.get("arn"),
-        policy_statements=parse_policy_statements(policy_document),
-        data_sensitivity="sensitive",
-        metadata={
-            AwsResourceMetadata.POLICY_DOCUMENT: policy_document,
-            AwsResourceMetadata.KMS_KEY_USAGE: known_string(values, unknown_values, "key_usage", uncertainties),
-            AwsResourceMetadata.KMS_KEY_SPEC: known_string(values, unknown_values, "key_spec", uncertainties),
-            AwsResourceMetadata.KMS_CUSTOMER_MASTER_KEY_SPEC: known_string(
-                values,
-                unknown_values,
-                "customer_master_key_spec",
-                uncertainties,
-            ),
-            AwsResourceMetadata.KMS_ENABLE_KEY_ROTATION_STATE: _kms_rotation_state(
-                values,
-                unknown_values,
-                uncertainties,
-            ),
-            AwsResourceMetadata.KMS_DELETION_WINDOW_IN_DAYS: _known_top_level_int(
-                values,
-                unknown_values,
-                "deletion_window_in_days",
-                uncertainties,
-            ),
-            AwsResourceMetadata.KMS_POSTURE_UNCERTAINTIES: uncertainties,
-        },
-    )
-
-
 def normalize_sns_topic(resource: TerraformResource) -> NormalizedResource:
     values = resource.values
     unknown_values = resource.unknown_values
@@ -753,28 +712,6 @@ def normalize_secretsmanager_secret_policy(resource: TerraformResource) -> Norma
             AwsResourceMetadata.POLICY_DOCUMENT: policy_document,
         },
     )
-
-
-def _kms_rotation_state(
-    values: Mapping[str, Any],
-    unknown_values: Mapping[str, Any] | None,
-    uncertainties: list[str],
-) -> str:
-    previous_uncertainty_count = len(uncertainties)
-    rotation_enabled = known_bool(
-        values,
-        unknown_values,
-        "enable_key_rotation",
-        uncertainties,
-        allow_string=False,
-    )
-    if rotation_enabled is True:
-        return STATE_ENABLED
-    if rotation_enabled is False:
-        return STATE_DISABLED
-    if len(uncertainties) > previous_uncertainty_count:
-        return STATE_UNKNOWN
-    return STATE_DISABLED
 
 
 def _s3_object_lock_enabled_state(value: str | None, uncertainties: list[str]) -> str | None:
