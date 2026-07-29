@@ -385,7 +385,11 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                     "primary",
                     {
                         "crypto_key": "google_kms_crypto_key.customer.id",
+                        "id": f"{_GCP_KEY_ID}/cryptoKeyVersions/1",
+                        "name": f"{_GCP_KEY_ID}/cryptoKeyVersions/1",
                         "state": "ENABLED",
+                        "algorithm": "GOOGLE_SYMMETRIC_ENCRYPTION",
+                        "protection_level": "SOFTWARE",
                     },
                 ),
             ]
@@ -409,10 +413,15 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                 }
             ],
         )
+        version = inventory.get_by_address("google_kms_crypto_key_version.primary")
+        assert version is not None
+        version_facts = gcp_facts(version)
+        self.assertEqual(inventory.unsupported_resources, [])
         self.assertEqual(
-            inventory.unsupported_resources,
-            ["google_kms_crypto_key_version.primary"],
+            version_facts.kms_crypto_key_version_resolved_key_address,
+            "google_kms_crypto_key.customer",
         )
+        self.assertEqual(version_facts.bindings, [])
 
     def test_azure_key_access_policy_and_rbac_preserve_native_scope_and_version(self) -> None:
         condition = "@Resource[Microsoft.KeyVault/vaults/keys:Name] StringEqualsIgnoreCase 'customer'"

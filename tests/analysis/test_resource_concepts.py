@@ -294,6 +294,7 @@ class ResourceConceptTests(unittest.TestCase):
                 {
                     "aws_kms_key",
                     "google_kms_crypto_key",
+                    "google_kms_crypto_key_version",
                     "azurerm_key_vault",
                     "azurerm_key_vault_key",
                 }

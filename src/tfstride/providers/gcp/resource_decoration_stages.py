@@ -21,6 +21,7 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_secret_access_paths im
 from tfstride.providers.gcp.resource_decoration.firestore_iam import NormalizeFirestoreIamPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_assignment import NormalizeIamAssignmentPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_bindings import DecorateSensitiveIamBindingsStage
+from tfstride.providers.gcp.resource_decoration.kms_versions import NormalizeKmsCryptoKeyVersionPostureStage
 from tfstride.providers.gcp.resource_decoration.load_balancer import DeriveLoadBalancerReachabilityStage
 from tfstride.providers.gcp.resource_decoration.network_posture import DeriveNetworkPostureStage
 from tfstride.providers.gcp.resource_decoration.public_exposure import DerivePublicExposureStage
@@ -44,6 +45,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         DeriveNetworkPostureStage(),
         DerivePublicExposureStage(),
         DecorateSensitiveIamBindingsStage(),
+        NormalizeKmsCryptoKeyVersionPostureStage(),
         NormalizeFirestoreIamPostureStage(),
         ModelCloudRunFirestoreAccessPathsStage(),
         ModelCloudRunGcsAccessPathsStage(),

@@ -121,6 +121,38 @@ class GcpResourceMetadata:
     KMS_PURPOSE = OptionalStringMetadataField("kms_purpose")
     KMS_ROTATION_PERIOD = OptionalStringMetadataField("kms_rotation_period")
     KMS_DESTROY_SCHEDULED_DURATION = OptionalStringMetadataField("kms_destroy_scheduled_duration")
+    KMS_CRYPTO_KEY_VERSION_REFERENCE = OptionalStringMetadataField("kms_crypto_key_version_reference")
+    KMS_CRYPTO_KEY_VERSION_NAME = OptionalStringMetadataField("kms_crypto_key_version_name")
+    KMS_CRYPTO_KEY_VERSION_NUMBER = OptionalStringMetadataField("kms_crypto_key_version_number")
+    KMS_CRYPTO_KEY_VERSION_CRYPTO_KEY_REFERENCE = OptionalStringMetadataField(
+        "kms_crypto_key_version_crypto_key_reference"
+    )
+    KMS_CRYPTO_KEY_VERSION_CRYPTO_KEY_PATH = OptionalStringMetadataField("kms_crypto_key_version_crypto_key_path")
+    KMS_CRYPTO_KEY_VERSION_KEY_RING = OptionalStringMetadataField("kms_crypto_key_version_key_ring")
+    KMS_CRYPTO_KEY_VERSION_RESOLVED_KEY_ADDRESS = OptionalStringMetadataField(
+        "kms_crypto_key_version_resolved_key_address"
+    )
+    KMS_CRYPTO_KEY_VERSION_PURPOSE = OptionalStringMetadataField("kms_crypto_key_version_purpose")
+    KMS_CRYPTO_KEY_VERSION_ALGORITHM = OptionalStringMetadataField("kms_crypto_key_version_algorithm")
+    KMS_CRYPTO_KEY_VERSION_PROTECTION_LEVEL = OptionalStringMetadataField("kms_crypto_key_version_protection_level")
+    KMS_CRYPTO_KEY_VERSION_STATE = OptionalStringMetadataField("kms_crypto_key_version_state")
+    KMS_CRYPTO_KEY_VERSION_IMPORT_POSTURE = OptionalStringMetadataField("kms_crypto_key_version_import_posture")
+    KMS_CRYPTO_KEY_VERSION_GENERATE_TIME = OptionalStringMetadataField("kms_crypto_key_version_generate_time")
+    KMS_CRYPTO_KEY_VERSION_EXTERNAL_KEY_URI = OptionalStringMetadataField("kms_crypto_key_version_external_key_uri")
+    KMS_CRYPTO_KEY_VERSION_EKM_CONNECTION_KEY_PATH = OptionalStringMetadataField(
+        "kms_crypto_key_version_ekm_connection_key_path"
+    )
+    KMS_CRYPTO_KEY_VERSION_ROTATION_PERIOD = OptionalStringMetadataField("kms_crypto_key_version_rotation_period")
+    KMS_CRYPTO_KEY_VERSION_DESTROY_SCHEDULED_DURATION = OptionalStringMetadataField(
+        "kms_crypto_key_version_destroy_scheduled_duration"
+    )
+    KMS_CRYPTO_KEY_VERSION_DELETION_POLICY = OptionalStringMetadataField("kms_crypto_key_version_deletion_policy")
+    KMS_CRYPTO_KEY_VERSION_DELETION_POLICY_STATE = OptionalStringMetadataField(
+        "kms_crypto_key_version_deletion_policy_state"
+    )
+    KMS_CRYPTO_KEY_VERSION_EXTERNAL_PROTECTION_LEVEL_OPTIONS = DictMetadataField(
+        "kms_crypto_key_version_external_protection_level_options"
+    )
     PUBLIC_ACCESS_PREVENTION = OptionalStringMetadataField("public_access_prevention")
     GCS_DEFAULT_KMS_KEY_NAME = OptionalStringMetadataField("gcs_default_kms_key_name")
     ARTIFACT_REGISTRY_REPOSITORY_ID = OptionalStringMetadataField("artifact_registry_repository_id")
@@ -310,6 +342,9 @@ class GcpResourceMetadata:
     SECRET_MANAGER_KMS_KEY_NAMES = StringListMetadataField("secret_manager_kms_key_names")
     SECRET_MANAGER_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_posture_uncertainties")
     KMS_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_posture_uncertainties")
+    KMS_CRYPTO_KEY_VERSION_POSTURE_UNCERTAINTIES = StringListMetadataField(
+        "kms_crypto_key_version_posture_uncertainties"
+    )
     CLOUD_SQL_POSTURE_UNCERTAINTIES = StringListMetadataField("cloud_sql_posture_uncertainties")
     FIRESTORE_POSTURE_UNCERTAINTIES = StringListMetadataField("firestore_posture_uncertainties")
     FIRESTORE_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("firestore_iam_posture_uncertainties")

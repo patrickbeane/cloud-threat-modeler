@@ -180,8 +180,24 @@ def gcp_resource_references(resource: NormalizedResource) -> tuple[str, ...]:
         f"{resource.address}.id",
         f"{resource.address}.name",
     }
+    kms_key_ring = resource.get_metadata_field(GcpResourceMetadata.KMS_KEY_RING)
+    kms_key_name = resource.get_metadata_field(GcpResourceMetadata.NAME)
+    canonical_kms_key = (
+        f"{kms_key_ring}/cryptoKeys/{kms_key_name}"
+        if resource.resource_type == GcpResourceType.KMS_CRYPTO_KEY and kms_key_ring and kms_key_name
+        else None
+    )
+    parent_references = (
+        (
+            resource.get_metadata_field(GcpResourceMetadata.KMS_CRYPTO_KEY_REFERENCE),
+            resource.get_metadata_field(GcpResourceMetadata.KMS_KEY_RING),
+        )
+        if resource.resource_type != GcpResourceType.KMS_CRYPTO_KEY_VERSION
+        else ()
+    )
     for reference in (
         resource.identifier,
+        canonical_kms_key,
         resource.get_metadata_field(GcpResourceMetadata.NAME),
         resource.get_metadata_field(GcpResourceMetadata.BUCKET_NAME),
         resource.get_metadata_field(GcpResourceMetadata.SECRET_ID),
@@ -192,8 +208,9 @@ def gcp_resource_references(resource: NormalizedResource) -> tuple[str, ...]:
         resource.get_metadata_field(GcpResourceMetadata.BIGQUERY_DATASET_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.BIGQUERY_TABLE_ID),
         resource.get_metadata_field(GcpResourceMetadata.BIGQUERY_TABLE_REFERENCE),
-        resource.get_metadata_field(GcpResourceMetadata.KMS_CRYPTO_KEY_REFERENCE),
-        resource.get_metadata_field(GcpResourceMetadata.KMS_KEY_RING),
+        *parent_references,
+        resource.get_metadata_field(GcpResourceMetadata.KMS_CRYPTO_KEY_VERSION_REFERENCE),
+        resource.get_metadata_field(GcpResourceMetadata.KMS_CRYPTO_KEY_VERSION_NAME),
         resource.get_metadata_field(GcpResourceMetadata.CLOUD_RUN_SERVICE_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.CLOUD_FUNCTION_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.SELF_LINK),
