@@ -470,11 +470,12 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                     AzureResourceType.ROLE_ASSIGNMENT,
                     "runtime_key_crypto",
                     {
-                        "scope": "azurerm_key_vault_key.customer.resource_manager_id",
+                        "scope": "azurerm_key_vault_key.customer.resource_versionless_id",
                         "role_definition_id": "azurerm_role_definition.crypto_operator.id",
                         "principal_id": "runtime-principal-id",
                         "principal_type": "ServicePrincipal",
                         "condition": condition,
+                        "condition_version": "2.0",
                     },
                 ),
             ]
@@ -504,28 +505,40 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
             {
                 "azurerm_key_vault.application": {
                     "source": "azurerm_key_vault.application",
+                    "management_mode": "inline_access_policy",
                     "tenant_id": "tenant-id",
                     "object_id": "break-glass-object-id",
                     "application_id": None,
+                    "principal_state": "resolved",
                     "key_permissions": ["decrypt", "get"],
+                    "key_permissions_state": "configured",
                     "secret_permissions": [],
+                    "secret_permissions_state": "not_configured",
                     "certificate_permissions": [],
+                    "certificate_permissions_state": "not_configured",
                     "storage_permissions": [],
+                    "storage_permissions_state": "not_configured",
                 },
                 "azurerm_key_vault_access_policy.runtime": {
                     "source": "azurerm_key_vault_access_policy.runtime",
+                    "management_mode": "standalone_access_policy",
                     "tenant_id": "tenant-id",
                     "object_id": "runtime-principal-id",
                     "application_id": None,
+                    "principal_state": "resolved",
                     "key_permissions": [
                         "decrypt",
                         "encrypt",
                         "unwrapkey",
                         "wrapkey",
                     ],
+                    "key_permissions_state": "configured",
                     "secret_permissions": [],
+                    "secret_permissions_state": "not_configured",
                     "certificate_permissions": [],
+                    "certificate_permissions_state": "not_configured",
                     "storage_permissions": [],
+                    "storage_permissions_state": "not_configured",
                 },
             },
         )
@@ -545,7 +558,7 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
         )
         self.assertEqual(
             assignment_facts.role_assignment_scope,
-            "azurerm_key_vault_key.customer.resource_manager_id",
+            "azurerm_key_vault_key.customer.resource_versionless_id",
         )
         self.assertEqual(assignment_facts.role_assignment_scope_kind, "resource")
         self.assertEqual(
@@ -561,6 +574,7 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
             role_definition.address,
         )
         self.assertEqual(assignment_facts.role_assignment_condition, condition)
+        self.assertEqual(assignment_facts.role_assignment_condition_version, "2.0")
 
     def test_azure_unresolved_policy_scope_and_condition_remain_non_authoritative(self) -> None:
         external_key_scope = (
@@ -597,7 +611,7 @@ class ManagedKeyAuthorizationSurfaceCharacterizationTests(unittest.TestCase):
                     AzureResourceType.ROLE_ASSIGNMENT,
                     "unknown_condition",
                     {
-                        "scope": "azurerm_key_vault_key.customer.resource_manager_id",
+                        "scope": "azurerm_key_vault_key.customer.resource_versionless_id",
                         "role_definition_name": "Key Vault Crypto User",
                         "principal_id": "runtime-principal-id",
                         "principal_type": "ServicePrincipal",

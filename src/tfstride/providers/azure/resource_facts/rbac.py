@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
@@ -28,6 +29,10 @@ class AzureRbacFacts(AzureBaseFacts):
     @property
     def role_assignment_condition(self) -> str | None:
         return self.get(AzureResourceMetadata.ROLE_ASSIGNMENT_CONDITION)
+
+    @property
+    def role_assignment_condition_version(self) -> str | None:
+        return self.get(AzureResourceMetadata.ROLE_ASSIGNMENT_CONDITION_VERSION)
 
     @property
     def role_definition_assignable_scopes(self) -> list[str]:
@@ -58,7 +63,7 @@ class AzureRbacFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.ROLE_DEFINITION_BREADTH_MITIGATIONS)
 
     @property
-    def role_definition_permissions(self) -> list[dict]:
+    def role_definition_permissions(self) -> list[dict[str, Any]]:
         return self.get(AzureResourceMetadata.ROLE_DEFINITION_PERMISSIONS)
 
     @property

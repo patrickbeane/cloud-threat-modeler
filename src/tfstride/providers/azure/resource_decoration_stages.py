@@ -27,6 +27,9 @@ from tfstride.providers.azure.resource_decoration.federated_identity import (
 )
 from tfstride.providers.azure.resource_decoration.identity import DecorateManagedIdentityRoleAssignmentsStage
 from tfstride.providers.azure.resource_decoration.key_vault import DecorateKeyVaultRelationshipsStage
+from tfstride.providers.azure.resource_decoration.key_vault_key_authorization import (
+    NormalizeKeyVaultKeyAuthorizationPostureStage,
+)
 from tfstride.providers.azure.resource_decoration.network_posture import (
     ResolveNetworkInterfaceRelationshipsStage,
     ResolveSubnetVirtualNetworkStage,
@@ -62,6 +65,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         DecorateCosmosDbNoSqlRelationshipsStage(),
         DecorateKeyVaultRelationshipsStage(),
         DecorateManagedIdentityRoleAssignmentsStage(),
+        NormalizeKeyVaultKeyAuthorizationPostureStage(),
         ModelAppServiceCosmosDbAccessPathsStage(),
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),

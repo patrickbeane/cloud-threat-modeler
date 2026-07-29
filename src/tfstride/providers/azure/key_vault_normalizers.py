@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
@@ -12,6 +12,7 @@ from tfstride.providers.azure.resource_types import AzureResourceType
 from tfstride.providers.azure.resource_utils import (
     as_list,
     attribute_unknown,
+    block_attribute_unknown,
     compact_strings,
     first_block_attribute_unknown,
     first_mapping,
@@ -79,9 +80,6 @@ def normalize_key_vault(resource: TerraformResource) -> NormalizedResource:
         default=False,
         uncertainties=authorization_uncertainties,
     )
-    if resource.unknown_values.get("access_policy") is True:
-        authorization_uncertainties.append("access_policy is unknown after planning")
-
     metadata: dict[Any, Any] = {
         AzureResourceMetadata.NAME: name,
         AzureResourceMetadata.KEY_VAULT_ID: vault_id,
@@ -99,7 +97,11 @@ def normalize_key_vault(resource: TerraformResource) -> NormalizedResource:
         AzureResourceMetadata.KEY_VAULT_NETWORK_SUBNET_IDS: compact_strings(
             as_list(network_acls.get("virtual_network_subnet_ids")) if network_acls is not None else []
         ),
-        AzureResourceMetadata.KEY_VAULT_ACCESS_POLICIES: _inline_access_policies(resource, values),
+        AzureResourceMetadata.KEY_VAULT_ACCESS_POLICIES: _inline_access_policies(
+            resource,
+            values,
+            authorization_uncertainties,
+        ),
     }
     if public_network_access_enabled is not None:
         metadata[AzureResourceMetadata.PUBLIC_NETWORK_ACCESS_ENABLED] = public_network_access_enabled
@@ -132,25 +134,34 @@ def normalize_key_vault(resource: TerraformResource) -> NormalizedResource:
 
 def normalize_key_vault_access_policy(resource: TerraformResource) -> NormalizedResource:
     values = resource.values
-    vault_reference = first_non_empty(values.get("key_vault_id"))
-    policy = _access_policy_record(values, source_address=resource.address)
-    uncertainties = [
-        f"{field} is unknown after planning"
-        for field in _PERMISSION_FIELDS
-        if resource.unknown_values.get(field) is True
-    ]
+    uncertainties: list[str] = []
+    vault_reference = known_string(
+        values,
+        resource.unknown_values,
+        "key_vault_id",
+        uncertainties,
+        require_string=True,
+    )
+    policy = _access_policy_record(
+        values,
+        unknown_values=resource.unknown_values,
+        source_address=resource.address,
+        management_mode="standalone_access_policy",
+        path=resource.address,
+        uncertainties=uncertainties,
+    )
     return NormalizedResource(
         address=resource.address,
         provider=AZURE_PROVIDER,
         resource_type=resource.resource_type,
         name=resource.name,
         category=ResourceCategory.IAM,
-        identifier=first_non_empty(values.get("id"), values.get("object_id"), resource.address),
+        identifier=first_non_empty(values.get("id"), policy.get("object_id"), resource.address),
         metadata={
             AzureResourceMetadata.KEY_VAULT_REFERENCE: vault_reference,
-            AzureResourceMetadata.TENANT_ID: first_non_empty(values.get("tenant_id")),
-            AzureResourceMetadata.OBJECT_ID: first_non_empty(values.get("object_id")),
-            AzureResourceMetadata.APPLICATION_ID: first_non_empty(values.get("application_id")),
+            AzureResourceMetadata.TENANT_ID: policy.get("tenant_id"),
+            AzureResourceMetadata.OBJECT_ID: policy.get("object_id"),
+            AzureResourceMetadata.APPLICATION_ID: policy.get("application_id"),
             AzureResourceMetadata.KEY_VAULT_ACCESS_POLICIES: [policy],
             AzureResourceMetadata.KEY_VAULT_AUTHORIZATION_UNCERTAINTIES: uncertainties,
         },
@@ -880,31 +891,101 @@ def _unknown_child_block(value: Any, key: str) -> Any:
         return True
     if not isinstance(value, Mapping):
         return None
-    child = value.get(key)
+    unknown_fields = cast(Mapping[str, Any], value)
+    child = unknown_fields.get(key)
     if isinstance(child, Mapping) or child is True:
         return child
     return unknown_block_at(child, 0)
 
 
-def _inline_access_policies(resource: TerraformResource, values: Mapping[str, Any]) -> list[dict[str, Any]]:
-    if resource.unknown_values.get("access_policy") is True:
+def _inline_access_policies(
+    resource: TerraformResource,
+    values: Mapping[str, Any],
+    uncertainties: list[str],
+) -> list[dict[str, Any]]:
+    raw_unknown = resource.unknown_values.get("access_policy")
+    if raw_unknown is True:
+        uncertainties.append("access_policy is unknown after planning")
         return []
-    return [
-        _access_policy_record(policy, source_address=resource.address)
-        for policy in as_list(values.get("access_policy"))
-        if isinstance(policy, Mapping)
-    ]
+
+    policies = as_list(values.get("access_policy"))
+    unknown_policies = as_list(raw_unknown) if raw_unknown is not None else []
+    records: list[dict[str, Any]] = []
+    for index, policy in enumerate(policies):
+        if not isinstance(policy, Mapping):
+            if policy is not None:
+                uncertainties.append(f"access_policy[{index}] has an unrecognized value shape")
+            continue
+        unknown_policy = unknown_policies[index] if index < len(unknown_policies) else None
+        if unknown_policy is True:
+            uncertainties.append(f"access_policy[{index}] is unknown after planning")
+            continue
+        records.append(
+            _access_policy_record(
+                policy,
+                unknown_values=unknown_policy,
+                source_address=resource.address,
+                management_mode="inline_access_policy",
+                path=f"access_policy[{index}]",
+                uncertainties=uncertainties,
+            )
+        )
+    if len(unknown_policies) > len(policies):
+        uncertainties.append("access_policy contains unresolved entries after planning")
+    return records
 
 
-def _access_policy_record(values: Mapping[str, Any], *, source_address: str) -> dict[str, Any]:
+def _access_policy_record(
+    values: Mapping[str, Any],
+    *,
+    unknown_values: object = None,
+    source_address: str,
+    management_mode: str,
+    path: str,
+    uncertainties: list[str],
+) -> dict[str, Any]:
+    unknown_fields: set[str] = set()
+
+    def known_value(field: str) -> str | None:
+        if block_attribute_unknown(unknown_values, field):
+            uncertainties.append(f"{path}.{field} is unknown after planning")
+            unknown_fields.add(field)
+            return None
+        value = values.get(field)
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            uncertainties.append(f"{path}.{field} has an unrecognized value shape")
+            unknown_fields.add(field)
+            return None
+        return first_non_empty(value)
+
+    tenant_id = known_value("tenant_id")
+    object_id = known_value("object_id")
+    application_id = known_value("application_id")
     record: dict[str, Any] = {
         "source": source_address,
-        "tenant_id": first_non_empty(values.get("tenant_id")),
-        "object_id": first_non_empty(values.get("object_id")),
-        "application_id": first_non_empty(values.get("application_id")),
+        "management_mode": management_mode,
+        "tenant_id": tenant_id,
+        "object_id": object_id,
+        "application_id": application_id,
+        "principal_state": (
+            "unknown"
+            if unknown_fields.intersection({"tenant_id", "object_id", "application_id"})
+            else "resolved"
+            if tenant_id and object_id
+            else "not_configured"
+        ),
     }
     for field in _PERMISSION_FIELDS:
-        record[field] = sorted(permission.lower() for permission in compact_strings(as_list(values.get(field))))
+        if block_attribute_unknown(unknown_values, field):
+            uncertainties.append(f"{path}.{field} is unknown after planning")
+            record[field] = []
+            record[f"{field}_state"] = STATE_UNKNOWN
+            continue
+        permissions = sorted(permission.lower() for permission in compact_strings(as_list(values.get(field))))
+        record[field] = permissions
+        record[f"{field}_state"] = STATE_CONFIGURED if permissions else STATE_NOT_CONFIGURED
     return record
 
 

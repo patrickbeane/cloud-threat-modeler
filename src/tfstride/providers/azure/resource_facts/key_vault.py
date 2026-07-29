@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
@@ -78,6 +79,14 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_EXPIRATION_STATE)
 
     @property
+    def key_vault_key_authorization_grants(self) -> list[dict[str, Any]]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS)
+
+    @property
+    def key_vault_key_authorization_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES)
+
+    @property
     def key_vault_expiration_date(self) -> str | None:
         return self.get(AzureResourceMetadata.KEY_VAULT_EXPIRATION_DATE)
 
@@ -106,7 +115,7 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_OPS)
 
     @property
-    def key_vault_rotation_policy(self) -> dict:
+    def key_vault_rotation_policy(self) -> dict[str, Any]:
         return self.get(AzureResourceMetadata.KEY_VAULT_ROTATION_POLICY)
 
     @property
@@ -138,11 +147,11 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         return self.optional_bool(AzureResourceMetadata.RBAC_AUTHORIZATION_ENABLED)
 
     @property
-    def key_vault_access_policies(self) -> list[dict]:
+    def key_vault_access_policies(self) -> list[dict[str, Any]]:
         return self.get(AzureResourceMetadata.KEY_VAULT_ACCESS_POLICIES)
 
     @property
-    def key_vault_role_assignments(self) -> list[dict]:
+    def key_vault_role_assignments(self) -> list[dict[str, Any]]:
         return self.get(AzureResourceMetadata.KEY_VAULT_ROLE_ASSIGNMENTS)
 
     @property
@@ -274,22 +283,34 @@ class AzureKeyVaultFacts(AzureBaseFacts):
     def extend_key_vault_identity_uncertainties(self, uncertainties: Sequence[str | None]) -> None:
         self.extend(AzureResourceMetadata.KEY_VAULT_IDENTITY_UNCERTAINTIES, uncertainties)
 
+    def set_key_vault_key_authorization_posture(
+        self,
+        *,
+        grants: Sequence[dict[str, Any]],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS, list(grants))
+        self.set(
+            AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
     def set_resolved_key_vault_address(self, address: str) -> None:
         self.set(AzureResourceMetadata.RESOLVED_KEY_VAULT_ADDRESS, address)
 
     def add_key_vault_related_resource_address(self, address: str) -> None:
         self.append(AzureResourceMetadata.KEY_VAULT_RELATED_RESOURCE_ADDRESSES, address)
 
-    def add_key_vault_access_policy(self, policy: dict) -> None:
+    def add_key_vault_access_policy(self, policy: dict[str, Any]) -> None:
         policies = self.key_vault_access_policies
         if policy not in policies:
             policies.append(policy)
             self.set(AzureResourceMetadata.KEY_VAULT_ACCESS_POLICIES, policies)
 
-    def set_key_vault_role_assignments(self, assignments: Sequence[dict]) -> None:
+    def set_key_vault_role_assignments(self, assignments: Sequence[dict[str, Any]]) -> None:
         self.set(AzureResourceMetadata.KEY_VAULT_ROLE_ASSIGNMENTS, list(assignments))
 
-    def add_key_vault_role_assignment(self, assignment: dict) -> None:
+    def add_key_vault_role_assignment(self, assignment: dict[str, Any]) -> None:
         assignments = self.key_vault_role_assignments
         if assignment not in assignments:
             assignments.append(assignment)

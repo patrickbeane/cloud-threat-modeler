@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
 from tfstride.providers.azure.metadata import AzureResourceMetadata
@@ -156,6 +156,12 @@ def normalize_role_assignment(resource: TerraformResource) -> NormalizedResource
     principal_id = known_string(values, resource.unknown_values, "principal_id", uncertainties)
     principal_type = known_string(values, resource.unknown_values, "principal_type", uncertainties)
     condition = known_string(values, resource.unknown_values, "condition", uncertainties)
+    condition_version = known_string(
+        values,
+        resource.unknown_values,
+        "condition_version",
+        uncertainties,
+    )
     assignment = {
         "source": resource.address,
         "scope": scope,
@@ -178,6 +184,7 @@ def normalize_role_assignment(resource: TerraformResource) -> NormalizedResource
             AzureResourceMetadata.PRINCIPAL_ID: principal_id,
             AzureResourceMetadata.PRINCIPAL_TYPE: principal_type,
             AzureResourceMetadata.ROLE_ASSIGNMENT_CONDITION: condition,
+            AzureResourceMetadata.ROLE_ASSIGNMENT_CONDITION_VERSION: condition_version,
             AzureResourceMetadata.KEY_VAULT_ROLE_ASSIGNMENTS: [assignment],
             AzureResourceMetadata.KEY_VAULT_AUTHORIZATION_UNCERTAINTIES: uncertainties,
         },
@@ -269,7 +276,8 @@ def _permission_strings(
 
 def _permission_field_unknown(unknown_permission: Any, key: str) -> bool:
     if isinstance(unknown_permission, Mapping):
-        return value_is_unknown(unknown_permission.get(key))
+        unknown_fields = cast(Mapping[str, Any], unknown_permission)
+        return value_is_unknown(unknown_fields.get(key))
     return False
 
 
