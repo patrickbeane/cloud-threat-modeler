@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from tfstride.providers.coercion import STATE_CONFIGURED, STATE_NOT_CONFIGURED, STATE_UNKNOWN
 from tfstride.providers.gcp.attributes import GcpAttribute, GcpValues
 from tfstride.providers.gcp.coercion import as_list, compact
 from tfstride.providers.gcp.resource_utils import first_non_empty
@@ -55,6 +57,22 @@ def _condition(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
     return {str(key): raw_value for key, raw_value in value.items() if raw_value not in (None, "", [])}
+
+
+def _policy_data_state(raw_policy_data: Any, *, unknown: bool) -> str:
+    if unknown:
+        return STATE_UNKNOWN
+    if raw_policy_data in (None, ""):
+        return STATE_NOT_CONFIGURED
+    if isinstance(raw_policy_data, dict):
+        return STATE_CONFIGURED
+    if isinstance(raw_policy_data, str) and raw_policy_data.strip():
+        try:
+            parsed = json.loads(raw_policy_data)
+        except json.JSONDecodeError:
+            return "invalid"
+        return STATE_CONFIGURED if isinstance(parsed, dict) else "invalid"
+    return "invalid"
 
 
 def _binding_identifier(target: str | None, role: str | None, members: list[str | None]) -> str | None:

@@ -8,6 +8,7 @@ from tfstride.providers.gcp.resource_decoration.iam import (
     resource_iam_target_reference,
     serverless_iam_resources,
 )
+from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import (
     GcpDecorationContext,
     gcp_resource_references,
@@ -84,6 +85,14 @@ def _derive_sensitive_resource_iam_bindings(
     bindings: list[dict[str, Any]] = []
     source_addresses: list[str] = []
     for iam_resource in iam_resources:
+        iam_facts = gcp_facts(iam_resource)
+        policy_state = iam_facts.iam_policy_data_state
+        if (
+            iam_resource.resource_type.endswith("_iam_policy")
+            and policy_state is not None
+            and policy_state != "configured"
+        ):
+            continue
         target_reference = resource_iam_target_reference(iam_resource)
         if (
             not target_reference
@@ -91,6 +100,8 @@ def _derive_sensitive_resource_iam_bindings(
         ):
             continue
         for binding in iam_bindings(iam_resource):
+            if binding.get("role_state") == "unknown" or binding.get("members_state") == "unknown":
+                continue
             decorated_binding = {
                 "role": str(binding.get("role") or "unknown role"),
                 "members": binding_members(binding),

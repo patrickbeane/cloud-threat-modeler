@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
-from tfstride.providers.coercion import attribute_unknown, known_string, known_string_list
+from tfstride.providers.coercion import (
+    STATE_CONFIGURED,
+    STATE_NOT_CONFIGURED,
+    STATE_UNKNOWN,
+    attribute_unknown,
+    known_string,
+    known_string_list,
+)
 from tfstride.providers.gcp.attributes import GcpAttr, GcpAttribute, GcpValues
 from tfstride.providers.gcp.coercion import compact
 from tfstride.providers.gcp.iam_normalizer_utils import (
@@ -11,6 +18,7 @@ from tfstride.providers.gcp.iam_normalizer_utils import (
     _condition,
     _iam_bindings,
     _policy_bindings,
+    _policy_data_state,
     _target_reference,
 )
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
@@ -393,7 +401,9 @@ def _normalize_target_iam_member(
     target_keys: tuple[GcpAttribute[Any], ...],
 ) -> NormalizedResource:
     values = GcpValues(resource.values)
-    target_reference = _target_reference(values, target_keys)
+    target_unknown = any(attribute_unknown(resource.unknown_values, key.key) for key in target_keys)
+    target_reference = None if target_unknown else _target_reference(values, target_keys)
+    target_state = STATE_UNKNOWN if target_unknown else STATE_CONFIGURED if target_reference else STATE_NOT_CONFIGURED
     role = first_non_empty(values.get(GcpAttr.ROLE))
     member = first_non_empty(values.get(GcpAttr.MEMBER))
     return NormalizedResource(
@@ -407,6 +417,7 @@ def _normalize_target_iam_member(
         ),
         metadata={
             target_field: target_reference,
+            GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE: target_state,
             GcpResourceMetadata.PROJECT: values.get(GcpAttr.PROJECT),
             GcpResourceMetadata.IAM_ROLE: role,
             GcpResourceMetadata.IAM_MEMBER: member,
@@ -417,6 +428,8 @@ def _normalize_target_iam_member(
                 compact([member]),
                 condition=values.raw(GcpAttr.CONDITION),
                 condition_unknown=attribute_unknown(resource.unknown_values, GcpAttr.CONDITION.key),
+                role_unknown=attribute_unknown(resource.unknown_values, GcpAttr.ROLE.key),
+                members_unknown=attribute_unknown(resource.unknown_values, GcpAttr.MEMBER.key),
             ),
         },
     )
@@ -429,7 +442,9 @@ def _normalize_target_iam_binding(
     target_keys: tuple[GcpAttribute[Any], ...],
 ) -> NormalizedResource:
     values = GcpValues(resource.values)
-    target_reference = _target_reference(values, target_keys)
+    target_unknown = any(attribute_unknown(resource.unknown_values, key.key) for key in target_keys)
+    target_reference = None if target_unknown else _target_reference(values, target_keys)
+    target_state = STATE_UNKNOWN if target_unknown else STATE_CONFIGURED if target_reference else STATE_NOT_CONFIGURED
     role = first_non_empty(values.get(GcpAttr.ROLE))
     members = values.get(GcpAttr.MEMBERS)
     return NormalizedResource(
@@ -443,6 +458,7 @@ def _normalize_target_iam_binding(
         ),
         metadata={
             target_field: target_reference,
+            GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE: target_state,
             GcpResourceMetadata.PROJECT: values.get(GcpAttr.PROJECT),
             GcpResourceMetadata.IAM_ROLE: role,
             GcpResourceMetadata.IAM_MEMBERS: members,
@@ -452,6 +468,8 @@ def _normalize_target_iam_binding(
                 members,
                 condition=values.raw(GcpAttr.CONDITION),
                 condition_unknown=attribute_unknown(resource.unknown_values, GcpAttr.CONDITION.key),
+                role_unknown=attribute_unknown(resource.unknown_values, GcpAttr.ROLE.key),
+                members_unknown=attribute_unknown(resource.unknown_values, GcpAttr.MEMBERS.key),
             ),
         },
     )
@@ -464,9 +482,16 @@ def _normalize_target_iam_policy(
     target_keys: tuple[GcpAttribute[Any], ...],
 ) -> NormalizedResource:
     values = GcpValues(resource.values)
-    target_reference = _target_reference(values, target_keys)
-    policy_document = load_json_document(values.raw(GcpAttr.POLICY_DATA))
+    target_unknown = any(attribute_unknown(resource.unknown_values, key.key) for key in target_keys)
+    target_reference = None if target_unknown else _target_reference(values, target_keys)
+    target_state = STATE_UNKNOWN if target_unknown else STATE_CONFIGURED if target_reference else STATE_NOT_CONFIGURED
+    raw_policy_data = values.raw(GcpAttr.POLICY_DATA)
+    policy_document = load_json_document(raw_policy_data)
     bindings = _policy_bindings(policy_document)
+    policy_data_state = _policy_data_state(
+        raw_policy_data,
+        unknown=attribute_unknown(resource.unknown_values, GcpAttr.POLICY_DATA.key),
+    )
     return NormalizedResource(
         address=resource.address,
         provider=GCP_PROVIDER,
@@ -476,8 +501,10 @@ def _normalize_target_iam_policy(
         identifier=first_non_empty(values.get(GcpAttr.ID), target_reference, resource.address),
         metadata={
             target_field: target_reference,
+            GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE: target_state,
             GcpResourceMetadata.PROJECT: values.get(GcpAttr.PROJECT),
             GcpResourceMetadata.IAM_BINDINGS: bindings,
             GcpResourceMetadata.POLICY_DOCUMENT: policy_document,
+            GcpResourceMetadata.IAM_POLICY_DATA_STATE: policy_data_state,
         },
     )

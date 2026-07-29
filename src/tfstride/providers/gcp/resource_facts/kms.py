@@ -32,6 +32,14 @@ class GcpKmsFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.KMS_POSTURE_UNCERTAINTIES)
 
     @property
+    def kms_iam_grants(self) -> list[dict[str, object]]:
+        return self.get(GcpResourceMetadata.KMS_IAM_GRANTS)
+
+    @property
+    def kms_iam_posture_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.KMS_IAM_POSTURE_UNCERTAINTIES)
+
+    @property
     def kms_crypto_key_version_reference(self) -> str | None:
         return self.get(GcpResourceMetadata.KMS_CRYPTO_KEY_VERSION_REFERENCE)
 

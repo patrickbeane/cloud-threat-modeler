@@ -262,6 +262,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "derive_network_posture",
                 "derive_public_exposure",
                 "decorate_sensitive_iam_bindings",
+                "normalize_kms_iam_posture",
                 "normalize_kms_crypto_key_version_posture",
                 "normalize_firestore_iam_posture",
                 "model_cloud_run_firestore_access_paths",

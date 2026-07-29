@@ -57,8 +57,10 @@ class GcpResourceMetadata:
     IAM_CONDITION = DictMetadataField("iam_condition")
     POLICY_DOCUMENT = DictMetadataField("policy_document")
     IAM_POLICY_DATA_STATE = OptionalStringMetadataField("iam_policy_data_state")
+    IAM_SCOPE_REFERENCE_STATE = OptionalStringMetadataField("iam_scope_reference_state")
     CUSTOM_ROLE_ID = OptionalStringMetadataField("custom_role_id")
     CUSTOM_ROLE_STAGE = OptionalStringMetadataField("custom_role_stage")
+    CUSTOM_ROLE_PERMISSIONS_STATE = OptionalStringMetadataField("custom_role_permissions_state")
     ORGANIZATION_ID = OptionalStringMetadataField("organization_id")
     FOLDER_ID = OptionalStringMetadataField("folder_id")
     ORG_POLICY_CONSTRAINT = OptionalStringMetadataField("org_policy_constraint")
@@ -342,6 +344,7 @@ class GcpResourceMetadata:
     SECRET_MANAGER_KMS_KEY_NAMES = StringListMetadataField("secret_manager_kms_key_names")
     SECRET_MANAGER_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_posture_uncertainties")
     KMS_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_posture_uncertainties")
+    KMS_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_iam_posture_uncertainties")
     KMS_CRYPTO_KEY_VERSION_POSTURE_UNCERTAINTIES = StringListMetadataField(
         "kms_crypto_key_version_posture_uncertainties"
     )
@@ -396,6 +399,7 @@ class GcpResourceMetadata:
     FIREWALL_DENY = DictListMetadataField("deny")
     FIREWALL_POLICY_MATCH = DictMetadataField("firewall_policy_match")
     IAM_BINDINGS = DictListMetadataField("iam_bindings")
+    KMS_IAM_GRANTS = DictListMetadataField("kms_iam_grants")
     FIRESTORE_IAM_GRANTS = DictListMetadataField("firestore_iam_grants")
     PRIVILEGED_ACCESS_GRANTS = DictListMetadataField("privileged_access_grants")
     WORKLOAD_IDENTITY_FEDERATION_TRUST_PATHS = DictListMetadataField("workload_identity_federation_trust_paths")

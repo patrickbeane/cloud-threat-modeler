@@ -147,6 +147,22 @@ class GcpResourceMutations:
             list(uncertainties),
         )
 
+    def set_kms_iam_posture(
+        self,
+        *,
+        grants: Sequence[Mapping[str, Any]],
+        uncertainties: Sequence[str],
+    ) -> None:
+        facts = gcp_facts(self.resource)
+        facts.set(
+            GcpResourceMetadata.KMS_IAM_GRANTS,
+            [dict(grant) for grant in grants],
+        )
+        facts.set(
+            GcpResourceMetadata.KMS_IAM_POSTURE_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
 
 def gcp_mutations(resource: NormalizedResource) -> GcpResourceMutations:
     return GcpResourceMutations(resource)

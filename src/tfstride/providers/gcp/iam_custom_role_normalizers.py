@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
+from tfstride.providers.coercion import STATE_CONFIGURED, STATE_NOT_CONFIGURED, STATE_UNKNOWN, attribute_unknown
 from tfstride.providers.gcp.attributes import GcpAttr, GcpValues
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.normalizer_common import GCP_PROVIDER
@@ -47,6 +48,14 @@ def _normalize_custom_role(
     organization_id: str | None,
 ) -> NormalizedResource:
     values = GcpValues(resource.values)
+    permissions_unknown = attribute_unknown(
+        resource.unknown_values,
+        GcpAttr.PERMISSIONS.key,
+    )
+    permissions = [] if permissions_unknown else values.get(GcpAttr.PERMISSIONS)
+    permissions_state = (
+        STATE_UNKNOWN if permissions_unknown else STATE_CONFIGURED if permissions else STATE_NOT_CONFIGURED
+    )
     return NormalizedResource(
         address=resource.address,
         provider=GCP_PROVIDER,
@@ -59,7 +68,8 @@ def _normalize_custom_role(
             GcpResourceMetadata.PROJECT: project,
             GcpResourceMetadata.ORGANIZATION_ID: organization_id,
             GcpResourceMetadata.CUSTOM_ROLE_ID: role_id,
-            GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS: values.get(GcpAttr.PERMISSIONS),
+            GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS: permissions,
+            GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS_STATE: permissions_state,
             GcpResourceMetadata.CUSTOM_ROLE_STAGE: values.get(GcpAttr.STAGE),
             "title": values.get(GcpAttr.TITLE),
             "description": values.get(GcpAttr.DESCRIPTION),

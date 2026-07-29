@@ -18,6 +18,10 @@ class GcpIamFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.IAM_POLICY_DATA_STATE)
 
     @property
+    def iam_scope_reference_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE)
+
+    @property
     def resource_policy_source_addresses(self) -> list[str]:
         return self.get(GcpResourceMetadata.RESOURCE_POLICY_SOURCE_ADDRESSES)
 
@@ -32,6 +36,10 @@ class GcpIamFacts(GcpBaseFacts):
     @property
     def custom_role_permissions(self) -> list[str]:
         return self.get(GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS)
+
+    @property
+    def custom_role_permissions_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS_STATE)
 
     @property
     def organization_id(self) -> str | None:
