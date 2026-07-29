@@ -91,6 +91,58 @@ class AwsKmsNormalizerTests(unittest.TestCase):
         self.assertEqual(facts.kms_policy_source_addresses, [key.address])
         self.assertEqual(len(key.policy_statements), 1)
 
+    def test_inline_policy_preserves_lockout_safety_bypass_state(self) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _key(
+                    policy=_policy(),
+                    bypass_policy_lockout_safety_check=True,
+                )
+            ]
+        )
+        key = inventory.get_by_address("aws_kms_key.orders")
+        assert key is not None
+        facts = aws_facts(key)
+
+        self.assertEqual(
+            facts.kms_key_policy_bypass_lockout_safety_check_state,
+            "enabled",
+        )
+        self.assertEqual(
+            facts.kms_key_policies[0]["bypass_lockout_safety_check_state"],
+            "enabled",
+        )
+
+    def test_inline_policy_record_preserves_unknown_bypass_evidence(self) -> None:
+        inventory = AwsNormalizer().normalize(
+            [
+                _resource(
+                    "aws_kms_key",
+                    "orders",
+                    {
+                        "id": _KEY_ID,
+                        "key_id": _KEY_ID,
+                        "arn": _KEY_ARN,
+                        "policy": _policy(),
+                        "bypass_policy_lockout_safety_check": True,
+                    },
+                    unknown_values={"bypass_policy_lockout_safety_check": True},
+                )
+            ]
+        )
+        key = inventory.get_by_address("aws_kms_key.orders")
+        assert key is not None
+        policy_record = aws_facts(key).kms_key_policies[0]
+
+        self.assertEqual(
+            policy_record["bypass_lockout_safety_check_state"],
+            "unknown",
+        )
+        self.assertIn(
+            "bypass_policy_lockout_safety_check is unknown after planning",
+            policy_record["posture_uncertainties"],
+        )
+
     def test_unknown_key_posture_remains_unknown(self) -> None:
         key = _resource(
             "aws_kms_key",

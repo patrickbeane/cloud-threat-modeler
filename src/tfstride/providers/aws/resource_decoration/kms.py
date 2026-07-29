@@ -121,5 +121,6 @@ class DecorateKmsRelationshipsStage:
 
             policy = complete_standalone_policies[0]
             aws_mutations(key).merge_policy_statements(clone_policy_statements(list(policy.policy_statements)))
+            key_facts.add_resource_policy_source_address(policy.address)
             key_facts.set(AwsResourceMetadata.KMS_POLICY_CONFIGURATION_STATE, "configured")
             key_facts.set(AwsResourceMetadata.KMS_POLICY_COMPLETENESS_STATE, "complete")

@@ -19,8 +19,8 @@ This run identified **6 trust boundaries** and **12 findings** across **21 norma
 - Provider resources considered: `21`
 - Normalized resources: `21`
 - Unsupported resources: `0`
-- Registered provider rules (AWS): `89`
-- Enabled provider rules (AWS): `89`
+- Registered provider rules (AWS): `91`
+- Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Unresolved in-plan references: `0`

@@ -797,11 +797,11 @@ AWS_RULE_METADATA = (
     ),
     RuleMetadata(
         rule_id="aws-kms-key-rotation-disabled-or-unknown",
-        title="KMS key rotation is disabled or unknown",
+        title="KMS key rotation is disabled, too infrequent, or unknown",
         category=StrideCategory.INFORMATION_DISCLOSURE,
         recommended_mitigation=(
-            "Enable automatic annual rotation for customer-managed symmetric KMS keys that protect sensitive "
-            "storage, secrets, databases, or Kubernetes secrets, and keep key usage and key spec deterministic in "
+            "Enable automatic rotation for eligible customer-managed symmetric KMS keys, use a rotation period "
+            "of 365 days or less, and keep key usage, key spec, origin, and rotation period deterministic in "
             "Terraform for review."
         ),
         tags=("aws", "kms", "encryption", "rotation", "lifecycle"),
@@ -818,6 +818,29 @@ AWS_RULE_METADATA = (
         ),
         tags=("aws", "kms", "encryption", "recovery", "deletion-protection"),
         severity_factors=("data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="aws-kms-key-policy-lockout-safety-check-bypassed",
+        title="KMS key policy bypasses the lockout safety check",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Keep `bypass_policy_lockout_safety_check` disabled and ensure each complete key policy retains an "
+            "explicit, reviewed principal with authority to update the key policy before applying replacements."
+        ),
+        tags=("aws", "kms", "key-policy", "lockout", "authorization"),
+        severity_factors=("privilege_breadth", "data_sensitivity", "blast_radius"),
+    ),
+    RuleMetadata(
+        rule_id="aws-kms-grant-broad-authorization",
+        title="KMS grant delegates broad or cross-account key authority",
+        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+        recommended_mitigation=(
+            "Grant KMS operations to exact same-account workload roles, remove account-root and unnecessary "
+            "cross-account grantees, avoid `CreateGrant` unless delegation is required, and constrain delegated "
+            "cryptographic use with an exact encryption context where supported."
+        ),
+        tags=("aws", "kms", "grant", "authorization", "cross-account", "delegation"),
+        severity_factors=("privilege_breadth", "data_sensitivity", "lateral_movement", "blast_radius"),
     ),
     RuleMetadata(
         rule_id="aws-workload-secretsmanager-vpc-endpoint-missing",

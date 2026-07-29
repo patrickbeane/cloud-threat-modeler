@@ -43,6 +43,15 @@ def normalize_kms_key(resource: TerraformResource) -> NormalizedResource:
         uncertainties,
     )
     key_arn = known_string(values, unknown_values, "arn", uncertainties)
+    bypass_uncertainty_start = len(uncertainties)
+    bypass_lockout_safety_check_state = _kms_bool_state(
+        values,
+        unknown_values,
+        "bypass_policy_lockout_safety_check",
+        uncertainties,
+    )
+    bypass_uncertainties = uncertainties[bypass_uncertainty_start:]
+    policy_source_uncertainties = [*policy_uncertainties, *bypass_uncertainties]
     policy_source_present = policy_configuration_state in {STATE_CONFIGURED, STATE_UNKNOWN}
     policy_record = (
         {
@@ -51,9 +60,9 @@ def normalize_kms_key(resource: TerraformResource) -> NormalizedResource:
             "configuration_state": policy_configuration_state,
             "resolved_key_address": resource.address,
             "completeness_state": policy_completeness_state,
-            "bypass_lockout_safety_check_state": None,
+            "bypass_lockout_safety_check_state": bypass_lockout_safety_check_state,
             "policy_statements": serialize_kms_policy_statements(policy_statements),
-            "posture_uncertainties": list(policy_uncertainties),
+            "posture_uncertainties": list(policy_source_uncertainties),
         }
         if policy_source_present
         else None
@@ -116,6 +125,7 @@ def normalize_kms_key(resource: TerraformResource) -> NormalizedResource:
             AwsResourceMetadata.KMS_POLICY_SOURCE_ADDRESSES: [resource.address] if policy_source_present else [],
             AwsResourceMetadata.KMS_POLICY_POSTURE_UNCERTAINTIES: policy_uncertainties,
             AwsResourceMetadata.KMS_KEY_POLICIES: [policy_record] if policy_record is not None else [],
+            AwsResourceMetadata.KMS_KEY_POLICY_BYPASS_LOCKOUT_SAFETY_CHECK_STATE: (bypass_lockout_safety_check_state),
             AwsResourceMetadata.KMS_POSTURE_UNCERTAINTIES: uncertainties,
         },
     )
@@ -219,6 +229,15 @@ def normalize_kms_key_policy(resource: TerraformResource) -> NormalizedResource:
         completeness_state,
         policy_uncertainties,
     ) = _kms_policy_details(values, unknown_values, uncertainties)
+    bypass_uncertainty_start = len(uncertainties)
+    bypass_lockout_safety_check_state = _kms_bool_state(
+        values,
+        unknown_values,
+        "bypass_policy_lockout_safety_check",
+        uncertainties,
+    )
+    bypass_uncertainties = uncertainties[bypass_uncertainty_start:]
+    policy_source_uncertainties = [*policy_uncertainties, *bypass_uncertainties]
     return NormalizedResource(
         address=resource.address,
         provider=AWS_PROVIDER,
@@ -240,13 +259,8 @@ def normalize_kms_key_policy(resource: TerraformResource) -> NormalizedResource:
             ),
             AwsResourceMetadata.KMS_POLICY_CONFIGURATION_STATE: configuration_state,
             AwsResourceMetadata.KMS_POLICY_COMPLETENESS_STATE: completeness_state,
-            AwsResourceMetadata.KMS_KEY_POLICY_BYPASS_LOCKOUT_SAFETY_CHECK_STATE: _kms_bool_state(
-                values,
-                unknown_values,
-                "bypass_policy_lockout_safety_check",
-                uncertainties,
-            ),
-            AwsResourceMetadata.KMS_KEY_POLICY_POSTURE_UNCERTAINTIES: policy_uncertainties,
+            AwsResourceMetadata.KMS_KEY_POLICY_BYPASS_LOCKOUT_SAFETY_CHECK_STATE: (bypass_lockout_safety_check_state),
+            AwsResourceMetadata.KMS_KEY_POLICY_POSTURE_UNCERTAINTIES: policy_source_uncertainties,
         },
     )
 

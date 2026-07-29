@@ -102,6 +102,8 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-secretsmanager-rotation-not-configured-or-too-long",
         "aws-kms-key-rotation-disabled-or-unknown",
         "aws-kms-key-deletion-window-too-short",
+        "aws-kms-key-policy-lockout-safety-check-bypassed",
+        "aws-kms-grant-broad-authorization",
         "aws-workload-secretsmanager-vpc-endpoint-missing",
         "aws-workload-kms-vpc-endpoint-missing",
         "aws-workload-s3-vpc-endpoint-missing",
@@ -257,6 +259,8 @@ def build_aws_rule_contribution(
         ),
         "aws-kms-key-rotation-disabled-or-unknown": kms_detectors.detect_key_rotation_disabled_or_unknown,
         "aws-kms-key-deletion-window-too-short": kms_detectors.detect_deletion_window_too_short,
+        "aws-kms-key-policy-lockout-safety-check-bypassed": (kms_detectors.detect_policy_lockout_safety_check_bypassed),
+        "aws-kms-grant-broad-authorization": kms_detectors.detect_broad_grant_authorization,
         "aws-workload-secretsmanager-vpc-endpoint-missing": (
             sensitive_endpoint_detectors.detect_missing_secretsmanager_endpoint
         ),
