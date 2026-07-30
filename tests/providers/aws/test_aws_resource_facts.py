@@ -211,6 +211,10 @@ class AwsResourceFactsTests(unittest.TestCase):
                     }
                 ],
                 "iam_assignment_posture_uncertainties": ["arn:aws:iam::111122223333:policy/pending"],
+                "caller_identity_account_id": "111122223333",
+                "caller_identity_account_id_state": "resolved",
+                "caller_identity_user_id": "AIDAEXAMPLE",
+                "caller_identity_posture_uncertainties": ["arn is unknown after planning"],
                 "cloudtrail_s3_bucket_name": "audit-logs",
                 "cloudtrail_s3_key_prefix": "cloudtrail",
                 "cloudtrail_kms_key_id": "arn:aws:kms:us-east-1:111122223333:key/audit",
@@ -496,6 +500,13 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertEqual(
             facts.iam_assignment_posture_uncertainties,
             ["arn:aws:iam::111122223333:policy/pending"],
+        )
+        self.assertEqual(facts.caller_identity_account_id, "111122223333")
+        self.assertEqual(facts.caller_identity_account_id_state, "resolved")
+        self.assertEqual(facts.caller_identity_user_id, "AIDAEXAMPLE")
+        self.assertEqual(
+            facts.caller_identity_posture_uncertainties,
+            ["arn is unknown after planning"],
         )
         self.assertEqual(facts.privileged_access_posture.provider, "aws")
         self.assertEqual(
@@ -784,6 +795,10 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertIsNone(facts.web_acl_association_web_acl_arn)
         self.assertEqual(facts.edge_protection_posture_uncertainties, [])
         self.assertEqual(facts.audit_detection_posture_uncertainties, [])
+        self.assertIsNone(facts.caller_identity_account_id)
+        self.assertIsNone(facts.caller_identity_account_id_state)
+        self.assertIsNone(facts.caller_identity_user_id)
+        self.assertEqual(facts.caller_identity_posture_uncertainties, [])
         self.assertIsNone(facts.cloudtrail_s3_bucket_name)
         self.assertIsNone(facts.cloudtrail_s3_key_prefix)
         self.assertIsNone(facts.cloudtrail_kms_key_id)

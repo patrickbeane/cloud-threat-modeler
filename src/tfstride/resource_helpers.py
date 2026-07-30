@@ -59,7 +59,10 @@ def parse_aws_account_id(value: str | None, *, allow_bare: bool = False) -> str 
     parts = text.split(":")
     if len(parts) < 5:
         return None
-    return parts[4] or None
+    account_id = parts[4]
+    if not account_id.isdigit() or len(account_id) != 12:
+        return None
+    return account_id
 
 
 def _principal_allows_public_access(principal: Any) -> bool:

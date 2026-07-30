@@ -28,6 +28,8 @@ class AwsAccountIdParsingTests(unittest.TestCase):
         self.assertIsNone(parse_aws_account_id(""))
         self.assertIsNone(parse_aws_account_id("lambda.amazonaws.com"))
         self.assertIsNone(parse_aws_account_id("arn:aws"))
+        self.assertIsNone(parse_aws_account_id("arn:aws:iam::not-an-account:role/app"))
+        self.assertIsNone(parse_aws_account_id("arn:aws:iam::1234:role/app"))
 
 
 if __name__ == "__main__":

@@ -248,6 +248,7 @@
         "aws_apigatewayv2_api",
         "aws_apigatewayv2_route",
         "aws_apigatewayv2_stage",
+        "aws_caller_identity",
         "aws_cloudfront_distribution",
         "aws_cloudtrail",
         "aws_config_configuration_recorder",

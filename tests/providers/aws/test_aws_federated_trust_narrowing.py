@@ -30,6 +30,17 @@ def _resource(resource_type: str, name: str, values: dict[str, Any]) -> Terrafor
     )
 
 
+def _caller_identity() -> TerraformResource:
+    return TerraformResource(
+        address="data.aws_caller_identity.current",
+        mode="data",
+        resource_type="aws_caller_identity",
+        name="current",
+        provider_name="registry.terraform.io/hashicorp/aws",
+        values={"account_id": "111122223333"},
+    )
+
+
 def _provider(
     *,
     arn: str,
@@ -166,6 +177,7 @@ class AwsFederatedTrustNarrowingTests(unittest.TestCase):
 
     def test_foreign_account_oidc_trust_preserves_foreign_scope_evidence(self) -> None:
         inventory = _inventory(
+            _caller_identity(),
             _role(_FOREIGN_PROVIDER_ARN, name="foreign_deploy"),
             _provider(arn=_FOREIGN_PROVIDER_ARN, name="foreign"),
         )

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from tfstride.models import NormalizedResource, ResourceInventory, TerraformResource
+from tfstride.providers.aws.account_identity_normalizers import normalize_caller_identity
 from tfstride.providers.aws.api_gateway_normalizers import (
     normalize_api_gateway_authorizer,
     normalize_api_gateway_method,
@@ -89,6 +90,7 @@ from tfstride.providers.aws.network_normalizers import (
     normalize_wafv2_web_acl_association,
 )
 from tfstride.providers.aws.resource_decorator import AwsResourceDecorator
+from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.base import ProviderNormalizer
 from tfstride.resource_helpers import parse_aws_account_id
 from tfstride.resource_metadata import InventoryMetadata
@@ -97,6 +99,7 @@ ResourceNormalizer = Callable[[TerraformResource], NormalizedResource]
 
 _AWS_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     "aws_accessanalyzer_analyzer": normalize_accessanalyzer_analyzer,
+    "aws_caller_identity": normalize_caller_identity,
     "aws_api_gateway_rest_api": normalize_api_gateway_rest_api,
     "aws_api_gateway_method": normalize_api_gateway_method,
     "aws_api_gateway_stage": normalize_api_gateway_stage,
@@ -228,9 +231,45 @@ def _is_aws_resource(resource: TerraformResource) -> bool:
 
 
 def _infer_primary_account_id(resources: list[NormalizedResource]) -> str | None:
-    accounts = Counter(
-        account_id for account_id in (parse_aws_account_id(resource.arn) for resource in resources) if account_id
-    )
-    if not accounts:
+    caller_identity_facts = [
+        aws_facts(resource) for resource in resources if resource.resource_type == "aws_caller_identity"
+    ]
+    caller_states = {facts.caller_identity_account_id_state for facts in caller_identity_facts}
+    if caller_states & {"ambiguous", "invalid"}:
         return None
-    return accounts.most_common(1)[0][0]
+
+    caller_account_ids = {
+        facts.caller_identity_account_id
+        for facts in caller_identity_facts
+        if facts.caller_identity_account_id is not None
+    }
+    if caller_account_ids:
+        if caller_states != {"resolved"} or len(caller_account_ids) != 1:
+            return None
+        return next(iter(caller_account_ids))
+
+    resource_account_ids: set[str] = set()
+    for resource in resources:
+        if resource.resource_type == "aws_caller_identity":
+            continue
+        account_id, invalid_account_segment = _resource_arn_account_evidence(resource.arn)
+        if invalid_account_segment:
+            return None
+        if account_id is not None:
+            resource_account_ids.add(account_id)
+
+    if len(resource_account_ids) != 1:
+        return None
+    return next(iter(resource_account_ids))
+
+
+def _resource_arn_account_evidence(
+    arn: str | None,
+) -> tuple[str | None, bool]:
+    if not arn or not arn.startswith("arn:"):
+        return None, False
+    parts = arn.split(":")
+    if len(parts) < 5 or not parts[4]:
+        return None, False
+    account_id = parse_aws_account_id(arn)
+    return account_id, account_id is None

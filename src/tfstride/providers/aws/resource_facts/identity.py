@@ -13,6 +13,22 @@ class AwsIdentityFacts(AwsBaseFacts):
     __slots__ = ()
 
     @property
+    def caller_identity_account_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.CALLER_IDENTITY_ACCOUNT_ID)
+
+    @property
+    def caller_identity_account_id_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.CALLER_IDENTITY_ACCOUNT_ID_STATE)
+
+    @property
+    def caller_identity_user_id(self) -> str | None:
+        return self.get(AwsResourceMetadata.CALLER_IDENTITY_USER_ID)
+
+    @property
+    def caller_identity_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.CALLER_IDENTITY_POSTURE_UNCERTAINTIES)
+
+    @property
     def oidc_provider_url(self) -> str | None:
         return self.get(AwsResourceMetadata.OIDC_PROVIDER_URL)
 
