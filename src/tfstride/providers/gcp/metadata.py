@@ -80,6 +80,7 @@ class GcpResourceMetadata:
     CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_access_path_uncertainties"
     )
+    CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_operation_path_uncertainties")
     ARTIFACT_REGISTRY_REPOSITORY_PATH = OptionalStringMetadataField("artifact_registry_repository_path")
     ARTIFACT_REGISTRY_WRITE_PATHS = DictListMetadataField("artifact_registry_write_paths")
     CLOUD_FUNCTION_REFERENCE = OptionalStringMetadataField("cloud_function_reference")
@@ -458,5 +459,6 @@ class GcpResourceMetadata:
     CLOUD_RUN_GCS_ACCESS_PATHS = DictListMetadataField("cloud_run_gcs_access_paths")
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
+    CLOUD_RUN_KMS_OPERATION_PATHS = DictListMetadataField("cloud_run_kms_operation_paths")
     NAT_SUBNETWORKS = DictListMetadataField("nat_subnetworks")
     LABELS = DictMetadataField("labels")
