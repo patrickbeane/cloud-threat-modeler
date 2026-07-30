@@ -186,11 +186,13 @@ class AzureNormalizer(ProviderNormalizer):
         unsupported = sorted(
             resource.address for resource in azure_resources if resource.resource_type not in SUPPORTED_AZURE_TYPES
         )
-        normalized = [
-            self._resource_normalizers[resource.resource_type](resource)
-            for resource in azure_resources
-            if resource.resource_type in SUPPORTED_AZURE_TYPES
-        ]
+        normalized = []
+        for resource in azure_resources:
+            if resource.resource_type not in SUPPORTED_AZURE_TYPES:
+                continue
+            normalized_resource = self._resource_normalizers[resource.resource_type](resource)
+            normalized_resource.reference_resolutions = resource.reference_resolutions
+            normalized.append(normalized_resource)
         self._resource_decorator.decorate(normalized)
         for resource in normalized:
             resource.freeze_decoration_state()

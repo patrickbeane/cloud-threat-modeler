@@ -32,7 +32,9 @@ class DecorateKeyVaultRelationshipsStage:
             if resource.resource_type not in _KEY_VAULT_CHILD_TYPES:
                 continue
             facts = azure_facts(resource)
-            vault = context.index.resolve(facts.key_vault_reference)
+            vault = context.index.resources_by_address.get(facts.resolved_key_vault_address or "")
+            if vault is None:
+                vault = context.index.resolve(facts.key_vault_reference)
             if vault is None or vault.resource_type != AzureResourceType.KEY_VAULT:
                 facts.add_unresolved_resource_reference("key_vault", facts.key_vault_reference)
                 continue
@@ -89,7 +91,9 @@ class DecorateKeyVaultRelationshipsStage:
             if role_assignment.resource_type != AzureResourceType.ROLE_ASSIGNMENT:
                 continue
             facts = azure_facts(role_assignment)
-            vault = context.index.resolve(facts.role_assignment_scope)
+            vault = context.index.resources_by_address.get(facts.role_assignment_target_resource_address or "")
+            if vault is None:
+                vault = context.index.resolve(facts.role_assignment_scope)
             if vault is None or vault.resource_type != AzureResourceType.KEY_VAULT:
                 if _looks_like_key_vault_reference(facts.role_assignment_scope):
                     facts.add_unresolved_resource_reference("key_vault_scope", facts.role_assignment_scope)

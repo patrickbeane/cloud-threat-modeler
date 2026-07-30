@@ -60,6 +60,10 @@ class AzureIdentityFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.ATTACHED_IDENTITY_REFERENCES)
 
     @property
+    def resolved_attached_identity_addresses(self) -> list[str]:
+        return self.get(AzureResourceMetadata.RESOLVED_ATTACHED_IDENTITY_ADDRESSES)
+
+    @property
     def managed_identity_uncertainties(self) -> list[str]:
         return self.get(AzureResourceMetadata.MANAGED_IDENTITY_UNCERTAINTIES)
 
@@ -101,6 +105,9 @@ class AzureIdentityFacts(AzureBaseFacts):
 
     def set_resolved_managed_identity_address(self, address: str) -> None:
         self.set(AzureResourceMetadata.RESOLVED_MANAGED_IDENTITY_ADDRESS, address)
+
+    def add_resolved_attached_identity_address(self, address: str) -> None:
+        self.append(AzureResourceMetadata.RESOLVED_ATTACHED_IDENTITY_ADDRESSES, address)
 
     def add_federated_managed_identity_trust_path(self, value: dict[str, object]) -> None:
         paths = self.federated_managed_identity_trust_paths

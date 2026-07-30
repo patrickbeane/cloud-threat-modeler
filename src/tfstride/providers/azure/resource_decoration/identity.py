@@ -8,7 +8,7 @@ from tfstride.providers.azure.iam_assignment_posture import (
     build_azure_privileged_access_posture,
     serialize_privileged_access_posture,
 )
-from tfstride.providers.azure.resource_facts import azure_facts
+from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import (
     AZURE_APP_SERVICE_RESOURCE_TYPES,
@@ -64,8 +64,18 @@ class DecorateManagedIdentityRoleAssignmentsStage:
         facts = azure_facts(role_assignment)
         scope = facts.role_assignment_scope
         target_resource = context.index.resolve(scope)
+        if target_resource is None and facts.role_assignment_target_resource_address:
+            target_resource = context.index.resources_by_address.get(facts.role_assignment_target_resource_address)
         scope_kind = _classify_scope(scope)
-        role_definition = _resolve_custom_role_definition(facts.role_definition_id, role_definition_index)
+        if scope_kind is None and target_resource is not None:
+            scope_kind = "resource"
+
+        role_definition = _resolved_role_definition(facts, context)
+        if role_definition is None:
+            role_definition = _resolve_custom_role_definition(
+                facts.role_definition_id,
+                role_definition_index,
+            )
         if role_definition is not None:
             facts.set_resolved_role_definition_address(role_definition.address)
         elif _looks_like_role_definition_reference(facts.role_definition_id):
@@ -97,8 +107,10 @@ class DecorateManagedIdentityRoleAssignmentsStage:
         )
 
         principal_id = facts.principal_id
-        matches = principal_index.get(_principal_key(principal_id), []) if principal_id else []
-        identity = matches[0] if len(matches) == 1 else None
+        identity = _resolved_managed_identity(facts, context)
+        if identity is None:
+            matches = principal_index.get(_principal_key(principal_id), []) if principal_id else []
+            identity = matches[0] if len(matches) == 1 else None
         privileged_posture = build_azure_privileged_access_posture(
             role_assignment,
             scope_kind=scope_kind,
@@ -127,6 +139,33 @@ class DecorateManagedIdentityRoleAssignmentsStage:
         )
         identity_facts.add_privileged_access_grants(privileged_grants)
         identity_facts.extend_iam_assignment_posture_uncertainties(privileged_posture.unresolved_assignments)
+
+
+def _resolved_role_definition(
+    facts: AzureResourceFacts,
+    context: AzureDecorationContext,
+) -> NormalizedResource | None:
+    address = facts.resolved_role_definition_address
+    candidate = context.index.resources_by_address.get(address or "")
+    if candidate is None or candidate.resource_type != AzureResourceType.ROLE_DEFINITION:
+        return None
+    return candidate
+
+
+def _resolved_managed_identity(
+    facts: AzureResourceFacts,
+    context: AzureDecorationContext,
+) -> NormalizedResource | None:
+    address = facts.resolved_managed_identity_address
+    candidate = context.index.resources_by_address.get(address or "")
+    if candidate is None:
+        return None
+    candidate_facts = azure_facts(candidate)
+    if candidate.resource_type == AzureResourceType.USER_ASSIGNED_IDENTITY:
+        return candidate
+    if candidate.resource_type in _AZURE_WORKLOAD_RESOURCE_TYPES and candidate_facts.has_system_assigned_identity:
+        return candidate
+    return None
 
 
 def _managed_identities_by_principal_id(

@@ -11,6 +11,7 @@ from tfstride.providers.azure.resource_utils import azure_reference_key, azure_r
 
 @dataclass(frozen=True, slots=True)
 class AzureResourceIndex:
+    resources_by_address: Mapping[str, NormalizedResource]
     resources_by_reference: Mapping[str, NormalizedResource]
     virtual_networks: Mapping[str, NormalizedResource]
     subnets: Mapping[str, NormalizedResource]
@@ -32,6 +33,7 @@ class AzureDecorationContext:
 
 class AzureResourceIndexBuilder:
     def build(self, resources: list[NormalizedResource]) -> AzureResourceIndex:
+        resources_by_address = {resource.address: resource for resource in resources}
         resources_by_reference: dict[str, NormalizedResource] = {}
         virtual_networks: dict[str, NormalizedResource] = {}
         subnets: dict[str, NormalizedResource] = {}
@@ -65,6 +67,7 @@ class AzureResourceIndexBuilder:
                 nic_nsg_associations.append(resource)
 
         return AzureResourceIndex(
+            resources_by_address=MappingProxyType(resources_by_address),
             resources_by_reference=MappingProxyType(resources_by_reference),
             virtual_networks=MappingProxyType(virtual_networks),
             subnets=MappingProxyType(subnets),

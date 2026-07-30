@@ -20,12 +20,26 @@ def workload_managed_identities(
             uncertainties.append(f"{workload.address}: system-assigned identity principal_id is unresolved")
 
     if facts.has_user_assigned_identity:
-        if not facts.attached_identity_references:
+        resolved_addresses = facts.resolved_attached_identity_addresses
+        if not facts.attached_identity_references and not resolved_addresses:
             uncertainties.append(f"{workload.address}: user-assigned identity references are unresolved")
+        seen_addresses: set[str] = set()
+        for address in resolved_addresses:
+            identity = context.index.resources_by_address.get(address)
+            if identity is None or identity.resource_type != AzureResourceType.USER_ASSIGNED_IDENTITY:
+                uncertainties.append(f"{workload.address}: user-assigned identity {address} is not modeled")
+                continue
+            if not azure_facts(identity).principal_id:
+                uncertainties.append(f"{workload.address}: {identity.address} principal_id is unresolved")
+                continue
+            identities.append((identity, "user_assigned"))
+            seen_addresses.add(identity.address)
         for reference in facts.attached_identity_references:
             identity = context.index.resolve(reference)
             if identity is None or identity.resource_type != AzureResourceType.USER_ASSIGNED_IDENTITY:
                 uncertainties.append(f"{workload.address}: user-assigned identity {reference} is not modeled")
+                continue
+            if identity.address in seen_addresses:
                 continue
             if not azure_facts(identity).principal_id:
                 uncertainties.append(f"{workload.address}: {identity.address} principal_id is unresolved")

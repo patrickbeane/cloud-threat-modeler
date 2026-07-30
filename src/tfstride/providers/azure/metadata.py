@@ -266,6 +266,7 @@ class AzureResourceMetadata:
     PRINCIPAL_ID = OptionalStringMetadataField("principal_id")
     PRINCIPAL_TYPE = OptionalStringMetadataField("principal_type")
     RESOLVED_MANAGED_IDENTITY_ADDRESS = OptionalStringMetadataField("resolved_managed_identity_address")
+    RESOLVED_ATTACHED_IDENTITY_ADDRESSES = StringListMetadataField("resolved_attached_identity_addresses")
     RESOLVED_ROLE_DEFINITION_ADDRESS = OptionalStringMetadataField("resolved_role_definition_address")
     ROLE_ASSIGNMENT_SCOPE_KIND = OptionalStringMetadataField("role_assignment_scope_kind")
     ROLE_ASSIGNMENT_TARGET_RESOURCE_ADDRESS = OptionalStringMetadataField("role_assignment_target_resource_address")

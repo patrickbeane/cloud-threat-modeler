@@ -199,7 +199,13 @@ class DecorateCosmosDbNoSqlRelationshipsStage:
             facts.set_cosmosdb_sql_role_data_actions(list(data_actions))
             return
 
-        role_definition = index.resolve_role_definition(reference, account)
+        role_definition = index.resources_by_address.get(facts.resolved_cosmosdb_sql_role_definition_address or "")
+        if (
+            role_definition is None
+            or role_definition.resource_type != AzureResourceType.COSMOSDB_SQL_ROLE_DEFINITION
+            or index.account_address_by_resource.get(role_definition.address) != account.address
+        ):
+            role_definition = index.resolve_role_definition(reference, account)
         if role_definition is None:
             facts.extend_cosmosdb_sql_rbac_uncertainties(
                 [f"{assignment.address}: custom native role definition {reference or 'unknown'} is unresolved"]

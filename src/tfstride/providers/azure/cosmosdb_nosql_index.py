@@ -244,7 +244,12 @@ class AzureCosmosDbNoSqlIndexBuilder:
                 AzureResourceType.COSMOSDB_SQL_ROLE_ASSIGNMENT,
             }:
                 continue
-            account = _resolve_parent_account(resource, exact_references, accounts_by_identity)
+            account = _resolve_parent_account(
+                resource,
+                resources_by_address,
+                exact_references,
+                accounts_by_identity,
+            )
             if account is not None:
                 account_address_by_resource[resource.address] = account.address
 
@@ -273,6 +278,7 @@ class AzureCosmosDbNoSqlIndexBuilder:
             database = _resolve_parent_database(
                 resource,
                 account_address,
+                resources_by_address,
                 account_address_by_resource,
                 exact_references,
                 frozen_databases,
@@ -361,10 +367,14 @@ def _accounts_by_identity(
 
 def _resolve_parent_account(
     resource: NormalizedResource,
+    resources_by_address: Mapping[str, NormalizedResource],
     exact_references: Mapping[str, list[NormalizedResource]],
     accounts_by_identity: Mapping[tuple[str, str], list[NormalizedResource]],
 ) -> NormalizedResource | None:
     facts = azure_facts(resource)
+    resolved_account = resources_by_address.get(facts.resolved_cosmosdb_account_address or "")
+    if resolved_account is not None and resolved_account.resource_type == AzureResourceType.COSMOSDB_ACCOUNT:
+        return resolved_account
     account_reference = facts.cosmosdb_account_name
     reference_matches = [
         candidate
@@ -390,11 +400,21 @@ def _resolve_parent_account(
 def _resolve_parent_database(
     container: NormalizedResource,
     account_address: str | None,
+    resources_by_address: Mapping[str, NormalizedResource],
     account_address_by_resource: Mapping[str, str],
     exact_references: Mapping[str, list[NormalizedResource]],
     databases_by_identity: Mapping[tuple[str, str], tuple[NormalizedResource, ...]],
 ) -> NormalizedResource | None:
-    database_reference = azure_facts(container).cosmosdb_sql_database_name
+    facts = azure_facts(container)
+    resolved_database = resources_by_address.get(facts.resolved_cosmosdb_database_address or "")
+    if (
+        resolved_database is not None
+        and resolved_database.resource_type == AzureResourceType.COSMOSDB_SQL_DATABASE
+        and account_address is not None
+        and account_address_by_resource.get(resolved_database.address) == account_address
+    ):
+        return resolved_database
+    database_reference = facts.cosmosdb_sql_database_name
     reference_matches = [
         candidate
         for candidate in exact_references.get(_reference_key(database_reference), ())

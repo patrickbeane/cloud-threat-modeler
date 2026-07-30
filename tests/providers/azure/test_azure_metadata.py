@@ -226,6 +226,7 @@ class AzureResourceMetadataTests(unittest.TestCase):
             "PRINCIPAL_ID",
             "PRINCIPAL_TYPE",
             "RESOLVED_MANAGED_IDENTITY_ADDRESS",
+            "RESOLVED_ATTACHED_IDENTITY_ADDRESSES",
             "RESOLVED_ROLE_DEFINITION_ADDRESS",
             "ROLE_ASSIGNMENT_SCOPE_KIND",
             "ROLE_ASSIGNMENT_TARGET_RESOURCE_ADDRESS",
