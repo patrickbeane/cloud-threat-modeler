@@ -26,7 +26,6 @@ class _ResourceBinding:
     configuration_address: str
     configuration: Mapping[str, Any]
     instances: tuple[TerraformResource, ...]
-    mapping_state: TerraformReferenceResolutionState | None
 
 
 @dataclass(slots=True)
@@ -35,7 +34,6 @@ class _ModuleContext:
     planned: _PlannedModule
     parent: _ModuleContext | None
     input_expressions: Mapping[str, Any]
-    mapping_state: TerraformReferenceResolutionState | None
     bindings: dict[str, _ResourceBinding]
 
 
@@ -61,7 +59,6 @@ def attach_configuration_reference_resolutions(
         planned_root,
         parent=None,
         input_expressions={},
-        mapping_state=None,
     )
 
 
@@ -106,14 +103,12 @@ def _process_module(
     *,
     parent: _ModuleContext | None,
     input_expressions: Mapping[str, Any],
-    mapping_state: TerraformReferenceResolutionState | None,
 ) -> None:
     context = _ModuleContext(
         configuration=configuration,
         planned=planned,
         parent=parent,
         input_expressions=input_expressions,
-        mapping_state=mapping_state,
         bindings=_resource_bindings(configuration, planned),
     )
 
@@ -134,11 +129,6 @@ def _process_module(
         if not child_modules:
             continue
 
-        child_mapping_state = _merge_mapping_states(
-            mapping_state,
-            _expansion_state(raw_call),
-            TerraformReferenceResolutionState.AMBIGUOUS if len(child_modules) > 1 else None,
-        )
         child_inputs = raw_call.get("expressions", {})
         if not isinstance(child_inputs, Mapping):
             child_inputs = {}
@@ -148,7 +138,6 @@ def _process_module(
                 child_module,
                 parent=context,
                 input_expressions=child_inputs,
-                mapping_state=child_mapping_state,
             )
 
 
@@ -176,15 +165,10 @@ def _resource_bindings(
             for resource in planned.resources
             if resource.resource_type == resource_type and resource.name == name and resource.mode == mode
         )
-        mapping_state = _merge_mapping_states(
-            _expansion_state(raw_resource),
-            TerraformReferenceResolutionState.AMBIGUOUS if len(instances) > 1 else None,
-        )
         bindings[address] = _ResourceBinding(
             configuration_address=address,
             configuration=raw_resource,
             instances=instances,
-            mapping_state=mapping_state,
         )
     return bindings
 
@@ -203,22 +187,6 @@ def _planned_children_for_call(
     )
 
 
-def _expansion_state(configuration: Mapping[str, Any]) -> TerraformReferenceResolutionState | None:
-    if "count_expression" in configuration or "for_each_expression" in configuration:
-        return TerraformReferenceResolutionState.UNSUPPORTED
-    return None
-
-
-def _merge_mapping_states(
-    *states: TerraformReferenceResolutionState | None,
-) -> TerraformReferenceResolutionState | None:
-    if TerraformReferenceResolutionState.UNSUPPORTED in states:
-        return TerraformReferenceResolutionState.UNSUPPORTED
-    if TerraformReferenceResolutionState.AMBIGUOUS in states:
-        return TerraformReferenceResolutionState.AMBIGUOUS
-    return None
-
-
 def _attach_resource_resolutions(
     resource: TerraformResource,
     binding: _ResourceBinding,
@@ -228,7 +196,8 @@ def _attach_resource_resolutions(
     if not isinstance(expressions, Mapping):
         return
 
-    source_mapping_state = _merge_mapping_states(context.mapping_state, binding.mapping_state)
+    # Source expansion alone does not determine relationship confidence;
+    # target cardinality and unresolved expression evidence do.
     resolutions = list(resource.reference_resolutions)
     for path, expression in _reference_expressions(expressions):
         configuration_resolution = _resolve_configuration_expression(expression, context, seen=frozenset())
@@ -251,19 +220,6 @@ def _attach_resource_resolutions(
                 references=configuration_resolution.references,
                 targets=configuration_resolution.targets,
                 reason="referenced expression is not represented as a planned value or unknown path",
-            )
-        elif source_mapping_state is not None:
-            resolution = TerraformReferenceResolution(
-                path=path,
-                state=source_mapping_state,
-                provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
-                references=configuration_resolution.references,
-                targets=configuration_resolution.targets,
-                reason=(
-                    "configuration block uses count, for_each, or an expanded module instance"
-                    if source_mapping_state is TerraformReferenceResolutionState.UNSUPPORTED
-                    else "configuration block maps to multiple planned resource instances"
-                ),
             )
         else:
             resolution = TerraformReferenceResolution(
@@ -343,14 +299,11 @@ def _resolve_configuration_expression(
         matched[1].append(reference)
 
     targets_by_address: dict[str, TerraformReferenceTarget] = {}
-    candidate_state: TerraformReferenceResolutionState | None = None
     unresolved_binding = False
     selected_references = set(_maximal_references(unmatched))
     for binding, binding_references in matched_bindings.values():
         maximal_binding_references = _maximal_references(binding_references)
         selected_references.update(maximal_binding_references)
-        target_mapping_state = _merge_mapping_states(context.mapping_state, binding.mapping_state)
-        candidate_state = _merge_mapping_states(candidate_state, target_mapping_state)
         if not binding.instances:
             unresolved_binding = True
             continue
@@ -364,20 +317,6 @@ def _resolve_configuration_expression(
     maximal_references = tuple(reference for reference in references if reference in selected_references)
     targets = tuple(sorted(targets_by_address.values(), key=lambda target: target.address))
 
-    if candidate_state is TerraformReferenceResolutionState.UNSUPPORTED:
-        return _configuration_result(
-            TerraformReferenceResolutionState.UNSUPPORTED,
-            references=maximal_references,
-            targets=targets,
-            reason="referenced resource uses count, for_each, or an expanded module instance",
-        )
-    if candidate_state is TerraformReferenceResolutionState.AMBIGUOUS:
-        return _configuration_result(
-            TerraformReferenceResolutionState.AMBIGUOUS,
-            references=maximal_references,
-            targets=targets,
-            reason="referenced configuration block maps to multiple planned resource instances",
-        )
     if len(targets) > 1 or (targets and (unmatched or unresolved_binding)):
         return _configuration_result(
             TerraformReferenceResolutionState.AMBIGUOUS,

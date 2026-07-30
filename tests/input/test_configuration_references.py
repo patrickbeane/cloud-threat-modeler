@@ -260,6 +260,20 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                                 "aws_target.items",
                             ]
                         },
+                        "indexed_target": {
+                            "references": [
+                                "aws_target.items.id",
+                                "aws_target.items",
+                                "each.key",
+                            ]
+                        },
+                        "selector_target": {
+                            "references": [
+                                "aws_target.shared.id",
+                                "aws_target.shared",
+                                "each.key",
+                            ]
+                        },
                     },
                     for_each_expression={"references": ["var.environments"]},
                 ),
@@ -268,6 +282,8 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                 address: {
                     "shared_target": True,
                     "expanded_target": True,
+                    "indexed_target": True,
+                    "selector_target": True,
                 }
                 for address in source_addresses
             },
@@ -278,7 +294,13 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
             with self.subTest(source=source_address):
                 shared = resources[source_address].reference_resolution("shared_target")
                 expanded = resources[source_address].reference_resolution("expanded_target")
+                indexed = resources[source_address].reference_resolution("indexed_target")
+                selector = resources[source_address].reference_resolution("selector_target")
 
+                self.assertEqual(
+                    shared.state,
+                    TerraformReferenceResolutionState.SYMBOLIC,
+                )
                 self.assertEqual(
                     shared.provenance,
                     TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
@@ -287,6 +309,11 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                 self.assertEqual(
                     [target.address for target in shared.targets],
                     ["aws_target.shared"],
+                )
+                self.assertIn("one modeled resource", shared.reason or "")
+                self.assertEqual(
+                    expanded.state,
+                    TerraformReferenceResolutionState.AMBIGUOUS,
                 )
                 self.assertEqual(
                     expanded.provenance,
@@ -297,6 +324,33 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                     [target.address for target in expanded.targets],
                     list(target_addresses),
                 )
+                self.assertIn("multiple possible targets", expanded.reason or "")
+                self.assertEqual(
+                    indexed.state,
+                    TerraformReferenceResolutionState.AMBIGUOUS,
+                )
+                self.assertEqual(
+                    indexed.references,
+                    ("aws_target.items.id", "each.key"),
+                )
+                self.assertEqual(
+                    [target.address for target in indexed.targets],
+                    list(target_addresses),
+                )
+                self.assertIn("multiple possible targets", indexed.reason or "")
+                self.assertEqual(
+                    selector.state,
+                    TerraformReferenceResolutionState.AMBIGUOUS,
+                )
+                self.assertEqual(
+                    selector.references,
+                    ("aws_target.shared.id", "each.key"),
+                )
+                self.assertEqual(
+                    [target.address for target in selector.targets],
+                    ["aws_target.shared"],
+                )
+                self.assertIn("multiple possible targets", selector.reason or "")
 
     def test_expanded_module_sources_preserve_input_relationship_candidates(self) -> None:
         module_addresses = (
@@ -393,6 +447,10 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                 expanded = resources[source_address].reference_resolution("expanded_target")
 
                 self.assertEqual(
+                    shared.state,
+                    TerraformReferenceResolutionState.SYMBOLIC,
+                )
+                self.assertEqual(
                     shared.provenance,
                     TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
                 )
@@ -400,6 +458,11 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                 self.assertEqual(
                     [target.address for target in shared.targets],
                     ["aws_target.shared"],
+                )
+                self.assertIn("module input var.shared_target", shared.reason or "")
+                self.assertEqual(
+                    expanded.state,
+                    TerraformReferenceResolutionState.AMBIGUOUS,
                 )
                 self.assertEqual(
                     expanded.provenance,
@@ -410,13 +473,15 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                     [target.address for target in expanded.targets],
                     list(target_addresses),
                 )
+                self.assertIn("multiple possible targets", expanded.reason or "")
 
-    def test_count_and_for_each_resource_expansions_are_unsupported(self) -> None:
+    def test_count_source_and_single_expanded_target_resolve_symbolically(self) -> None:
         payload = _root_plan(
             planned_resources=[
                 _planned_resource("aws_target.exact", "aws_target", "exact", {}),
                 _planned_resource('aws_target.items["one"]', "aws_target", "items", {}),
                 _planned_resource("aws_consumer.counted[0]", "aws_consumer", "counted", {}),
+                _planned_resource("aws_consumer.counted[1]", "aws_consumer", "counted", {}),
                 _planned_resource("aws_consumer.expanded_target", "aws_consumer", "expanded_target", {}),
             ],
             configuration_resources=[
@@ -439,7 +504,7 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
                             ]
                         }
                     },
-                    count_expression={"constant_value": 1},
+                    count_expression={"constant_value": 2},
                 ),
                 _configuration_resource(
                     "aws_consumer.expanded_target",
@@ -457,20 +522,33 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
             ],
             unknown_values={
                 "aws_consumer.counted[0]": {"target": True},
+                "aws_consumer.counted[1]": {"target": True},
                 "aws_consumer.expanded_target": {"target": True},
             },
         )
 
         resources = _load_resources(payload)
-        counted = resources["aws_consumer.counted[0]"].reference_resolution("target")
-        expanded_target = resources["aws_consumer.expanded_target"].reference_resolution("target")
+        for source_address in (
+            "aws_consumer.counted[0]",
+            "aws_consumer.counted[1]",
+        ):
+            with self.subTest(source=source_address):
+                counted = resources[source_address].reference_resolution("target")
+                self.assertEqual(
+                    counted.state,
+                    TerraformReferenceResolutionState.SYMBOLIC,
+                )
+                self.assertEqual(
+                    [target.address for target in counted.targets],
+                    ["aws_target.exact"],
+                )
+                self.assertIn("one modeled resource", counted.reason or "")
 
-        self.assertEqual(counted.state, TerraformReferenceResolutionState.UNSUPPORTED)
+        expanded_target = resources["aws_consumer.expanded_target"].reference_resolution("target")
         self.assertEqual(
-            [target.address for target in counted.targets],
-            ["aws_target.exact"],
+            expanded_target.state,
+            TerraformReferenceResolutionState.SYMBOLIC,
         )
-        self.assertEqual(expanded_target.state, TerraformReferenceResolutionState.UNSUPPORTED)
         self.assertEqual(
             expanded_target.references,
             ('aws_target.items["one"].id',),
@@ -479,8 +557,9 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
             [target.address for target in expanded_target.targets],
             ['aws_target.items["one"]'],
         )
+        self.assertIn("one modeled resource", expanded_target.reason or "")
 
-    def test_for_each_module_input_pass_through_is_unsupported(self) -> None:
+    def test_for_each_module_input_pass_through_resolves_symbolically(self) -> None:
         child_address = 'module.consumers["one"].aws_consumer.this'
         payload = _root_plan(
             planned_resources=[
@@ -526,12 +605,16 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
 
         resolution = _load_resources(payload)[child_address].reference_resolution("target")
 
-        self.assertEqual(resolution.state, TerraformReferenceResolutionState.UNSUPPORTED)
+        self.assertEqual(
+            resolution.state,
+            TerraformReferenceResolutionState.SYMBOLIC,
+        )
         self.assertEqual(resolution.references, ("var.target",))
         self.assertEqual(
             [(target.address, target.reference) for target in resolution.targets],
             [("aws_target.exact", "aws_target.exact.id")],
         )
+        self.assertIn("module input var.target", resolution.reason or "")
 
 
 def _root_plan(
