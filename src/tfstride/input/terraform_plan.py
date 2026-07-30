@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from tfstride.input.configuration_references import attach_configuration_reference_resolutions
 from tfstride.models import TerraformPlan, TerraformResource
 
 
@@ -47,6 +48,11 @@ def load_terraform_plan(path: str | Path) -> TerraformPlan:
         plan_path=plan_path,
         module_path="planned_values.root_module",
         unknown_values_by_address=unknown_values_by_address,
+    )
+    attach_configuration_reference_resolutions(
+        payload.get("configuration"),
+        root_module,
+        resources,
     )
     return TerraformPlan(
         source_path=str(plan_path),

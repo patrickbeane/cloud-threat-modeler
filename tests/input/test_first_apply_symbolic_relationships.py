@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from tfstride.input.terraform_plan import load_terraform_plan
+from tfstride.models import TerraformReferenceProvenance, TerraformReferenceResolutionState
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _AWS_FIXTURE = _REPOSITORY_ROOT / "fixtures/aws/sample_aws_first_apply_symbolic_plan.json"
@@ -14,7 +15,7 @@ _AZURE_FIXTURE = _REPOSITORY_ROOT / "fixtures/azure/sample_azure_first_apply_sym
 
 
 class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
-    """Characterize sanitized real Terraform show-json without resolving relationships.
+    """Pin symbolic relationship resolution in sanitized real Terraform show-json.
 
     Fixtures were generated with Terraform 1.8.5 and AWS 5.55.0, Google
     5.34.0, and AzureRM 3.108.0. Offline credential expressions were removed.
@@ -53,6 +54,37 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "aws_lb_target_group.direct",
             ],
         )
+        direct_resolution = direct.reference_resolution(
+            "load_balancer",
+            0,
+            "target_group_arn",
+        )
+        self.assertEqual(direct_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(
+            direct_resolution.provenance,
+            TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+        )
+        self.assertEqual(
+            direct_resolution.references,
+            ("aws_lb_target_group.direct.arn",),
+        )
+        self.assertEqual(
+            [target.address for target in direct_resolution.targets],
+            ["aws_lb_target_group.direct"],
+        )
+        security_group_resolution = direct.reference_resolution(
+            "network_configuration",
+            0,
+            "security_groups",
+        )
+        self.assertEqual(
+            security_group_resolution.state,
+            TerraformReferenceResolutionState.SYMBOLIC,
+        )
+        self.assertEqual(
+            [target.address for target in security_group_resolution.targets],
+            ["aws_security_group.service"],
+        )
 
         ambiguous_config = _configuration_resource(
             root_config,
@@ -69,6 +101,23 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "aws_lb_target_group.alternate",
             ],
         )
+        ambiguous_resolution = resources["aws_ecs_service.ambiguous"].reference_resolution(
+            "load_balancer",
+            0,
+            "target_group_arn",
+        )
+        self.assertEqual(
+            ambiguous_resolution.state,
+            TerraformReferenceResolutionState.AMBIGUOUS,
+        )
+        self.assertEqual(
+            ambiguous_resolution.references,
+            (
+                "aws_lb_target_group.selector.arn",
+                "aws_lb_target_group.direct.arn",
+                "aws_lb_target_group.alternate.arn",
+            ),
+        )
 
         concrete_arn = "arn:aws:elasticloadbalancing:us-east-1:111122223333:targetgroup/existing/0123456789abcdef"
         concrete = resources["aws_ecs_service.concrete"]
@@ -84,6 +133,17 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
             concrete_config["expressions"]["load_balancer"][0]["target_group_arn"]["constant_value"],
             concrete_arn,
         )
+        concrete_resolution = concrete.reference_resolution(
+            "load_balancer",
+            0,
+            "target_group_arn",
+        )
+        self.assertEqual(concrete_resolution.state, TerraformReferenceResolutionState.RESOLVED)
+        self.assertEqual(
+            concrete_resolution.provenance,
+            TerraformReferenceProvenance.PLANNED_VALUE,
+        )
+        self.assertEqual(concrete_resolution.planned_value, concrete_arn)
 
         module_call = root_config["module_calls"]["passed"]
         self.assertEqual(
@@ -109,6 +169,17 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
         self.assertIs(
             module_resource.unknown_values["load_balancer"][0]["target_group_arn"],
             True,
+        )
+        module_resolution = module_resource.reference_resolution(
+            "load_balancer",
+            0,
+            "target_group_arn",
+        )
+        self.assertEqual(module_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(module_resolution.references, ("var.target_group_arn",))
+        self.assertEqual(
+            [(target.address, target.reference) for target in module_resolution.targets],
+            [("aws_lb_target_group.passed", "aws_lb_target_group.passed.arn")],
         )
 
     def test_gcp_first_apply_relationship_shapes(self) -> None:
@@ -136,6 +207,17 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "google_pubsub_topic.direct",
             ],
         )
+        direct_resolution = direct.reference_resolution("topic")
+        self.assertEqual(direct_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(
+            direct_resolution.provenance,
+            TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+        )
+        self.assertEqual(direct_resolution.references, ("google_pubsub_topic.direct.id",))
+        self.assertEqual(
+            [target.address for target in direct_resolution.targets],
+            ["google_pubsub_topic.direct"],
+        )
 
         binding_config = _configuration_resource(
             root_config,
@@ -147,6 +229,12 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "google_service_account.runtime.email",
                 "google_service_account.runtime",
             ],
+        )
+        member_resolution = iam_binding.reference_resolution("members")
+        self.assertEqual(member_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(
+            [target.address for target in member_resolution.targets],
+            ["google_service_account.runtime"],
         )
 
         ambiguous_config = _configuration_resource(
@@ -176,6 +264,16 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
             concrete_config["expressions"]["topic"]["constant_value"],
             concrete_topic,
         )
+        concrete_resolution = concrete.reference_resolution("topic")
+        self.assertEqual(
+            concrete_resolution.provenance,
+            TerraformReferenceProvenance.PLANNED_VALUE,
+        )
+        self.assertEqual(concrete_resolution.planned_value, concrete_topic)
+        self.assertEqual(
+            resources["google_pubsub_subscription.ambiguous"].reference_resolution("topic").state,
+            TerraformReferenceResolutionState.AMBIGUOUS,
+        )
 
         module_call = root_config["module_calls"]["passed"]
         self.assertEqual(
@@ -196,6 +294,13 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
         module_resource = resources["module.passed.google_pubsub_subscription.this"]
         self.assertNotIn("topic", module_resource.values)
         self.assertIs(module_resource.unknown_values["topic"], True)
+        module_resolution = module_resource.reference_resolution("topic")
+        self.assertEqual(module_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(module_resolution.references, ("var.topic",))
+        self.assertEqual(
+            [(target.address, target.reference) for target in module_resolution.targets],
+            [("google_pubsub_topic.passed", "google_pubsub_topic.passed.id")],
+        )
 
     def test_azure_first_apply_relationship_shapes(self) -> None:
         payload = _load_payload(_AZURE_FIXTURE)
@@ -222,6 +327,16 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "azurerm_storage_account.direct",
             ],
         )
+        direct_resolution = direct.reference_resolution("scope")
+        self.assertEqual(direct_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(
+            direct_resolution.provenance,
+            TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+        )
+        self.assertEqual(
+            [target.address for target in direct_resolution.targets],
+            ["azurerm_storage_account.direct"],
+        )
 
         role_definition_config = _configuration_resource(
             root_config,
@@ -233,6 +348,15 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
                 "azurerm_storage_account.direct.id",
                 "azurerm_storage_account.direct",
             ],
+        )
+        assignable_scope_resolution = role_definition.reference_resolution("assignable_scopes")
+        self.assertEqual(
+            assignable_scope_resolution.state,
+            TerraformReferenceResolutionState.SYMBOLIC,
+        )
+        self.assertEqual(
+            [target.address for target in assignable_scope_resolution.targets],
+            ["azurerm_storage_account.direct"],
         )
 
         ambiguous_config = _configuration_resource(
@@ -266,6 +390,16 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
             concrete_config["expressions"]["scope"]["constant_value"],
             concrete_scope,
         )
+        concrete_resolution = concrete.reference_resolution("scope")
+        self.assertEqual(
+            concrete_resolution.provenance,
+            TerraformReferenceProvenance.PLANNED_VALUE,
+        )
+        self.assertEqual(concrete_resolution.planned_value, concrete_scope)
+        self.assertEqual(
+            resources["azurerm_role_assignment.ambiguous"].reference_resolution("scope").state,
+            TerraformReferenceResolutionState.AMBIGUOUS,
+        )
 
         module_call = root_config["module_calls"]["passed"]
         self.assertEqual(
@@ -286,6 +420,13 @@ class FirstApplySymbolicRelationshipFixtureTests(unittest.TestCase):
         module_resource = resources["module.passed.azurerm_role_assignment.this"]
         self.assertNotIn("scope", module_resource.values)
         self.assertIs(module_resource.unknown_values["scope"], True)
+        module_resolution = module_resource.reference_resolution("scope")
+        self.assertEqual(module_resolution.state, TerraformReferenceResolutionState.SYMBOLIC)
+        self.assertEqual(module_resolution.references, ("var.scope",))
+        self.assertEqual(
+            [(target.address, target.reference) for target in module_resolution.targets],
+            [("azurerm_storage_account.passed", "azurerm_storage_account.passed.id")],
+        )
 
     def test_fixtures_are_real_terraform_show_json_documents(self) -> None:
         for fixture in (_AWS_FIXTURE, _GCP_FIXTURE, _AZURE_FIXTURE):

@@ -88,6 +88,42 @@ class BoundaryType(str, Enum):
     CONTROL_TO_WORKLOAD = "admin-to-workload-plane"
 
 
+class TerraformReferenceResolutionState(str, Enum):
+    """Confidence in a planned value or configuration-reference relationship."""
+
+    RESOLVED = "resolved"
+    SYMBOLIC = "symbolic"
+    AMBIGUOUS = "ambiguous"
+    UNRESOLVED = "unresolved"
+    UNSUPPORTED = "unsupported"
+
+
+class TerraformReferenceProvenance(str, Enum):
+    PLANNED_VALUE = "planned_value"
+    CONFIGURATION_REFERENCE = "configuration_reference"
+
+
+TerraformExpressionPathSegment = str | int
+TerraformExpressionPath = tuple[TerraformExpressionPathSegment, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class TerraformReferenceTarget:
+    address: str
+    reference: str
+
+
+@dataclass(frozen=True, slots=True)
+class TerraformReferenceResolution:
+    path: TerraformExpressionPath
+    state: TerraformReferenceResolutionState
+    provenance: TerraformReferenceProvenance | None
+    planned_value: Any = None
+    references: tuple[str, ...] = ()
+    targets: tuple[TerraformReferenceTarget, ...] = ()
+    reason: str | None = None
+
+
 @dataclass(slots=True)
 class TerraformResource:
     address: str
@@ -97,6 +133,43 @@ class TerraformResource:
     provider_name: str
     values: dict[str, Any]
     unknown_values: dict[str, Any] = field(default_factory=dict)
+    reference_resolutions: tuple[TerraformReferenceResolution, ...] = field(default_factory=tuple)
+
+    def reference_resolution(
+        self,
+        *path: TerraformExpressionPathSegment,
+    ) -> TerraformReferenceResolution:
+        normalized_path = tuple(path)
+        for resolution in self.reference_resolutions:
+            if resolution.path == normalized_path:
+                return resolution
+
+        planned_value = _value_at_expression_path(self.values, normalized_path)
+        if planned_value is not _MISSING and not _expression_path_is_unknown(
+            self.unknown_values,
+            normalized_path,
+        ):
+            return TerraformReferenceResolution(
+                path=normalized_path,
+                state=TerraformReferenceResolutionState.RESOLVED,
+                provenance=TerraformReferenceProvenance.PLANNED_VALUE,
+                planned_value=planned_value,
+            )
+
+        if _expression_path_is_unknown(self.unknown_values, normalized_path):
+            return TerraformReferenceResolution(
+                path=normalized_path,
+                state=TerraformReferenceResolutionState.UNSUPPORTED,
+                provenance=None,
+                reason="configuration expression is unavailable for an unknown planned value",
+            )
+
+        return TerraformReferenceResolution(
+            path=normalized_path,
+            state=TerraformReferenceResolutionState.UNRESOLVED,
+            provenance=None,
+            reason="planned value path is not represented",
+        )
 
 
 @dataclass(slots=True)
@@ -104,6 +177,75 @@ class TerraformPlan:
     source_path: str
     terraform_version: str | None
     resources: list[TerraformResource]
+
+
+_MISSING = object()
+
+
+def _value_at_expression_path(
+    value: Any,
+    path: TerraformExpressionPath,
+) -> Any:
+    current = value
+    for segment in path:
+        if isinstance(segment, str) and isinstance(current, Mapping):
+            if segment not in current:
+                return _MISSING
+            current = current[segment]
+            continue
+        if (
+            isinstance(segment, int)
+            and isinstance(current, Sequence)
+            and not isinstance(
+                current,
+                str | bytes | bytearray,
+            )
+        ):
+            if segment < 0 or segment >= len(current):
+                return _MISSING
+            current = current[segment]
+            continue
+        return _MISSING
+    return current
+
+
+def _expression_path_is_unknown(
+    unknown_values: Mapping[str, Any],
+    path: TerraformExpressionPath,
+) -> bool:
+    current: Any = unknown_values
+    for segment in path:
+        if current is True:
+            return True
+        if isinstance(segment, str) and isinstance(current, Mapping):
+            if segment not in current:
+                return False
+            current = current[segment]
+            continue
+        if (
+            isinstance(segment, int)
+            and isinstance(current, Sequence)
+            and not isinstance(
+                current,
+                str | bytes | bytearray,
+            )
+        ):
+            if segment < 0 or segment >= len(current):
+                return False
+            current = current[segment]
+            continue
+        return False
+    return _contains_unknown_value(current)
+
+
+def _contains_unknown_value(value: Any) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, Mapping):
+        return any(_contains_unknown_value(item) for item in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        return any(_contains_unknown_value(item) for item in value)
+    return False
 
 
 @dataclass(slots=True)
