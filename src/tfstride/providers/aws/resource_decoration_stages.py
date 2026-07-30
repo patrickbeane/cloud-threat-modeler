@@ -13,6 +13,10 @@ from tfstride.providers.aws.resource_decoration.ecs_dynamodb_access_paths import
     ModelEcsDynamoDbAccessPathsStage,
     ProjectEcsDynamoDbAccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_kms_operation_paths import (
+    ModelEcsKmsOperationPathsStage,
+    ProjectEcsKmsOperationPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_messaging_access_paths import (
     ModelEcsMessagingAccessPathsStage,
     ProjectEcsMessagingAccessPathsOntoServicesStage,
@@ -74,9 +78,11 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         NormalizeIamAssignmentPostureStage(),
         DecorateKmsRelationshipsStage(),
         ModelKmsOperationAuthorizationStage(),
+        ModelEcsKmsOperationPathsStage(),
         ResolveInstanceProfileRolesStage(),
         ResolveOidcProviderTrustStage(),
         ResolveEcsServiceRelationshipsStage(),
+        ProjectEcsKmsOperationPathsOntoServicesStage(),
         ModelEcsSecretAccessPathsStage(),
         ModelEcsS3AccessPathsStage(),
         ModelEcsMessagingAccessPathsStage(),
