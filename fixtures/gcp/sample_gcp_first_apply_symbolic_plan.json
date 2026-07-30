@@ -1,0 +1,958 @@
+{
+    "format_version": "1.2",
+    "terraform_version": "1.8.5",
+    "planned_values": {
+        "root_module": {
+            "resources": [
+                {
+                    "address": "google_project_iam_binding.runtime",
+                    "mode": "managed",
+                    "type": "google_project_iam_binding",
+                    "name": "runtime",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "condition": [],
+                        "project": "tfstride-symbolic-fixture",
+                        "role": "roles/viewer"
+                    },
+                    "sensitive_values": {
+                        "condition": [],
+                        "members": []
+                    }
+                },
+                {
+                    "address": "google_pubsub_subscription.ambiguous",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "ambiguous",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "enable_exactly_once_delivery": null,
+                        "enable_message_ordering": null,
+                        "filter": null,
+                        "labels": null,
+                        "message_retention_duration": "604800s",
+                        "name": "ambiguous",
+                        "project": "tfstride-symbolic-fixture",
+                        "push_config": [],
+                        "retain_acked_messages": null,
+                        "retry_policy": [],
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "effective_labels": {},
+                        "expiration_policy": [],
+                        "push_config": [],
+                        "retry_policy": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_subscription.concrete",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "concrete",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "enable_exactly_once_delivery": null,
+                        "enable_message_ordering": null,
+                        "filter": null,
+                        "labels": null,
+                        "message_retention_duration": "604800s",
+                        "name": "concrete",
+                        "project": "tfstride-symbolic-fixture",
+                        "push_config": [],
+                        "retain_acked_messages": null,
+                        "retry_policy": [],
+                        "timeouts": null,
+                        "topic": "projects/tfstride-symbolic-fixture/topics/existing"
+                    },
+                    "sensitive_values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "effective_labels": {},
+                        "expiration_policy": [],
+                        "push_config": [],
+                        "retry_policy": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_subscription.direct",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "direct",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "enable_exactly_once_delivery": null,
+                        "enable_message_ordering": null,
+                        "filter": null,
+                        "labels": null,
+                        "message_retention_duration": "604800s",
+                        "name": "direct",
+                        "project": "tfstride-symbolic-fixture",
+                        "push_config": [],
+                        "retain_acked_messages": null,
+                        "retry_policy": [],
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "bigquery_config": [],
+                        "cloud_storage_config": [],
+                        "dead_letter_policy": [],
+                        "effective_labels": {},
+                        "expiration_policy": [],
+                        "push_config": [],
+                        "retry_policy": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_topic.alternate",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "alternate",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "ingestion_data_source_settings": [],
+                        "kms_key_name": null,
+                        "labels": null,
+                        "message_retention_duration": null,
+                        "name": "alternate",
+                        "project": "tfstride-symbolic-fixture",
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "effective_labels": {},
+                        "ingestion_data_source_settings": [],
+                        "message_storage_policy": [],
+                        "schema_settings": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_topic.direct",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "direct",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "ingestion_data_source_settings": [],
+                        "kms_key_name": null,
+                        "labels": null,
+                        "message_retention_duration": null,
+                        "name": "direct",
+                        "project": "tfstride-symbolic-fixture",
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "effective_labels": {},
+                        "ingestion_data_source_settings": [],
+                        "message_storage_policy": [],
+                        "schema_settings": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_topic.passed",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "passed",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "ingestion_data_source_settings": [],
+                        "kms_key_name": null,
+                        "labels": null,
+                        "message_retention_duration": null,
+                        "name": "passed",
+                        "project": "tfstride-symbolic-fixture",
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "effective_labels": {},
+                        "ingestion_data_source_settings": [],
+                        "message_storage_policy": [],
+                        "schema_settings": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_pubsub_topic.selector",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "selector",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "ingestion_data_source_settings": [],
+                        "kms_key_name": null,
+                        "labels": null,
+                        "message_retention_duration": null,
+                        "name": "selector",
+                        "project": "tfstride-symbolic-fixture",
+                        "timeouts": null
+                    },
+                    "sensitive_values": {
+                        "effective_labels": {},
+                        "ingestion_data_source_settings": [],
+                        "message_storage_policy": [],
+                        "schema_settings": [],
+                        "terraform_labels": {}
+                    }
+                },
+                {
+                    "address": "google_service_account.runtime",
+                    "mode": "managed",
+                    "type": "google_service_account",
+                    "name": "runtime",
+                    "provider_name": "registry.terraform.io/hashicorp/google",
+                    "schema_version": 0,
+                    "values": {
+                        "account_id": "tfstride-runtime",
+                        "create_ignore_already_exists": null,
+                        "description": null,
+                        "disabled": false,
+                        "display_name": null,
+                        "project": "tfstride-symbolic-fixture",
+                        "timeouts": null
+                    },
+                    "sensitive_values": {}
+                }
+            ],
+            "child_modules": [
+                {
+                    "resources": [
+                        {
+                            "address": "module.passed.google_pubsub_subscription.this",
+                            "mode": "managed",
+                            "type": "google_pubsub_subscription",
+                            "name": "this",
+                            "provider_name": "registry.terraform.io/hashicorp/google",
+                            "schema_version": 0,
+                            "values": {
+                                "bigquery_config": [],
+                                "cloud_storage_config": [],
+                                "dead_letter_policy": [],
+                                "enable_exactly_once_delivery": null,
+                                "enable_message_ordering": null,
+                                "filter": null,
+                                "labels": null,
+                                "message_retention_duration": "604800s",
+                                "name": "passed",
+                                "project": "tfstride-symbolic-fixture",
+                                "push_config": [],
+                                "retain_acked_messages": null,
+                                "retry_policy": [],
+                                "timeouts": null
+                            },
+                            "sensitive_values": {
+                                "bigquery_config": [],
+                                "cloud_storage_config": [],
+                                "dead_letter_policy": [],
+                                "effective_labels": {},
+                                "expiration_policy": [],
+                                "push_config": [],
+                                "retry_policy": [],
+                                "terraform_labels": {}
+                            }
+                        }
+                    ],
+                    "address": "module.passed"
+                }
+            ]
+        }
+    },
+    "resource_changes": [
+        {
+            "address": "google_project_iam_binding.runtime",
+            "mode": "managed",
+            "type": "google_project_iam_binding",
+            "name": "runtime",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "condition": [],
+                    "project": "tfstride-symbolic-fixture",
+                    "role": "roles/viewer"
+                },
+                "after_unknown": {
+                    "condition": [],
+                    "etag": true,
+                    "id": true,
+                    "members": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "condition": [],
+                    "members": []
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_subscription.ambiguous",
+            "mode": "managed",
+            "type": "google_pubsub_subscription",
+            "name": "ambiguous",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "enable_exactly_once_delivery": null,
+                    "enable_message_ordering": null,
+                    "filter": null,
+                    "labels": null,
+                    "message_retention_duration": "604800s",
+                    "name": "ambiguous",
+                    "project": "tfstride-symbolic-fixture",
+                    "push_config": [],
+                    "retain_acked_messages": null,
+                    "retry_policy": [],
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "ack_deadline_seconds": true,
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": true,
+                    "expiration_policy": true,
+                    "id": true,
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": true,
+                    "topic": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": {},
+                    "expiration_policy": [],
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_subscription.concrete",
+            "mode": "managed",
+            "type": "google_pubsub_subscription",
+            "name": "concrete",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "enable_exactly_once_delivery": null,
+                    "enable_message_ordering": null,
+                    "filter": null,
+                    "labels": null,
+                    "message_retention_duration": "604800s",
+                    "name": "concrete",
+                    "project": "tfstride-symbolic-fixture",
+                    "push_config": [],
+                    "retain_acked_messages": null,
+                    "retry_policy": [],
+                    "timeouts": null,
+                    "topic": "projects/tfstride-symbolic-fixture/topics/existing"
+                },
+                "after_unknown": {
+                    "ack_deadline_seconds": true,
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": true,
+                    "expiration_policy": true,
+                    "id": true,
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": {},
+                    "expiration_policy": [],
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_subscription.direct",
+            "mode": "managed",
+            "type": "google_pubsub_subscription",
+            "name": "direct",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "enable_exactly_once_delivery": null,
+                    "enable_message_ordering": null,
+                    "filter": null,
+                    "labels": null,
+                    "message_retention_duration": "604800s",
+                    "name": "direct",
+                    "project": "tfstride-symbolic-fixture",
+                    "push_config": [],
+                    "retain_acked_messages": null,
+                    "retry_policy": [],
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "ack_deadline_seconds": true,
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": true,
+                    "expiration_policy": true,
+                    "id": true,
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": true,
+                    "topic": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": {},
+                    "expiration_policy": [],
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_topic.alternate",
+            "mode": "managed",
+            "type": "google_pubsub_topic",
+            "name": "alternate",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "ingestion_data_source_settings": [],
+                    "kms_key_name": null,
+                    "labels": null,
+                    "message_retention_duration": null,
+                    "name": "alternate",
+                    "project": "tfstride-symbolic-fixture",
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "effective_labels": true,
+                    "id": true,
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": true,
+                    "schema_settings": true,
+                    "terraform_labels": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "effective_labels": {},
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": [],
+                    "schema_settings": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_topic.direct",
+            "mode": "managed",
+            "type": "google_pubsub_topic",
+            "name": "direct",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "ingestion_data_source_settings": [],
+                    "kms_key_name": null,
+                    "labels": null,
+                    "message_retention_duration": null,
+                    "name": "direct",
+                    "project": "tfstride-symbolic-fixture",
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "effective_labels": true,
+                    "id": true,
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": true,
+                    "schema_settings": true,
+                    "terraform_labels": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "effective_labels": {},
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": [],
+                    "schema_settings": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_topic.passed",
+            "mode": "managed",
+            "type": "google_pubsub_topic",
+            "name": "passed",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "ingestion_data_source_settings": [],
+                    "kms_key_name": null,
+                    "labels": null,
+                    "message_retention_duration": null,
+                    "name": "passed",
+                    "project": "tfstride-symbolic-fixture",
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "effective_labels": true,
+                    "id": true,
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": true,
+                    "schema_settings": true,
+                    "terraform_labels": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "effective_labels": {},
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": [],
+                    "schema_settings": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_pubsub_topic.selector",
+            "mode": "managed",
+            "type": "google_pubsub_topic",
+            "name": "selector",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "ingestion_data_source_settings": [],
+                    "kms_key_name": null,
+                    "labels": null,
+                    "message_retention_duration": null,
+                    "name": "selector",
+                    "project": "tfstride-symbolic-fixture",
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "effective_labels": true,
+                    "id": true,
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": true,
+                    "schema_settings": true,
+                    "terraform_labels": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "effective_labels": {},
+                    "ingestion_data_source_settings": [],
+                    "message_storage_policy": [],
+                    "schema_settings": [],
+                    "terraform_labels": {}
+                }
+            }
+        },
+        {
+            "address": "google_service_account.runtime",
+            "mode": "managed",
+            "type": "google_service_account",
+            "name": "runtime",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "account_id": "tfstride-runtime",
+                    "create_ignore_already_exists": null,
+                    "description": null,
+                    "disabled": false,
+                    "display_name": null,
+                    "project": "tfstride-symbolic-fixture",
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "email": true,
+                    "id": true,
+                    "member": true,
+                    "name": true,
+                    "unique_id": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {}
+            }
+        },
+        {
+            "address": "module.passed.google_pubsub_subscription.this",
+            "module_address": "module.passed",
+            "mode": "managed",
+            "type": "google_pubsub_subscription",
+            "name": "this",
+            "provider_name": "registry.terraform.io/hashicorp/google",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "enable_exactly_once_delivery": null,
+                    "enable_message_ordering": null,
+                    "filter": null,
+                    "labels": null,
+                    "message_retention_duration": "604800s",
+                    "name": "passed",
+                    "project": "tfstride-symbolic-fixture",
+                    "push_config": [],
+                    "retain_acked_messages": null,
+                    "retry_policy": [],
+                    "timeouts": null
+                },
+                "after_unknown": {
+                    "ack_deadline_seconds": true,
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": true,
+                    "expiration_policy": true,
+                    "id": true,
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": true,
+                    "topic": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "bigquery_config": [],
+                    "cloud_storage_config": [],
+                    "dead_letter_policy": [],
+                    "effective_labels": {},
+                    "expiration_policy": [],
+                    "push_config": [],
+                    "retry_policy": [],
+                    "terraform_labels": {}
+                }
+            }
+        }
+    ],
+    "configuration": {
+        "provider_config": {
+            "google": {
+                "name": "google",
+                "full_name": "registry.terraform.io/hashicorp/google",
+                "version_constraint": "5.34.0",
+                "expressions": {
+                    "project": {
+                        "constant_value": "tfstride-symbolic-fixture"
+                    },
+                    "region": {
+                        "constant_value": "us-central1"
+                    }
+                }
+            }
+        },
+        "root_module": {
+            "resources": [
+                {
+                    "address": "google_project_iam_binding.runtime",
+                    "mode": "managed",
+                    "type": "google_project_iam_binding",
+                    "name": "runtime",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "members": {
+                            "references": [
+                                "google_service_account.runtime.email",
+                                "google_service_account.runtime"
+                            ]
+                        },
+                        "project": {
+                            "constant_value": "tfstride-symbolic-fixture"
+                        },
+                        "role": {
+                            "constant_value": "roles/viewer"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_subscription.ambiguous",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "ambiguous",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "ambiguous"
+                        },
+                        "topic": {
+                            "references": [
+                                "google_pubsub_topic.selector.id",
+                                "google_pubsub_topic.selector",
+                                "google_pubsub_topic.direct.id",
+                                "google_pubsub_topic.direct",
+                                "google_pubsub_topic.alternate.id",
+                                "google_pubsub_topic.alternate"
+                            ]
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_subscription.concrete",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "concrete",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "concrete"
+                        },
+                        "topic": {
+                            "constant_value": "projects/tfstride-symbolic-fixture/topics/existing"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_subscription.direct",
+                    "mode": "managed",
+                    "type": "google_pubsub_subscription",
+                    "name": "direct",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "direct"
+                        },
+                        "topic": {
+                            "references": [
+                                "google_pubsub_topic.direct.id",
+                                "google_pubsub_topic.direct"
+                            ]
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_topic.alternate",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "alternate",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "alternate"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_topic.direct",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "direct",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "direct"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_topic.passed",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "passed",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "passed"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_pubsub_topic.selector",
+                    "mode": "managed",
+                    "type": "google_pubsub_topic",
+                    "name": "selector",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "selector"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "google_service_account.runtime",
+                    "mode": "managed",
+                    "type": "google_service_account",
+                    "name": "runtime",
+                    "provider_config_key": "google",
+                    "expressions": {
+                        "account_id": {
+                            "constant_value": "tfstride-runtime"
+                        }
+                    },
+                    "schema_version": 0
+                }
+            ],
+            "module_calls": {
+                "passed": {
+                    "source": "./subscription",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "passed"
+                        },
+                        "topic": {
+                            "references": [
+                                "google_pubsub_topic.passed.id",
+                                "google_pubsub_topic.passed"
+                            ]
+                        }
+                    },
+                    "module": {
+                        "resources": [
+                            {
+                                "address": "google_pubsub_subscription.this",
+                                "mode": "managed",
+                                "type": "google_pubsub_subscription",
+                                "name": "this",
+                                "provider_config_key": "google",
+                                "expressions": {
+                                    "name": {
+                                        "references": [
+                                            "var.name"
+                                        ]
+                                    },
+                                    "topic": {
+                                        "references": [
+                                            "var.topic"
+                                        ]
+                                    }
+                                },
+                                "schema_version": 0
+                            }
+                        ],
+                        "variables": {
+                            "name": {},
+                            "topic": {}
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "relevant_attributes": [
+        {
+            "resource": "google_service_account.runtime",
+            "attribute": [
+                "email"
+            ]
+        },
+        {
+            "resource": "google_pubsub_topic.direct",
+            "attribute": [
+                "id"
+            ]
+        },
+        {
+            "resource": "google_pubsub_topic.selector",
+            "attribute": [
+                "id"
+            ]
+        },
+        {
+            "resource": "google_pubsub_topic.alternate",
+            "attribute": [
+                "id"
+            ]
+        },
+        {
+            "resource": "google_pubsub_topic.passed",
+            "attribute": [
+                "id"
+            ]
+        }
+    ],
+    "timestamp": "2026-07-20T02:49:15Z",
+    "applyable": true,
+    "complete": true,
+    "errored": false
+}

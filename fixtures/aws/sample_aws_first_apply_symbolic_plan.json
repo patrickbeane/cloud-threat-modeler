@@ -1,0 +1,1544 @@
+{
+    "format_version": "1.2",
+    "terraform_version": "1.8.5",
+    "planned_values": {
+        "root_module": {
+            "resources": [
+                {
+                    "address": "aws_ecs_service.ambiguous",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "ambiguous",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "deployment_maximum_percent": 200,
+                        "deployment_minimum_healthy_percent": 100,
+                        "desired_count": 1,
+                        "enable_ecs_managed_tags": false,
+                        "enable_execute_command": false,
+                        "force_new_deployment": null,
+                        "health_check_grace_period_seconds": null,
+                        "launch_type": "FARGATE",
+                        "load_balancer": [
+                            {
+                                "container_name": "app",
+                                "container_port": 8080,
+                                "elb_name": ""
+                            }
+                        ],
+                        "name": "tfstride-ambiguous",
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": true,
+                                "security_groups": null,
+                                "subnets": [
+                                    "subnet-0123456789abcdef0"
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "propagate_tags": null,
+                        "scheduling_strategy": "REPLICA",
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags": null,
+                        "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                        "timeouts": null,
+                        "volume_configuration": [],
+                        "wait_for_steady_state": false
+                    },
+                    "sensitive_values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "load_balancer": [
+                            {}
+                        ],
+                        "network_configuration": [
+                            {
+                                "subnets": [
+                                    false
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags_all": {},
+                        "triggers": {},
+                        "volume_configuration": []
+                    }
+                },
+                {
+                    "address": "aws_ecs_service.concrete",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "concrete",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "deployment_maximum_percent": 200,
+                        "deployment_minimum_healthy_percent": 100,
+                        "desired_count": 1,
+                        "enable_ecs_managed_tags": false,
+                        "enable_execute_command": false,
+                        "force_new_deployment": null,
+                        "health_check_grace_period_seconds": null,
+                        "launch_type": "FARGATE",
+                        "load_balancer": [
+                            {
+                                "container_name": "app",
+                                "container_port": 8080,
+                                "elb_name": "",
+                                "target_group_arn": "arn:aws:elasticloadbalancing:us-east-1:111122223333:targetgroup/existing/0123456789abcdef"
+                            }
+                        ],
+                        "name": "tfstride-concrete",
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": true,
+                                "security_groups": null,
+                                "subnets": [
+                                    "subnet-0123456789abcdef0"
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "propagate_tags": null,
+                        "scheduling_strategy": "REPLICA",
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags": null,
+                        "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                        "timeouts": null,
+                        "volume_configuration": [],
+                        "wait_for_steady_state": false
+                    },
+                    "sensitive_values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "load_balancer": [
+                            {}
+                        ],
+                        "network_configuration": [
+                            {
+                                "subnets": [
+                                    false
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags_all": {},
+                        "triggers": {},
+                        "volume_configuration": []
+                    }
+                },
+                {
+                    "address": "aws_ecs_service.direct",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "direct",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "deployment_maximum_percent": 200,
+                        "deployment_minimum_healthy_percent": 100,
+                        "desired_count": 1,
+                        "enable_ecs_managed_tags": false,
+                        "enable_execute_command": false,
+                        "force_new_deployment": null,
+                        "health_check_grace_period_seconds": null,
+                        "launch_type": "FARGATE",
+                        "load_balancer": [
+                            {
+                                "container_name": "app",
+                                "container_port": 8080,
+                                "elb_name": ""
+                            }
+                        ],
+                        "name": "tfstride-direct",
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": true,
+                                "subnets": [
+                                    "subnet-0123456789abcdef0"
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "propagate_tags": null,
+                        "scheduling_strategy": "REPLICA",
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags": null,
+                        "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                        "timeouts": null,
+                        "volume_configuration": [],
+                        "wait_for_steady_state": false
+                    },
+                    "sensitive_values": {
+                        "alarms": [],
+                        "capacity_provider_strategy": [],
+                        "deployment_circuit_breaker": [],
+                        "deployment_controller": [],
+                        "load_balancer": [
+                            {}
+                        ],
+                        "network_configuration": [
+                            {
+                                "security_groups": [],
+                                "subnets": [
+                                    false
+                                ]
+                            }
+                        ],
+                        "ordered_placement_strategy": [],
+                        "placement_constraints": [],
+                        "service_connect_configuration": [],
+                        "service_registries": [],
+                        "tags_all": {},
+                        "triggers": {},
+                        "volume_configuration": []
+                    }
+                },
+                {
+                    "address": "aws_lb_target_group.alternate",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "alternate",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "deregistration_delay": "300",
+                        "lambda_multi_value_headers_enabled": false,
+                        "name": "tfstride-alternate",
+                        "port": 8080,
+                        "protocol": "HTTP",
+                        "proxy_protocol_v2": false,
+                        "slow_start": 0,
+                        "tags": null,
+                        "target_type": "instance",
+                        "vpc_id": "vpc-0123456789abcdef0"
+                    },
+                    "sensitive_values": {
+                        "health_check": [],
+                        "load_balancer_arns": [],
+                        "stickiness": [],
+                        "tags_all": {},
+                        "target_failover": [],
+                        "target_health_state": []
+                    }
+                },
+                {
+                    "address": "aws_lb_target_group.direct",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "direct",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "deregistration_delay": "300",
+                        "lambda_multi_value_headers_enabled": false,
+                        "name": "tfstride-direct",
+                        "port": 8080,
+                        "protocol": "HTTP",
+                        "proxy_protocol_v2": false,
+                        "slow_start": 0,
+                        "tags": null,
+                        "target_type": "instance",
+                        "vpc_id": "vpc-0123456789abcdef0"
+                    },
+                    "sensitive_values": {
+                        "health_check": [],
+                        "load_balancer_arns": [],
+                        "stickiness": [],
+                        "tags_all": {},
+                        "target_failover": [],
+                        "target_health_state": []
+                    }
+                },
+                {
+                    "address": "aws_lb_target_group.passed",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "passed",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "deregistration_delay": "300",
+                        "lambda_multi_value_headers_enabled": false,
+                        "name": "tfstride-passed",
+                        "port": 8080,
+                        "protocol": "HTTP",
+                        "proxy_protocol_v2": false,
+                        "slow_start": 0,
+                        "tags": null,
+                        "target_type": "instance",
+                        "vpc_id": "vpc-0123456789abcdef0"
+                    },
+                    "sensitive_values": {
+                        "health_check": [],
+                        "load_balancer_arns": [],
+                        "stickiness": [],
+                        "tags_all": {},
+                        "target_failover": [],
+                        "target_health_state": []
+                    }
+                },
+                {
+                    "address": "aws_lb_target_group.selector",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "selector",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 0,
+                    "values": {
+                        "deregistration_delay": "300",
+                        "lambda_multi_value_headers_enabled": false,
+                        "name": "tfstride-selector",
+                        "port": 8080,
+                        "protocol": "HTTP",
+                        "proxy_protocol_v2": false,
+                        "slow_start": 0,
+                        "tags": null,
+                        "target_type": "instance",
+                        "vpc_id": "vpc-0123456789abcdef0"
+                    },
+                    "sensitive_values": {
+                        "health_check": [],
+                        "load_balancer_arns": [],
+                        "stickiness": [],
+                        "tags_all": {},
+                        "target_failover": [],
+                        "target_health_state": []
+                    }
+                },
+                {
+                    "address": "aws_security_group.service",
+                    "mode": "managed",
+                    "type": "aws_security_group",
+                    "name": "service",
+                    "provider_name": "registry.terraform.io/hashicorp/aws",
+                    "schema_version": 1,
+                    "values": {
+                        "description": "Managed by Terraform",
+                        "name": "tfstride-service",
+                        "revoke_rules_on_delete": false,
+                        "tags": null,
+                        "timeouts": null,
+                        "vpc_id": "vpc-0123456789abcdef0"
+                    },
+                    "sensitive_values": {
+                        "egress": [],
+                        "ingress": [],
+                        "tags_all": {}
+                    }
+                }
+            ],
+            "child_modules": [
+                {
+                    "resources": [
+                        {
+                            "address": "module.passed.aws_ecs_service.this",
+                            "mode": "managed",
+                            "type": "aws_ecs_service",
+                            "name": "this",
+                            "provider_name": "registry.terraform.io/hashicorp/aws",
+                            "schema_version": 0,
+                            "values": {
+                                "alarms": [],
+                                "capacity_provider_strategy": [],
+                                "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                                "deployment_circuit_breaker": [],
+                                "deployment_controller": [],
+                                "deployment_maximum_percent": 200,
+                                "deployment_minimum_healthy_percent": 100,
+                                "desired_count": 1,
+                                "enable_ecs_managed_tags": false,
+                                "enable_execute_command": false,
+                                "force_new_deployment": null,
+                                "health_check_grace_period_seconds": null,
+                                "launch_type": "FARGATE",
+                                "load_balancer": [
+                                    {
+                                        "container_name": "app",
+                                        "container_port": 8080,
+                                        "elb_name": ""
+                                    }
+                                ],
+                                "name": "tfstride-passed",
+                                "network_configuration": [
+                                    {
+                                        "assign_public_ip": true,
+                                        "security_groups": null,
+                                        "subnets": [
+                                            "subnet-0123456789abcdef0"
+                                        ]
+                                    }
+                                ],
+                                "ordered_placement_strategy": [],
+                                "placement_constraints": [],
+                                "propagate_tags": null,
+                                "scheduling_strategy": "REPLICA",
+                                "service_connect_configuration": [],
+                                "service_registries": [],
+                                "tags": null,
+                                "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                                "timeouts": null,
+                                "volume_configuration": [],
+                                "wait_for_steady_state": false
+                            },
+                            "sensitive_values": {
+                                "alarms": [],
+                                "capacity_provider_strategy": [],
+                                "deployment_circuit_breaker": [],
+                                "deployment_controller": [],
+                                "load_balancer": [
+                                    {}
+                                ],
+                                "network_configuration": [
+                                    {
+                                        "subnets": [
+                                            false
+                                        ]
+                                    }
+                                ],
+                                "ordered_placement_strategy": [],
+                                "placement_constraints": [],
+                                "service_connect_configuration": [],
+                                "service_registries": [],
+                                "tags_all": {},
+                                "triggers": {},
+                                "volume_configuration": []
+                            }
+                        }
+                    ],
+                    "address": "module.passed"
+                }
+            ]
+        }
+    },
+    "resource_changes": [
+        {
+            "address": "aws_ecs_service.ambiguous",
+            "mode": "managed",
+            "type": "aws_ecs_service",
+            "name": "ambiguous",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "deployment_maximum_percent": 200,
+                    "deployment_minimum_healthy_percent": 100,
+                    "desired_count": 1,
+                    "enable_ecs_managed_tags": false,
+                    "enable_execute_command": false,
+                    "force_new_deployment": null,
+                    "health_check_grace_period_seconds": null,
+                    "launch_type": "FARGATE",
+                    "load_balancer": [
+                        {
+                            "container_name": "app",
+                            "container_port": 8080,
+                            "elb_name": ""
+                        }
+                    ],
+                    "name": "tfstride-ambiguous",
+                    "network_configuration": [
+                        {
+                            "assign_public_ip": true,
+                            "security_groups": null,
+                            "subnets": [
+                                "subnet-0123456789abcdef0"
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "propagate_tags": null,
+                    "scheduling_strategy": "REPLICA",
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags": null,
+                    "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                    "timeouts": null,
+                    "volume_configuration": [],
+                    "wait_for_steady_state": false
+                },
+                "after_unknown": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "iam_role": true,
+                    "id": true,
+                    "load_balancer": [
+                        {
+                            "target_group_arn": true
+                        }
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "platform_version": true,
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": true,
+                    "triggers": true,
+                    "volume_configuration": []
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "load_balancer": [
+                        {}
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": {},
+                    "triggers": {},
+                    "volume_configuration": []
+                }
+            }
+        },
+        {
+            "address": "aws_ecs_service.concrete",
+            "mode": "managed",
+            "type": "aws_ecs_service",
+            "name": "concrete",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "deployment_maximum_percent": 200,
+                    "deployment_minimum_healthy_percent": 100,
+                    "desired_count": 1,
+                    "enable_ecs_managed_tags": false,
+                    "enable_execute_command": false,
+                    "force_new_deployment": null,
+                    "health_check_grace_period_seconds": null,
+                    "launch_type": "FARGATE",
+                    "load_balancer": [
+                        {
+                            "container_name": "app",
+                            "container_port": 8080,
+                            "elb_name": "",
+                            "target_group_arn": "arn:aws:elasticloadbalancing:us-east-1:111122223333:targetgroup/existing/0123456789abcdef"
+                        }
+                    ],
+                    "name": "tfstride-concrete",
+                    "network_configuration": [
+                        {
+                            "assign_public_ip": true,
+                            "security_groups": null,
+                            "subnets": [
+                                "subnet-0123456789abcdef0"
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "propagate_tags": null,
+                    "scheduling_strategy": "REPLICA",
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags": null,
+                    "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                    "timeouts": null,
+                    "volume_configuration": [],
+                    "wait_for_steady_state": false
+                },
+                "after_unknown": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "iam_role": true,
+                    "id": true,
+                    "load_balancer": [
+                        {}
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "platform_version": true,
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": true,
+                    "triggers": true,
+                    "volume_configuration": []
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "load_balancer": [
+                        {}
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": {},
+                    "triggers": {},
+                    "volume_configuration": []
+                }
+            }
+        },
+        {
+            "address": "aws_ecs_service.direct",
+            "mode": "managed",
+            "type": "aws_ecs_service",
+            "name": "direct",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "deployment_maximum_percent": 200,
+                    "deployment_minimum_healthy_percent": 100,
+                    "desired_count": 1,
+                    "enable_ecs_managed_tags": false,
+                    "enable_execute_command": false,
+                    "force_new_deployment": null,
+                    "health_check_grace_period_seconds": null,
+                    "launch_type": "FARGATE",
+                    "load_balancer": [
+                        {
+                            "container_name": "app",
+                            "container_port": 8080,
+                            "elb_name": ""
+                        }
+                    ],
+                    "name": "tfstride-direct",
+                    "network_configuration": [
+                        {
+                            "assign_public_ip": true,
+                            "subnets": [
+                                "subnet-0123456789abcdef0"
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "propagate_tags": null,
+                    "scheduling_strategy": "REPLICA",
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags": null,
+                    "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                    "timeouts": null,
+                    "volume_configuration": [],
+                    "wait_for_steady_state": false
+                },
+                "after_unknown": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "iam_role": true,
+                    "id": true,
+                    "load_balancer": [
+                        {
+                            "target_group_arn": true
+                        }
+                    ],
+                    "network_configuration": [
+                        {
+                            "security_groups": true,
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "platform_version": true,
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": true,
+                    "triggers": true,
+                    "volume_configuration": []
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "load_balancer": [
+                        {}
+                    ],
+                    "network_configuration": [
+                        {
+                            "security_groups": [],
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": {},
+                    "triggers": {},
+                    "volume_configuration": []
+                }
+            }
+        },
+        {
+            "address": "aws_lb_target_group.alternate",
+            "mode": "managed",
+            "type": "aws_lb_target_group",
+            "name": "alternate",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "deregistration_delay": "300",
+                    "lambda_multi_value_headers_enabled": false,
+                    "name": "tfstride-alternate",
+                    "port": 8080,
+                    "protocol": "HTTP",
+                    "proxy_protocol_v2": false,
+                    "slow_start": 0,
+                    "tags": null,
+                    "target_type": "instance",
+                    "vpc_id": "vpc-0123456789abcdef0"
+                },
+                "after_unknown": {
+                    "arn": true,
+                    "arn_suffix": true,
+                    "connection_termination": true,
+                    "health_check": true,
+                    "id": true,
+                    "ip_address_type": true,
+                    "load_balancer_arns": true,
+                    "load_balancing_algorithm_type": true,
+                    "load_balancing_anomaly_mitigation": true,
+                    "load_balancing_cross_zone_enabled": true,
+                    "name_prefix": true,
+                    "preserve_client_ip": true,
+                    "protocol_version": true,
+                    "stickiness": true,
+                    "tags_all": true,
+                    "target_failover": true,
+                    "target_health_state": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "health_check": [],
+                    "load_balancer_arns": [],
+                    "stickiness": [],
+                    "tags_all": {},
+                    "target_failover": [],
+                    "target_health_state": []
+                }
+            }
+        },
+        {
+            "address": "aws_lb_target_group.direct",
+            "mode": "managed",
+            "type": "aws_lb_target_group",
+            "name": "direct",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "deregistration_delay": "300",
+                    "lambda_multi_value_headers_enabled": false,
+                    "name": "tfstride-direct",
+                    "port": 8080,
+                    "protocol": "HTTP",
+                    "proxy_protocol_v2": false,
+                    "slow_start": 0,
+                    "tags": null,
+                    "target_type": "instance",
+                    "vpc_id": "vpc-0123456789abcdef0"
+                },
+                "after_unknown": {
+                    "arn": true,
+                    "arn_suffix": true,
+                    "connection_termination": true,
+                    "health_check": true,
+                    "id": true,
+                    "ip_address_type": true,
+                    "load_balancer_arns": true,
+                    "load_balancing_algorithm_type": true,
+                    "load_balancing_anomaly_mitigation": true,
+                    "load_balancing_cross_zone_enabled": true,
+                    "name_prefix": true,
+                    "preserve_client_ip": true,
+                    "protocol_version": true,
+                    "stickiness": true,
+                    "tags_all": true,
+                    "target_failover": true,
+                    "target_health_state": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "health_check": [],
+                    "load_balancer_arns": [],
+                    "stickiness": [],
+                    "tags_all": {},
+                    "target_failover": [],
+                    "target_health_state": []
+                }
+            }
+        },
+        {
+            "address": "aws_lb_target_group.passed",
+            "mode": "managed",
+            "type": "aws_lb_target_group",
+            "name": "passed",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "deregistration_delay": "300",
+                    "lambda_multi_value_headers_enabled": false,
+                    "name": "tfstride-passed",
+                    "port": 8080,
+                    "protocol": "HTTP",
+                    "proxy_protocol_v2": false,
+                    "slow_start": 0,
+                    "tags": null,
+                    "target_type": "instance",
+                    "vpc_id": "vpc-0123456789abcdef0"
+                },
+                "after_unknown": {
+                    "arn": true,
+                    "arn_suffix": true,
+                    "connection_termination": true,
+                    "health_check": true,
+                    "id": true,
+                    "ip_address_type": true,
+                    "load_balancer_arns": true,
+                    "load_balancing_algorithm_type": true,
+                    "load_balancing_anomaly_mitigation": true,
+                    "load_balancing_cross_zone_enabled": true,
+                    "name_prefix": true,
+                    "preserve_client_ip": true,
+                    "protocol_version": true,
+                    "stickiness": true,
+                    "tags_all": true,
+                    "target_failover": true,
+                    "target_health_state": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "health_check": [],
+                    "load_balancer_arns": [],
+                    "stickiness": [],
+                    "tags_all": {},
+                    "target_failover": [],
+                    "target_health_state": []
+                }
+            }
+        },
+        {
+            "address": "aws_lb_target_group.selector",
+            "mode": "managed",
+            "type": "aws_lb_target_group",
+            "name": "selector",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "deregistration_delay": "300",
+                    "lambda_multi_value_headers_enabled": false,
+                    "name": "tfstride-selector",
+                    "port": 8080,
+                    "protocol": "HTTP",
+                    "proxy_protocol_v2": false,
+                    "slow_start": 0,
+                    "tags": null,
+                    "target_type": "instance",
+                    "vpc_id": "vpc-0123456789abcdef0"
+                },
+                "after_unknown": {
+                    "arn": true,
+                    "arn_suffix": true,
+                    "connection_termination": true,
+                    "health_check": true,
+                    "id": true,
+                    "ip_address_type": true,
+                    "load_balancer_arns": true,
+                    "load_balancing_algorithm_type": true,
+                    "load_balancing_anomaly_mitigation": true,
+                    "load_balancing_cross_zone_enabled": true,
+                    "name_prefix": true,
+                    "preserve_client_ip": true,
+                    "protocol_version": true,
+                    "stickiness": true,
+                    "tags_all": true,
+                    "target_failover": true,
+                    "target_health_state": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "health_check": [],
+                    "load_balancer_arns": [],
+                    "stickiness": [],
+                    "tags_all": {},
+                    "target_failover": [],
+                    "target_health_state": []
+                }
+            }
+        },
+        {
+            "address": "aws_security_group.service",
+            "mode": "managed",
+            "type": "aws_security_group",
+            "name": "service",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "description": "Managed by Terraform",
+                    "name": "tfstride-service",
+                    "revoke_rules_on_delete": false,
+                    "tags": null,
+                    "timeouts": null,
+                    "vpc_id": "vpc-0123456789abcdef0"
+                },
+                "after_unknown": {
+                    "arn": true,
+                    "egress": true,
+                    "id": true,
+                    "ingress": true,
+                    "name_prefix": true,
+                    "owner_id": true,
+                    "tags_all": true
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "egress": [],
+                    "ingress": [],
+                    "tags_all": {}
+                }
+            }
+        },
+        {
+            "address": "module.passed.aws_ecs_service.this",
+            "module_address": "module.passed",
+            "mode": "managed",
+            "type": "aws_ecs_service",
+            "name": "this",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "change": {
+                "actions": [
+                    "create"
+                ],
+                "before": null,
+                "after": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture",
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "deployment_maximum_percent": 200,
+                    "deployment_minimum_healthy_percent": 100,
+                    "desired_count": 1,
+                    "enable_ecs_managed_tags": false,
+                    "enable_execute_command": false,
+                    "force_new_deployment": null,
+                    "health_check_grace_period_seconds": null,
+                    "launch_type": "FARGATE",
+                    "load_balancer": [
+                        {
+                            "container_name": "app",
+                            "container_port": 8080,
+                            "elb_name": ""
+                        }
+                    ],
+                    "name": "tfstride-passed",
+                    "network_configuration": [
+                        {
+                            "assign_public_ip": true,
+                            "security_groups": null,
+                            "subnets": [
+                                "subnet-0123456789abcdef0"
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "propagate_tags": null,
+                    "scheduling_strategy": "REPLICA",
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags": null,
+                    "task_definition": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1",
+                    "timeouts": null,
+                    "volume_configuration": [],
+                    "wait_for_steady_state": false
+                },
+                "after_unknown": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "iam_role": true,
+                    "id": true,
+                    "load_balancer": [
+                        {
+                            "target_group_arn": true
+                        }
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "platform_version": true,
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": true,
+                    "triggers": true,
+                    "volume_configuration": []
+                },
+                "before_sensitive": false,
+                "after_sensitive": {
+                    "alarms": [],
+                    "capacity_provider_strategy": [],
+                    "deployment_circuit_breaker": [],
+                    "deployment_controller": [],
+                    "load_balancer": [
+                        {}
+                    ],
+                    "network_configuration": [
+                        {
+                            "subnets": [
+                                false
+                            ]
+                        }
+                    ],
+                    "ordered_placement_strategy": [],
+                    "placement_constraints": [],
+                    "service_connect_configuration": [],
+                    "service_registries": [],
+                    "tags_all": {},
+                    "triggers": {},
+                    "volume_configuration": []
+                }
+            }
+        }
+    ],
+    "configuration": {
+        "provider_config": {
+            "aws": {
+                "name": "aws",
+                "full_name": "registry.terraform.io/hashicorp/aws",
+                "version_constraint": "5.55.0",
+                "expressions": {
+                    "region": {
+                        "constant_value": "us-east-1"
+                    },
+                    "skip_credentials_validation": {
+                        "constant_value": true
+                    },
+                    "skip_metadata_api_check": {
+                        "constant_value": true
+                    },
+                    "skip_region_validation": {
+                        "constant_value": true
+                    },
+                    "skip_requesting_account_id": {
+                        "constant_value": true
+                    }
+                }
+            }
+        },
+        "root_module": {
+            "resources": [
+                {
+                    "address": "aws_ecs_service.ambiguous",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "ambiguous",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "cluster": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture"
+                        },
+                        "desired_count": {
+                            "constant_value": 1
+                        },
+                        "launch_type": {
+                            "constant_value": "FARGATE"
+                        },
+                        "load_balancer": [
+                            {
+                                "container_name": {
+                                    "constant_value": "app"
+                                },
+                                "container_port": {
+                                    "constant_value": 8080
+                                },
+                                "target_group_arn": {
+                                    "references": [
+                                        "aws_lb_target_group.selector.arn",
+                                        "aws_lb_target_group.selector",
+                                        "aws_lb_target_group.direct.arn",
+                                        "aws_lb_target_group.direct",
+                                        "aws_lb_target_group.alternate.arn",
+                                        "aws_lb_target_group.alternate"
+                                    ]
+                                }
+                            }
+                        ],
+                        "name": {
+                            "constant_value": "tfstride-ambiguous"
+                        },
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": {
+                                    "constant_value": true
+                                },
+                                "subnets": {
+                                    "constant_value": [
+                                        "subnet-0123456789abcdef0"
+                                    ]
+                                }
+                            }
+                        ],
+                        "task_definition": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_ecs_service.concrete",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "concrete",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "cluster": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture"
+                        },
+                        "desired_count": {
+                            "constant_value": 1
+                        },
+                        "launch_type": {
+                            "constant_value": "FARGATE"
+                        },
+                        "load_balancer": [
+                            {
+                                "container_name": {
+                                    "constant_value": "app"
+                                },
+                                "container_port": {
+                                    "constant_value": 8080
+                                },
+                                "target_group_arn": {
+                                    "constant_value": "arn:aws:elasticloadbalancing:us-east-1:111122223333:targetgroup/existing/0123456789abcdef"
+                                }
+                            }
+                        ],
+                        "name": {
+                            "constant_value": "tfstride-concrete"
+                        },
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": {
+                                    "constant_value": true
+                                },
+                                "subnets": {
+                                    "constant_value": [
+                                        "subnet-0123456789abcdef0"
+                                    ]
+                                }
+                            }
+                        ],
+                        "task_definition": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_ecs_service.direct",
+                    "mode": "managed",
+                    "type": "aws_ecs_service",
+                    "name": "direct",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "cluster": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture"
+                        },
+                        "desired_count": {
+                            "constant_value": 1
+                        },
+                        "launch_type": {
+                            "constant_value": "FARGATE"
+                        },
+                        "load_balancer": [
+                            {
+                                "container_name": {
+                                    "constant_value": "app"
+                                },
+                                "container_port": {
+                                    "constant_value": 8080
+                                },
+                                "target_group_arn": {
+                                    "references": [
+                                        "aws_lb_target_group.direct.arn",
+                                        "aws_lb_target_group.direct"
+                                    ]
+                                }
+                            }
+                        ],
+                        "name": {
+                            "constant_value": "tfstride-direct"
+                        },
+                        "network_configuration": [
+                            {
+                                "assign_public_ip": {
+                                    "constant_value": true
+                                },
+                                "security_groups": {
+                                    "references": [
+                                        "aws_security_group.service.id",
+                                        "aws_security_group.service"
+                                    ]
+                                },
+                                "subnets": {
+                                    "constant_value": [
+                                        "subnet-0123456789abcdef0"
+                                    ]
+                                }
+                            }
+                        ],
+                        "task_definition": {
+                            "constant_value": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_lb_target_group.alternate",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "alternate",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-alternate"
+                        },
+                        "port": {
+                            "constant_value": 8080
+                        },
+                        "protocol": {
+                            "constant_value": "HTTP"
+                        },
+                        "vpc_id": {
+                            "constant_value": "vpc-0123456789abcdef0"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_lb_target_group.direct",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "direct",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-direct"
+                        },
+                        "port": {
+                            "constant_value": 8080
+                        },
+                        "protocol": {
+                            "constant_value": "HTTP"
+                        },
+                        "vpc_id": {
+                            "constant_value": "vpc-0123456789abcdef0"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_lb_target_group.passed",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "passed",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-passed"
+                        },
+                        "port": {
+                            "constant_value": 8080
+                        },
+                        "protocol": {
+                            "constant_value": "HTTP"
+                        },
+                        "vpc_id": {
+                            "constant_value": "vpc-0123456789abcdef0"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_lb_target_group.selector",
+                    "mode": "managed",
+                    "type": "aws_lb_target_group",
+                    "name": "selector",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-selector"
+                        },
+                        "port": {
+                            "constant_value": 8080
+                        },
+                        "protocol": {
+                            "constant_value": "HTTP"
+                        },
+                        "vpc_id": {
+                            "constant_value": "vpc-0123456789abcdef0"
+                        }
+                    },
+                    "schema_version": 0
+                },
+                {
+                    "address": "aws_security_group.service",
+                    "mode": "managed",
+                    "type": "aws_security_group",
+                    "name": "service",
+                    "provider_config_key": "aws",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-service"
+                        },
+                        "vpc_id": {
+                            "constant_value": "vpc-0123456789abcdef0"
+                        }
+                    },
+                    "schema_version": 1
+                }
+            ],
+            "module_calls": {
+                "passed": {
+                    "source": "./service",
+                    "expressions": {
+                        "name": {
+                            "constant_value": "tfstride-passed"
+                        },
+                        "target_group_arn": {
+                            "references": [
+                                "aws_lb_target_group.passed.arn",
+                                "aws_lb_target_group.passed"
+                            ]
+                        }
+                    },
+                    "module": {
+                        "resources": [
+                            {
+                                "address": "aws_ecs_service.this",
+                                "mode": "managed",
+                                "type": "aws_ecs_service",
+                                "name": "this",
+                                "provider_config_key": "aws",
+                                "expressions": {
+                                    "cluster": {
+                                        "constant_value": "arn:aws:ecs:us-east-1:111122223333:cluster/fixture"
+                                    },
+                                    "desired_count": {
+                                        "constant_value": 1
+                                    },
+                                    "launch_type": {
+                                        "constant_value": "FARGATE"
+                                    },
+                                    "load_balancer": [
+                                        {
+                                            "container_name": {
+                                                "constant_value": "app"
+                                            },
+                                            "container_port": {
+                                                "constant_value": 8080
+                                            },
+                                            "target_group_arn": {
+                                                "references": [
+                                                    "var.target_group_arn"
+                                                ]
+                                            }
+                                        }
+                                    ],
+                                    "name": {
+                                        "references": [
+                                            "var.name"
+                                        ]
+                                    },
+                                    "network_configuration": [
+                                        {
+                                            "assign_public_ip": {
+                                                "constant_value": true
+                                            },
+                                            "subnets": {
+                                                "constant_value": [
+                                                    "subnet-0123456789abcdef0"
+                                                ]
+                                            }
+                                        }
+                                    ],
+                                    "task_definition": {
+                                        "constant_value": "arn:aws:ecs:us-east-1:111122223333:task-definition/fixture:1"
+                                    }
+                                },
+                                "schema_version": 0
+                            }
+                        ],
+                        "variables": {
+                            "name": {},
+                            "target_group_arn": {}
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "relevant_attributes": [
+        {
+            "resource": "aws_lb_target_group.direct",
+            "attribute": [
+                "arn"
+            ]
+        },
+        {
+            "resource": "aws_lb_target_group.selector",
+            "attribute": [
+                "arn"
+            ]
+        },
+        {
+            "resource": "aws_lb_target_group.alternate",
+            "attribute": [
+                "arn"
+            ]
+        },
+        {
+            "resource": "aws_lb_target_group.passed",
+            "attribute": [
+                "arn"
+            ]
+        },
+        {
+            "resource": "aws_security_group.service",
+            "attribute": [
+                "id"
+            ]
+        }
+    ],
+    "timestamp": "2026-07-20T02:49:16Z",
+    "applyable": true,
+    "complete": true,
+    "errored": false
+}
