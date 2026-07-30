@@ -36,6 +36,16 @@ def _reference_value_to_string(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def _contains_unknown_marker(value: Any) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, Mapping):
+        return any(_contains_unknown_marker(item) for item in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        return any(_contains_unknown_marker(item) for item in value)
+    return False
+
+
 def _normalized_metadata(metadata: Mapping[_MetadataKey, Any] | None) -> dict[str, Any]:
     if metadata is None:
         return {}
@@ -134,6 +144,10 @@ class TerraformResource:
     values: dict[str, Any]
     unknown_values: dict[str, Any] = field(default_factory=dict)
     reference_resolutions: tuple[TerraformReferenceResolution, ...] = field(default_factory=tuple)
+
+    @property
+    def has_plan_time_unknown_values(self) -> bool:
+        return _contains_unknown_marker(self.unknown_values)
 
     def reference_resolution(
         self,
@@ -536,6 +550,7 @@ class ResourceInventory:
     provider: str
     resources: Sequence[NormalizedResource]
     unsupported_resources: list[str] = field(default_factory=list)
+    plan_time_unknown_resources: int = 0
     _metadata: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _metadata_read_view: Mapping[str, Any] = field(init=False, repr=False)
     metadata: InitVar[Mapping[_MetadataKey, Any] | None] = None
@@ -674,6 +689,7 @@ class ResourceCoverage:
     provider_resources: int = 0
     normalized_resources: int = 0
     unsupported_resources: int = 0
+    plan_time_unknown_resources: int = 0
     unsupported_resource_types: dict[str, int] = field(default_factory=dict)
 
 
@@ -695,6 +711,9 @@ class UnresolvedReference:
 class ReferenceCoverage:
     unresolved_reference_count: int = 0
     unresolved_references: list[UnresolvedReference] = field(default_factory=list)
+    symbolically_resolved_relationships: int = 0
+    ambiguous_symbolic_relationships: int = 0
+    unresolved_symbolic_relationships: int = 0
 
 
 @dataclass(slots=True)

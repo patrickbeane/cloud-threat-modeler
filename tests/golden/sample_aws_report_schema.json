@@ -54,6 +54,7 @@
     "provider_resources",
     "normalized_resources",
     "unsupported_resources",
+    "plan_time_unknown_resources",
     "unsupported_resource_types"
   ],
   "analysis_coverage.rules": [
@@ -65,6 +66,9 @@
   ],
   "analysis_coverage.references": [
     "unresolved_reference_count",
+    "symbolically_resolved_relationships",
+    "ambiguous_symbolic_relationships",
+    "unresolved_symbolic_relationships",
     "unresolved_references"
   ],
   "analysis_coverage.references.unresolved_references[]": [

@@ -15,6 +15,7 @@ from tfstride.providers.gcp.iam_access import (
     iam_binding_condition,
     iam_resource_binding_members,
 )
+from tfstride.providers.gcp.iam_role_risk import custom_role_privilege_rationale
 from tfstride.providers.gcp.indexes import gcp_org_policy_guardrail_index
 from tfstride.providers.gcp.org_policy_evidence import organization_guardrail_evidence
 from tfstride.providers.gcp.org_policy_guardrails import (
@@ -123,6 +124,13 @@ class GcpServiceAccountIamDetectors:
                     lateral_movement=2,
                     blast_radius=gcp_iam_condition_limited_score(2, condition, floor=1),
                 )
+                custom_rationale = custom_role_privilege_rationale(
+                    role_risk,
+                    consequence="can materially expand privilege if the principal is compromised or mis-scoped",
+                )
+                role_rationale = custom_rationale or (
+                    f"That role enables {role_risk}, expanding privilege if the principal is compromised or mis-scoped."
+                )
                 affected_resources = dedupe_addresses([target.address if target else "", binding.address])
                 findings.append(
                     self._finding_factory.build(
@@ -132,8 +140,7 @@ class GcpServiceAccountIamDetectors:
                         trust_boundary_id=None,
                         rationale=(
                             f"{binding.display_name} grants the high-impact service account role `{role}` "
-                            f"to `{member}`. That role enables {role_risk}, expanding privilege if the "
-                            "principal is compromised or mis-scoped."
+                            f"to `{member}`. {role_rationale}"
                         ),
                         evidence=collect_evidence(
                             evidence_item(

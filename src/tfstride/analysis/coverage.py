@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from tfstride.analysis.rule_registry import RulePolicy, RuleRegistry, default_rule_registry
 from tfstride.models import (
     AnalysisCoverage,
@@ -8,6 +10,7 @@ from tfstride.models import (
     ResourceCoverage,
     ResourceInventory,
     RuleCoverage,
+    TerraformReferenceResolutionState,
     UnresolvedReference,
 )
 from tfstride.resource_metadata import InventoryMetadata
@@ -37,6 +40,7 @@ def _build_resource_coverage(inventory: ResourceInventory) -> ResourceCoverage:
         provider_resources=provider_resources if provider_resources is not None else len(inventory.resources),
         normalized_resources=len(inventory.resources),
         unsupported_resources=len(inventory.unsupported_resources),
+        plan_time_unknown_resources=inventory.plan_time_unknown_resources,
         unsupported_resource_types=InventoryMetadata.UNSUPPORTED_RESOURCE_TYPES.get(metadata),
     )
 
@@ -64,11 +68,27 @@ def _build_rule_coverage(rule_registry: RuleRegistry, rule_policy: RulePolicy | 
     )
 
 
-def _build_reference_coverage(resources: list[NormalizedResource]) -> ReferenceCoverage:
+def _build_reference_coverage(resources: Sequence[NormalizedResource]) -> ReferenceCoverage:
     unresolved_references: list[UnresolvedReference] = []
     unresolved_count = 0
+    symbolically_resolved_relationships = 0
+    ambiguous_symbolic_relationships = 0
+    unresolved_symbolic_relationships = 0
 
     for resource in sorted(resources, key=lambda item: item.address):
+        for resolution in resource.reference_resolutions:
+            if resolution.state is TerraformReferenceResolutionState.SYMBOLIC:
+                symbolically_resolved_relationships += 1
+            elif resolution.state is TerraformReferenceResolutionState.AMBIGUOUS:
+                ambiguous_symbolic_relationships += 1
+            elif resolution.state in {
+                TerraformReferenceResolutionState.UNRESOLVED,
+                TerraformReferenceResolutionState.UNSUPPORTED,
+            }:
+                # Unsupported symbolic traversal is still an unresolved graph edge,
+                # but remains separate from plan-time and posture uncertainty.
+                unresolved_symbolic_relationships += 1
+
         references = _unresolved_reference_metadata(resource)
         if not references:
             continue
@@ -84,6 +104,9 @@ def _build_reference_coverage(resources: list[NormalizedResource]) -> ReferenceC
     return ReferenceCoverage(
         unresolved_reference_count=unresolved_count,
         unresolved_references=unresolved_references,
+        symbolically_resolved_relationships=symbolically_resolved_relationships,
+        ambiguous_symbolic_relationships=ambiguous_symbolic_relationships,
+        unresolved_symbolic_relationships=unresolved_symbolic_relationships,
     )
 
 

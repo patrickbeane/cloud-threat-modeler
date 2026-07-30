@@ -70,7 +70,9 @@ class ProviderRegistry:
         }
 
     def normalize(self, provider: str, resources: list[TerraformResource]) -> ResourceInventory:
-        return self.get(provider).normalize(resources)
+        inventory = self.get(provider).normalize(resources)
+        inventory.plan_time_unknown_resources = sum(resource.has_plan_time_unknown_values for resource in resources)
+        return inventory
 
     def normalize_detected(
         self,

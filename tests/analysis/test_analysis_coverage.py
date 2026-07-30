@@ -4,7 +4,15 @@ import unittest
 
 from tfstride.analysis.coverage import build_analysis_coverage
 from tfstride.analysis.rule_registry import RulePolicy
-from tfstride.models import NormalizedResource, ResourceCategory, ResourceInventory, Severity
+from tfstride.models import (
+    NormalizedResource,
+    ResourceCategory,
+    ResourceInventory,
+    Severity,
+    TerraformReferenceProvenance,
+    TerraformReferenceResolution,
+    TerraformReferenceResolutionState,
+)
 from tfstride.resource_metadata import InventoryMetadata
 
 
@@ -37,6 +45,7 @@ class AnalysisCoverageTests(unittest.TestCase):
             provider="aws",
             resources=[resource],
             unsupported_resources=["aws_cloudwatch_log_group.app"],
+            plan_time_unknown_resources=1,
             metadata=metadata,
         )
         coverage = build_analysis_coverage(
@@ -51,6 +60,7 @@ class AnalysisCoverageTests(unittest.TestCase):
         self.assertEqual(coverage.resources.provider_resources, 2)
         self.assertEqual(coverage.resources.normalized_resources, 1)
         self.assertEqual(coverage.resources.unsupported_resources, 1)
+        self.assertEqual(coverage.resources.plan_time_unknown_resources, 1)
         self.assertEqual(coverage.resources.unsupported_resource_types, {"aws_cloudwatch_log_group": 1})
         self.assertEqual(coverage.rules.enabled_rules, ["aws-s3-public-access"])
         self.assertIn("aws-public-compute-broad-ingress", coverage.rules.disabled_rules)
@@ -65,6 +75,46 @@ class AnalysisCoverageTests(unittest.TestCase):
                 "unresolved_role_references": ["missing-role"],
             },
         )
+
+    def test_reference_resolution_states_remain_distinct_from_unresolved_metadata(self) -> None:
+        resource = NormalizedResource(
+            address="aws_ecs_service.app",
+            provider="aws",
+            resource_type="aws_ecs_service",
+            name="app",
+            category=ResourceCategory.COMPUTE,
+            reference_resolutions=(
+                TerraformReferenceResolution(
+                    path=("target_group",),
+                    state=TerraformReferenceResolutionState.SYMBOLIC,
+                    provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                ),
+                TerraformReferenceResolution(
+                    path=("security_groups",),
+                    state=TerraformReferenceResolutionState.AMBIGUOUS,
+                    provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                ),
+                TerraformReferenceResolution(
+                    path=("task_role",),
+                    state=TerraformReferenceResolutionState.UNRESOLVED,
+                    provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                ),
+                TerraformReferenceResolution(
+                    path=("network",),
+                    state=TerraformReferenceResolutionState.UNSUPPORTED,
+                    provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                ),
+            ),
+        )
+
+        coverage = build_analysis_coverage(ResourceInventory(provider="aws", resources=[resource]))
+
+        self.assertEqual(coverage.resources.plan_time_unknown_resources, 0)
+        self.assertEqual(coverage.references.symbolically_resolved_relationships, 1)
+        self.assertEqual(coverage.references.ambiguous_symbolic_relationships, 1)
+        self.assertEqual(coverage.references.unresolved_symbolic_relationships, 2)
+        self.assertEqual(coverage.references.unresolved_reference_count, 0)
+        self.assertEqual(coverage.references.unresolved_references, [])
 
     def test_reference_coverage_does_not_snapshot_unrelated_metadata(self) -> None:
         resource = NormalizedResource(

@@ -19,10 +19,12 @@ This run identified **9 trust boundaries** and **45 findings** across **31 norma
 - Provider resources considered: `31`
 - Normalized resources: `31`
 - Unsupported resources: `0`
+- Resources with plan-time unknown values: `0`
 - Registered provider rules (GCP): `84`
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-sensitive-resource-iam-external-access`: `2`
@@ -699,4 +701,4 @@ This run identified **9 trust boundaries** and **45 findings** across **31 norma
 ## Limitations / Unsupported Resources
 
 - GCP support covers a curated set of compute, serverless, data, IAM, Kubernetes, networking, audit, private-connectivity, messaging, registry, and key-management resources. Analysis is plan-local and does not model every provider resource, runtime drift, or every organization-level control; provider-specific positive observations remain more limited than finding coverage.
-- The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.
+- The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.

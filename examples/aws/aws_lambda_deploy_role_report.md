@@ -19,10 +19,12 @@ This run identified **4 trust boundaries** and **6 findings** across **13 normal
 - Provider resources considered: `13`
 - Normalized resources: `13`
 - Unsupported resources: `0`
+- Resources with plan-time unknown values: `0`
 - Registered provider rules (AWS): `91`
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `aws-workload-s3-vpc-endpoint-missing`: `1`
@@ -160,4 +162,4 @@ No findings in this severity band.
 - Subnet public/private classification prefers explicit route table associations and NAT or internet routes when present, but it does not model main-route-table inheritance or every routing edge case.
 - IAM analysis resolves inline role policies, customer-managed role-policy attachments, and EC2 instance profiles present in the plan, but it does not expand AWS-managed policy documents that are not materialized in Terraform state.
 - Resource-policy analysis focuses on explicit policy documents and Lambda permission resources present in the plan; it does not model every service-specific condition key or every downstream runtime authorization path.
-- The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.
+- The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.

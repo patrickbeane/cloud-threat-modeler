@@ -58,6 +58,15 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(inventory.provider, "aws")
         self.assertEqual(aws.calls, [[resource]])
 
+    def test_normalize_counts_plan_time_unknown_resources_from_raw_plan_resources(self) -> None:
+        aws = RecordingNormalizer("aws")
+        unknown = _resource()
+        unknown.unknown_values = {"network": [{"security_groups": True}]}
+
+        inventory = ProviderRegistry([aws]).normalize("aws", [unknown, _resource("aws_vpc")])
+
+        self.assertEqual(inventory.plan_time_unknown_resources, 1)
+
     def test_detect_provider_uses_normalizer_resource_ownership(self) -> None:
         aws = RecordingNormalizer("aws", owned_prefix="aws_")
         gcp = RecordingNormalizer("gcp", owned_prefix="google_")

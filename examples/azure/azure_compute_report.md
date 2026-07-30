@@ -7,7 +7,7 @@
 
 ## Summary
 
-This run identified **1 trust boundaries** and **3 findings** across **10 normalized resources**.
+This run identified **1 trust boundary** and **3 findings** across **10 normalized resources**.
 
 - High severity findings: `0`
 - Medium severity findings: `3`
@@ -19,10 +19,12 @@ This run identified **1 trust boundaries** and **3 findings** across **10 normal
 - Provider resources considered: `10`
 - Normalized resources: `10`
 - Unsupported resources: `0`
+- Resources with plan-time unknown values: `0`
 - Registered provider rules (Azure): `103`
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-public-compute-broad-ingress`: `1`
@@ -90,4 +92,4 @@ No findings in this severity band.
 ## Limitations / Unsupported Resources
 
 - Azure support covers a curated AzureRM set including Storage, Service Bus, Container Registry, Key Vault, SQL/PostgreSQL, App Service/Function Apps, AKS, networking and public edge, Private Endpoint/DNS-zone-group, diagnostic/Defender, and RBAC/identity posture. Remaining limitations include full Private DNS record correctness, broader RBAC hierarchy, MySQL, runtime application authentication and routing, full AKS node/workload posture, and unsupported platform services; analysis remains plan-local.
-- The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.
+- The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.

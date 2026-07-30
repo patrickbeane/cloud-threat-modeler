@@ -48,7 +48,7 @@ class AzureNsgPrecedenceAnalysisIntegrationTests(unittest.TestCase):
         second = render_markdown(engine.analyze_plan(AZURE_NSG_PRECEDENCE_FIXTURE_PATH))
 
         self.assertEqual(first, second)
-        self.assertIn("This run identified **0 trust boundaries** and **1 findings**", first)
+        self.assertIn("This run identified **0 trust boundaries** and **1 finding**", first)
         self.assertIn("No trust boundaries were discovered.", first)
         self.assertIn("Azure Network Security Group lacks flow-log coverage", first)
 

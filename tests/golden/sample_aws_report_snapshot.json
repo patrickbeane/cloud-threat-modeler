@@ -32,6 +32,7 @@
       "provider_resources": 24,
       "normalized_resources": 23,
       "unsupported_resources": 1,
+      "plan_time_unknown_resources": 0,
       "unsupported_resource_types": {
         "aws_cloudwatch_log_group": 1
       }
@@ -229,6 +230,9 @@
     },
     "references": {
       "unresolved_reference_count": 0,
+      "symbolically_resolved_relationships": 0,
+      "ambiguous_symbolic_relationships": 0,
+      "unresolved_symbolic_relationships": 0,
       "unresolved_references": []
     }
   },
@@ -591,6 +595,6 @@
     "Subnet public/private classification prefers explicit route table associations and NAT or internet routes when present, but it does not model main-route-table inheritance or every routing edge case.",
     "IAM analysis resolves inline role policies, customer-managed role-policy attachments, and EC2 instance profiles present in the plan, but it does not expand AWS-managed policy documents that are not materialized in Terraform state.",
     "Resource-policy analysis focuses on explicit policy documents and Lambda permission resources present in the plan; it does not model every service-specific condition key or every downstream runtime authorization path.",
-    "The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity."
+    "The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity."
   ]
 }

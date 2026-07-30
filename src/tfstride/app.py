@@ -24,7 +24,7 @@ from tfstride.providers.registry import ProviderRegistry
 
 AUTO_PROVIDER = "auto"
 SHARED_LIMITATIONS = (
-    "The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.",
+    "The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.",
 )
 DEFAULT_LIMITATIONS = [
     *default_provider_limitations().get(DEFAULT_PROVIDER, ()),

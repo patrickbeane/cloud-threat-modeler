@@ -7,7 +7,7 @@
 
 ## Summary
 
-This run identified **1 trust boundaries** and **5 findings** across **9 normalized resources**.
+This run identified **1 trust boundary** and **5 findings** across **9 normalized resources**.
 
 - High severity findings: `2`
 - Medium severity findings: `3`
@@ -19,10 +19,12 @@ This run identified **1 trust boundaries** and **5 findings** across **9 normali
 - Provider resources considered: `9`
 - Normalized resources: `9`
 - Unsupported resources: `0`
+- Resources with plan-time unknown values: `0`
 - Registered provider rules (GCP): `84`
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-cloud-sql-point-in-time-recovery-disabled`: `1`
@@ -50,7 +52,7 @@ This run identified **1 trust boundaries** and **5 findings** across **9 normali
 - Affected resources: `google_project_iam_member.deploy_admin`
 - Trust boundary: `not-applicable`
 - Severity reasoning: internet_exposure +0, privilege_breadth +2, data_sensitivity +0, lateral_movement +2, blast_radius +2, final_score 6 => high
-- Rationale: google_project_iam_member.deploy_admin grants the high-impact GCP role `projects/tfstride-demo/roles/deployAdmin` to `group:deploy@example.com` at project scope. That role enables custom role includes high-impact permissions: iam.serviceAccounts.actAs and can materially expand control-plane blast radius if the principal is compromised or mis-scoped.
+- Rationale: google_project_iam_member.deploy_admin grants the high-impact GCP role `projects/tfstride-demo/roles/deployAdmin` to `group:deploy@example.com` at project scope. The custom role includes high-impact permissions such as `iam.serviceAccounts.actAs`, which can materially expand control-plane blast radius if the principal is compromised or mis-scoped.
 - Recommended mitigation: Replace Owner, Editor, IAM admin, service-account impersonation, and admin-class project roles with narrowly scoped predefined or custom roles assigned to specific groups or service accounts.
 - Evidence:
   - iam binding: member=group:deploy@example.com; role=projects/tfstride-demo/roles/deployAdmin
@@ -115,4 +117,4 @@ No findings in this severity band.
 ## Limitations / Unsupported Resources
 
 - GCP support covers a curated set of compute, serverless, data, IAM, Kubernetes, networking, audit, private-connectivity, messaging, registry, and key-management resources. Analysis is plan-local and does not model every provider resource, runtime drift, or every organization-level control; provider-specific positive observations remain more limited than finding coverage.
-- The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.
+- The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.

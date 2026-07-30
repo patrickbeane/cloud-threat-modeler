@@ -13,6 +13,8 @@ _PROVIDER_DISPLAY_NAMES = {
 
 def render_markdown(result: AnalysisResult) -> str:
     findings_by_severity = _group_findings_by_severity(result)
+    trust_boundary_label = "trust boundary" if len(result.trust_boundaries) == 1 else "trust boundaries"
+    finding_label = "finding" if len(result.findings) == 1 else "findings"
     lines = [
         f"# {result.title}",
         "",
@@ -24,8 +26,9 @@ def render_markdown(result: AnalysisResult) -> str:
         "## Summary",
         "",
         (
-            f"This run identified **{len(result.trust_boundaries)} trust boundaries** and "
-            f"**{len(result.findings)} findings** across **{len(result.inventory.resources)} normalized resources**."
+            f"This run identified **{len(result.trust_boundaries)} {trust_boundary_label}** and "
+            f"**{len(result.findings)} {finding_label}** across "
+            f"**{len(result.inventory.resources)} normalized resources**."
         ),
         "",
     ]
@@ -165,10 +168,17 @@ def _render_analysis_coverage(result: AnalysisResult) -> list[str]:
         f"- Provider resources considered: `{coverage.resources.provider_resources}`",
         f"- Normalized resources: `{coverage.resources.normalized_resources}`",
         f"- Unsupported resources: `{coverage.resources.unsupported_resources}`",
+        f"- Resources with plan-time unknown values: `{coverage.resources.plan_time_unknown_resources}`",
         f"- Registered provider rules ({provider_label}): `{coverage.rules.registered_rule_count}`",
         f"- Enabled provider rules ({provider_label}): `{len(coverage.rules.enabled_rules)}`",
         f"- Disabled rules: `{len(coverage.rules.disabled_rules)}`",
         f"- Severity overrides: `{len(coverage.rules.severity_overrides)}`",
+        (
+            "- Configuration-reference resolution: "
+            f"`{coverage.references.symbolically_resolved_relationships} symbolic`, "
+            f"`{coverage.references.ambiguous_symbolic_relationships} ambiguous`, "
+            f"`{coverage.references.unresolved_symbolic_relationships} unresolved`"
+        ),
         f"- Recorded unresolved modeled references: `{coverage.references.unresolved_reference_count}`",
     ]
 

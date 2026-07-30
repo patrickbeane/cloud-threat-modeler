@@ -105,6 +105,7 @@ def _serialize_analysis_coverage(result: AnalysisResult) -> AnalysisCoveragePayl
             "provider_resources": coverage.resources.provider_resources,
             "normalized_resources": coverage.resources.normalized_resources,
             "unsupported_resources": coverage.resources.unsupported_resources,
+            "plan_time_unknown_resources": coverage.resources.plan_time_unknown_resources,
             "unsupported_resource_types": dict(sorted(coverage.resources.unsupported_resource_types.items())),
         },
         "rules": {
@@ -118,6 +119,9 @@ def _serialize_analysis_coverage(result: AnalysisResult) -> AnalysisCoveragePayl
         },
         "references": {
             "unresolved_reference_count": coverage.references.unresolved_reference_count,
+            "symbolically_resolved_relationships": coverage.references.symbolically_resolved_relationships,
+            "ambiguous_symbolic_relationships": coverage.references.ambiguous_symbolic_relationships,
+            "unresolved_symbolic_relationships": coverage.references.unresolved_symbolic_relationships,
             "unresolved_references": [
                 {
                     "resource": reference.resource,

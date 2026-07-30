@@ -157,6 +157,11 @@ class GcpProjectIamRuleTests(unittest.TestCase):
             evidence["custom_role_permissions"],
             ["cloudfunctions.functions.update", "iam.serviceAccounts.actAs"],
         )
+        self.assertIn(
+            "The custom role includes high-impact permissions such as `cloudfunctions.functions.update`, "
+            "which can materially expand control-plane blast radius if the principal is compromised or mis-scoped.",
+            findings[0].rationale,
+        )
 
     def test_public_principal_with_privileged_role_reports_both_iam_findings(self) -> None:
         inventory = GcpNormalizer().normalize([_project_iam_member("roles/owner", member="allUsers")])

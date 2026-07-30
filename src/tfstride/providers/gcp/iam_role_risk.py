@@ -49,6 +49,14 @@ def privileged_org_folder_role_risk(
     )
 
 
+def custom_role_privilege_rationale(role_risk: str, *, consequence: str) -> str | None:
+    prefix = "custom role includes high-impact permissions: "
+    if not role_risk.startswith(prefix):
+        return None
+    permission = role_risk.removeprefix(prefix).split(", ", 1)[0]
+    return f"The custom role includes high-impact permissions such as `{permission}`, which {consequence}."
+
+
 def _privileged_gcp_role_risk(
     role: str | None,
     *,

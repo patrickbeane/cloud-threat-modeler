@@ -86,11 +86,22 @@ class MarkdownReportTests(unittest.TestCase):
         self.assertIn("- Provider resources considered: `24`", report)
         self.assertIn("- Registered provider rules (AWS): `91`", report)
         self.assertIn("- Enabled provider rules (AWS): `91`", report)
+        self.assertIn("- Resources with plan-time unknown values: `0`", report)
+        self.assertIn(
+            "- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`",
+            report,
+        )
         self.assertIn("- Recorded unresolved modeled references: `0`", report)
         self.assertIn("- Unsupported resource types:", report)
         self.assertIn("  - `aws_cloudwatch_log_group`: `1`", report)
         self.assertIn("- Findings by rule:", report)
         self.assertIn("  - `aws-database-permissive-ingress`: `1`", report)
+
+    def test_report_uses_singular_summary_labels(self) -> None:
+        report = render_markdown(TfStride().analyze_plan(GCP_BASELINE_FIXTURE_PATH))
+
+        self.assertIn("This run identified **1 trust boundary** and **5 findings**", report)
+        self.assertNotIn("1 trust boundaries", report)
 
     def test_report_renders_unconstrained_trust_evidence(self) -> None:
         engine = TfStride()
@@ -502,6 +513,7 @@ class JsonReportTests(unittest.TestCase):
         self.assertEqual(coverage["resources"]["provider_resources"], 24)
         self.assertEqual(coverage["resources"]["normalized_resources"], 23)
         self.assertEqual(coverage["resources"]["unsupported_resources"], 1)
+        self.assertEqual(coverage["resources"]["plan_time_unknown_resources"], 0)
         self.assertEqual(
             coverage["resources"]["unsupported_resource_types"],
             {"aws_cloudwatch_log_group": 1},
@@ -513,6 +525,9 @@ class JsonReportTests(unittest.TestCase):
         self.assertEqual(coverage["rules"]["severity_overrides"], {})
         self.assertEqual(coverage["rules"]["finding_counts_by_rule"]["aws-database-permissive-ingress"], 1)
         self.assertEqual(coverage["references"]["unresolved_reference_count"], 0)
+        self.assertEqual(coverage["references"]["symbolically_resolved_relationships"], 0)
+        self.assertEqual(coverage["references"]["ambiguous_symbolic_relationships"], 0)
+        self.assertEqual(coverage["references"]["unresolved_symbolic_relationships"], 0)
         self.assertEqual(coverage["references"]["unresolved_references"], [])
 
     def test_json_report_includes_suppressed_and_baselined_findings(self) -> None:

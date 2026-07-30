@@ -44,6 +44,7 @@ class ResourceCoveragePayload(TypedDict):
     provider_resources: int
     normalized_resources: int
     unsupported_resources: int
+    plan_time_unknown_resources: int
     unsupported_resource_types: dict[str, int]
 
 
@@ -63,6 +64,9 @@ class UnresolvedReferencePayload(TypedDict):
 class ReferenceCoveragePayload(TypedDict):
     unresolved_reference_count: int
     unresolved_references: list[UnresolvedReferencePayload]
+    symbolically_resolved_relationships: int
+    ambiguous_symbolic_relationships: int
+    unresolved_symbolic_relationships: int
 
 
 class AnalysisCoveragePayload(TypedDict):

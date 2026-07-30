@@ -19,10 +19,12 @@ This run identified **4 trust boundaries** and **5 findings** across **11 normal
 - Provider resources considered: `11`
 - Normalized resources: `11`
 - Unsupported resources: `0`
+- Resources with plan-time unknown values: `0`
 - Registered provider rules (GCP): `84`
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-subnetwork-flow-logs-not-configured`: `1`
@@ -139,4 +141,4 @@ No findings in this severity band.
 ## Limitations / Unsupported Resources
 
 - GCP support covers a curated set of compute, serverless, data, IAM, Kubernetes, networking, audit, private-connectivity, messaging, registry, and key-management resources. Analysis is plan-local and does not model every provider resource, runtime drift, or every organization-level control; provider-specific positive observations remain more limited than finding coverage.
-- The engine reasons over Terraform planned values only and does not validate runtime drift, CloudTrail evidence, or post-deploy control-plane activity.
+- The engine reasons over Terraform planned values only and does not validate runtime drift, runtime audit evidence, or post-deployment control-plane activity.

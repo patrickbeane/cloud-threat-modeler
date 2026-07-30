@@ -18,6 +18,7 @@ from tfstride.providers.gcp.iam_access import (
     org_folder_scope_description,
 )
 from tfstride.providers.gcp.iam_role_risk import (
+    custom_role_privilege_rationale,
     privileged_org_folder_role_risk,
     privileged_project_role_risk,
 )
@@ -106,6 +107,15 @@ class GcpScopedIamDetectors:
                     lateral_movement=2,
                     blast_radius=gcp_iam_condition_limited_score(2, condition, floor=1),
                 )
+                custom_rationale = custom_role_privilege_rationale(
+                    role_risk,
+                    consequence="can materially expand control-plane blast radius if the principal is compromised or mis-scoped",
+                )
+                role_rationale = custom_rationale or (
+                    "That role enables "
+                    f"{role_risk} and can materially expand control-plane blast radius "
+                    "if the principal is compromised or mis-scoped."
+                )
                 findings.append(
                     self._finding_factory.build(
                         rule_id=rule_id,
@@ -114,8 +124,7 @@ class GcpScopedIamDetectors:
                         trust_boundary_id=None,
                         rationale=(
                             f"{binding.display_name} grants the high-impact GCP role `{role}` to `{member}` "
-                            f"at project scope. That role enables {role_risk} and can materially expand "
-                            "control-plane blast radius if the principal is compromised or mis-scoped."
+                            f"at project scope. {role_rationale}"
                         ),
                         evidence=collect_evidence(
                             evidence_item("iam_binding", [f"member={member}", f"role={role}"]),
@@ -205,6 +214,15 @@ class GcpScopedIamDetectors:
                     lateral_movement=2,
                     blast_radius=gcp_iam_condition_limited_score(2, condition, floor=1),
                 )
+                custom_rationale = custom_role_privilege_rationale(
+                    role_risk,
+                    consequence="can materially expand blast radius if the principal is compromised",
+                )
+                role_rationale = custom_rationale or (
+                    "That role enables "
+                    f"{role_risk} across a high-level resource boundary and can materially expand "
+                    "blast radius if the principal is compromised."
+                )
                 findings.append(
                     self._finding_factory.build(
                         rule_id=rule_id,
@@ -213,8 +231,7 @@ class GcpScopedIamDetectors:
                         trust_boundary_id=None,
                         rationale=(
                             f"{binding.display_name} grants the high-impact GCP role `{role}` to `{member}` "
-                            f"at {scope}. That role enables {role_risk} across a high-level resource "
-                            "boundary and can materially expand blast radius if the principal is compromised."
+                            f"at {scope}. {role_rationale}"
                         ),
                         evidence=collect_evidence(
                             evidence_item("iam_binding", [f"member={member}", f"role={role}"]),

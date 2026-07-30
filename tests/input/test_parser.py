@@ -91,6 +91,7 @@ class TerraformPlanParserTests(unittest.TestCase):
                 "network_rules": [{"default_action": True}],
             },
         )
+        self.assertTrue(plan.resources[0].has_plan_time_unknown_values)
 
     def test_parser_rejects_invalid_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
