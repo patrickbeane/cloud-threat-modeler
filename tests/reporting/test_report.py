@@ -86,7 +86,7 @@ class MarkdownReportTests(unittest.TestCase):
         self.assertIn("- Provider resources considered: `24`", report)
         self.assertIn("- Registered provider rules (AWS): `91`", report)
         self.assertIn("- Enabled provider rules (AWS): `91`", report)
-        self.assertIn("- Unresolved in-plan references: `0`", report)
+        self.assertIn("- Recorded unresolved modeled references: `0`", report)
         self.assertIn("- Unsupported resource types:", report)
         self.assertIn("  - `aws_cloudwatch_log_group`: `1`", report)
         self.assertIn("- Findings by rule:", report)

@@ -169,7 +169,7 @@ def _render_analysis_coverage(result: AnalysisResult) -> list[str]:
         f"- Enabled provider rules ({provider_label}): `{len(coverage.rules.enabled_rules)}`",
         f"- Disabled rules: `{len(coverage.rules.disabled_rules)}`",
         f"- Severity overrides: `{len(coverage.rules.severity_overrides)}`",
-        f"- Unresolved in-plan references: `{coverage.references.unresolved_reference_count}`",
+        f"- Recorded unresolved modeled references: `{coverage.references.unresolved_reference_count}`",
     ]
 
     if coverage.resources.unsupported_resource_types:

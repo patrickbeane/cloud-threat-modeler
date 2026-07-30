@@ -23,7 +23,7 @@ This run identified **4 trust boundaries** and **6 findings** across **13 normal
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `aws-workload-s3-vpc-endpoint-missing`: `1`
   - `aws-vpc-flow-logs-not-configured`: `1`

@@ -23,7 +23,7 @@ This run identified **1 trust boundaries** and **11 findings** across **8 normal
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-key-vault-public-network-access`: `1`
   - `azure-key-vault-missing-private-endpoint`: `2`

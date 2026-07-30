@@ -23,7 +23,7 @@ This run identified **2 trust boundaries** and **2 findings** across **2 normali
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `aws-role-trust-expansion`: `1`
   - `aws-role-trust-missing-narrowing`: `1`

@@ -23,7 +23,7 @@ This run identified **0 trust boundaries** and **1 findings** across **7 normali
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-nsg-flow-logs-not-configured`: `1`
 

@@ -23,7 +23,7 @@ This run identified **4 trust boundaries** and **5 findings** across **11 normal
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-subnetwork-flow-logs-not-configured`: `1`
   - `gcp-cloud-run-public-invoker`: `1`

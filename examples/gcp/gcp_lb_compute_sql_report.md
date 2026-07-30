@@ -23,7 +23,7 @@ This run identified **2 trust boundaries** and **2 findings** across **11 normal
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-cloud-sql-zonal-availability`: `1`
   - `gcp-subnetwork-flow-logs-not-configured`: `1`

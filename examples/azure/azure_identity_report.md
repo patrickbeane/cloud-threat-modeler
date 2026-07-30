@@ -23,7 +23,7 @@ This run identified **1 trust boundaries** and **5 findings** across **13 normal
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-public-compute-broad-ingress`: `1`
   - `azure-nsg-flow-logs-not-configured`: `1`

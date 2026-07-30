@@ -23,7 +23,7 @@ This run identified **4 trust boundaries** and **4 findings** across **19 normal
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `aws-public-alb-waf-missing`: `1`
   - `aws-rds-cloudwatch-log-exports-missing`: `1`

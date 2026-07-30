@@ -23,7 +23,7 @@ This run identified **0 trust boundaries** and **6 findings** across **8 normali
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Unresolved in-plan references: `0`
+- Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-sensitive-resource-iam-external-access`: `2`
   - `gcp-subnetwork-flow-logs-not-configured`: `1`
