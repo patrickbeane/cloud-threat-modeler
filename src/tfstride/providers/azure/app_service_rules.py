@@ -314,7 +314,7 @@ class AzureAppServiceRuleDetectors:
         findings: list[Finding] = []
         for app in context.inventory.by_type(*AZURE_APP_SERVICE_RESOURCE_TYPES):
             facts = azure_facts(app)
-            if facts.app_service_vnet_integration_subnet_id:
+            if facts.app_service_vnet_integration_subnet_id or facts.resolved_subnet_addresses:
                 continue
             if _vnet_integration_is_unknown(facts):
                 continue
@@ -605,6 +605,8 @@ def _exact_key_vault_reference_evidence(facts: AzureResourceFacts) -> list[str]:
 def _vnet_integration_evidence(facts: AzureResourceFacts) -> list[str]:
     if facts.app_service_vnet_integration_subnet_id:
         return [f"virtual_network_subnet_id is {facts.app_service_vnet_integration_subnet_id}"]
+    if facts.resolved_subnet_addresses:
+        return ["virtual_network_subnet_id symbolically resolves to " + ", ".join(facts.resolved_subnet_addresses)]
     return ["virtual_network_subnet_id is not configured"]
 
 

@@ -104,6 +104,61 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
         )
         self.assertIn("value equivalence is unproven", resolution.reason or "")
 
+    def test_direct_collection_and_conditional_multi_target_references_are_indistinguishable(self) -> None:
+        target_addresses = ("aws_target.blob", "aws_target.file")
+        references = [
+            "aws_target.blob.id",
+            "aws_target.blob",
+            "aws_target.file.id",
+            "aws_target.file",
+        ]
+        payload = _root_plan(
+            planned_resources=[
+                _planned_resource(address, "aws_target", address.rsplit(".", 1)[-1], {}) for address in target_addresses
+            ]
+            + [
+                _planned_resource("aws_consumer.collection", "aws_consumer", "collection", {}),
+                _planned_resource("aws_consumer.conditional", "aws_consumer", "conditional", {}),
+            ],
+            configuration_resources=[
+                *[
+                    _configuration_resource(address, "aws_target", address.rsplit(".", 1)[-1])
+                    for address in target_addresses
+                ],
+                _configuration_resource(
+                    "aws_consumer.collection",
+                    "aws_consumer",
+                    "collection",
+                    expressions={"target": {"references": references}},
+                ),
+                _configuration_resource(
+                    "aws_consumer.conditional",
+                    "aws_consumer",
+                    "conditional",
+                    expressions={"target": {"references": references}},
+                ),
+            ],
+            unknown_values={
+                "aws_consumer.collection": {"target": True},
+                "aws_consumer.conditional": {"target": True},
+            },
+        )
+
+        resources = _load_resources(payload)
+        collection = resources["aws_consumer.collection"].reference_resolution("target")
+        conditional = resources["aws_consumer.conditional"].reference_resolution("target")
+
+        self.assertEqual(collection.state, TerraformReferenceResolutionState.AMBIGUOUS)
+        self.assertEqual(conditional.state, TerraformReferenceResolutionState.AMBIGUOUS)
+        self.assertEqual(
+            [target.address for target in collection.targets],
+            list(target_addresses),
+        )
+        self.assertEqual(
+            [(target.address, target.reference) for target in conditional.targets],
+            [(target, f"{target}.id") for target in target_addresses],
+        )
+
     def test_unresolved_reference_and_unavailable_dynamic_expression_are_distinct(self) -> None:
         payload = _root_plan(
             planned_resources=[

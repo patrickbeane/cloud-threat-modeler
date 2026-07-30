@@ -30,7 +30,12 @@ from tfstride.providers.azure.public_network import (
 from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
 from tfstride.providers.azure.resource_utils import azure_reference_key, azure_resource_references
-from tfstride.providers.coercion import STATE_NOT_CONFIGURED, STATE_UNKNOWN, dedupe_strings
+from tfstride.providers.coercion import (
+    STATE_CONFIGURED,
+    STATE_NOT_CONFIGURED,
+    STATE_UNKNOWN,
+    dedupe_strings,
+)
 
 _PRIVATE_ENDPOINT_TARGET_TYPES = (
     AzureResourceType.STORAGE_ACCOUNT,
@@ -392,6 +397,12 @@ def _private_dns_uncertainty_posture(connection: AzurePrivateEndpointConnection)
     return [
         f"{connection.private_endpoint_address}: {uncertainty}"
         for uncertainty in connection.private_dns_zone_uncertainties
+        if not (
+            connection.private_dns_zone_group_state == STATE_CONFIGURED
+            and connection.private_dns_zone_ids_state == STATE_CONFIGURED
+            and "private_dns_zone_ids" in uncertainty
+            and "unknown after planning" in uncertainty
+        )
     ]
 
 
@@ -410,14 +421,17 @@ def _private_dns_zone_link_gap_evidence(
     links_by_zone_key: Mapping[str, tuple[_PrivateDnsZoneLink, ...]],
     resource_by_reference: Mapping[str, NormalizedResource],
 ) -> tuple[list[str], list[str], list[str]]:
-    if endpoint is None or not connection.private_dns_zone_ids:
+    if endpoint is None or not (connection.private_dns_zone_ids or connection.private_dns_zone_addresses):
         return [], [], []
 
     endpoint_vnet_keys, endpoint_network_evidence = _endpoint_virtual_network_keys(endpoint, resource_by_reference)
     if not endpoint_vnet_keys:
         return [], [], endpoint_network_evidence
 
-    zone_keys = _expanded_reference_keys(connection.private_dns_zone_ids, resource_by_reference)
+    zone_keys = _expanded_reference_keys(
+        [*connection.private_dns_zone_ids, *connection.private_dns_zone_addresses],
+        resource_by_reference,
+    )
     relevant_links = _dedupe_links(link for zone_key in zone_keys for link in links_by_zone_key.get(zone_key, ()))
     known_vnet_links = tuple(link for link in relevant_links if link.virtual_network_keys)
     modeled_link_evidence = _private_dns_zone_link_evidence(relevant_links)
@@ -443,6 +457,10 @@ def _private_dns_zone_group_evidence(connection: AzurePrivateEndpointConnection)
         )
     if connection.private_dns_zone_ids:
         values.append(f"{connection.private_endpoint_address}: zone_ids={', '.join(connection.private_dns_zone_ids)}")
+    if connection.private_dns_zone_addresses:
+        values.append(
+            f"{connection.private_endpoint_address}: zone_addresses={', '.join(connection.private_dns_zone_addresses)}"
+        )
     return values
 
 
@@ -499,7 +517,8 @@ def _endpoint_virtual_network_keys(
     if endpoint.vpc_id:
         references.append(endpoint.vpc_id)
         evidence.append(f"{endpoint.address}: vnet={endpoint.vpc_id}")
-    for subnet_reference in endpoint.subnet_ids:
+    subnet_references = [*endpoint.subnet_ids, *azure_facts(endpoint).resolved_subnet_addresses]
+    for subnet_reference in subnet_references:
         evidence.append(f"{endpoint.address}: subnet={subnet_reference}")
         subnet = resource_by_reference.get(azure_reference_key(subnet_reference))
         if subnet is None:
@@ -525,7 +544,7 @@ def _expanded_reference_keys(
         resolved_resource = resource_by_reference.get(reference_key)
         if resolved_resource is not None:
             keys.extend(azure_resource_references(resolved_resource))
-    return dedupe_strings(keys)
+    return tuple(dedupe_strings(keys))
 
 
 def _private_dns_zone_link_evidence(links: Iterable[_PrivateDnsZoneLink]) -> list[str]:
@@ -605,7 +624,7 @@ def _public_network_fallback_evidence(facts: AzureResourceFacts) -> list[str]:
 
 
 def _network_acl_evidence(facts: AzureResourceFacts) -> list[str]:
-    values = []
+    values: list[str] = []
     if facts.network_default_action:
         values.append(f"effective default_action is {facts.network_default_action}")
     if facts.network_rule_source_address:

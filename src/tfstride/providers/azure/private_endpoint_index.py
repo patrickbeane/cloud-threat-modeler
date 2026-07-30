@@ -25,7 +25,7 @@ _SUPPORTED_PRIVATE_ENDPOINT_TARGET_TYPES = frozenset(
 @dataclass(frozen=True, slots=True)
 class AzurePrivateEndpointConnection:
     private_endpoint_address: str
-    target_resource_id: str
+    target_resource_id: str | None
     subresource_names: tuple[str, ...]
     private_dns_zone_group_names: tuple[str, ...] = ()
     private_dns_zone_ids: tuple[str, ...] = ()
@@ -34,12 +34,14 @@ class AzurePrivateEndpointConnection:
     private_dns_zone_ids_state: str | None = None
     service_connection_name: str | None = None
     is_manual_connection: bool | None = None
+    target_resource_address: str | None = None
+    private_dns_zone_addresses: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class AzureUnresolvedPrivateEndpointTarget:
     private_endpoint_address: str
-    target_resource_id: str
+    target_resource_id: str | None
     subresource_names: tuple[str, ...]
     service_connection_name: str | None = None
 
@@ -79,6 +81,14 @@ class AzurePrivateEndpointCoverage:
         )
 
     @property
+    def private_dns_zone_addresses(self) -> tuple[str, ...]:
+        return tuple(
+            dedupe_strings(
+                address for connection in self.connections for address in connection.private_dns_zone_addresses
+            )
+        )
+
+    @property
     def private_dns_zone_uncertainties(self) -> tuple[str, ...]:
         return tuple(
             dedupe_strings(
@@ -96,11 +106,12 @@ class AzurePrivateEndpointIndex:
 
     def coverage_for(self, resource: NormalizedResource) -> AzurePrivateEndpointCoverage:
         connections: list[AzurePrivateEndpointConnection] = []
-        seen: set[tuple[str, str, str | None]] = set()
+        seen: set[tuple[str, str | None, str | None, str | None]] = set()
         for target_key in _target_resource_keys(resource):
             for connection in self.connections_by_target_key.get(target_key, ()):
                 dedupe_key = (
                     connection.private_endpoint_address,
+                    connection.target_resource_address,
                     connection.target_resource_id,
                     connection.service_connection_name,
                 )
@@ -123,9 +134,13 @@ def build_azure_private_endpoint_index(
         if private_endpoint.resource_type != AzureResourceType.PRIVATE_ENDPOINT:
             continue
         for connection in _private_endpoint_connections(private_endpoint):
-            lookup_key = azure_reference_key(connection.target_resource_id)
-            target_key = target_keys_by_lookup_key.get(lookup_key)
-            if target_key:
+            target_keys = {
+                target_keys_by_lookup_key[lookup_key]
+                for lookup_key in _connection_target_lookup_keys(connection)
+                if lookup_key in target_keys_by_lookup_key
+            }
+            if len(target_keys) == 1:
+                target_key = next(iter(target_keys))
                 pending_connections_by_key.setdefault(target_key, []).append(connection)
             else:
                 unresolved_targets.append(
@@ -182,7 +197,7 @@ def _target_resource_keys(resource: NormalizedResource) -> tuple[str, ...]:
         return ()
 
     facts = azure_facts(resource)
-    target_ids = [f"{resource.address}.id"]
+    target_ids: list[str | None] = [f"{resource.address}.id"]
     if resource.resource_type == AzureResourceType.STORAGE_ACCOUNT:
         target_ids.append(facts.storage_account_id)
     elif resource.resource_type == AzureResourceType.KEY_VAULT:
@@ -205,19 +220,22 @@ def _private_endpoint_connections(
     facts = azure_facts(private_endpoint)
     for record in facts.private_service_connections:
         target_resource_id = _connection_target_resource_id(record)
-        if not target_resource_id:
+        target_resource_address = _optional_string(record.get("resolved_target_resource_address"))
+        if not target_resource_id and not target_resource_address:
             continue
         connections.append(
             AzurePrivateEndpointConnection(
                 private_endpoint_address=private_endpoint.address,
                 target_resource_id=target_resource_id,
-                subresource_names=tuple(compact_strings(record.get("subresource_names", []))),
+                target_resource_address=target_resource_address,
+                subresource_names=tuple(_string_values(record.get("subresource_names", []))),
                 private_dns_zone_group_names=tuple(facts.private_dns_zone_group_names),
                 private_dns_zone_ids=tuple(facts.private_dns_zone_ids),
+                private_dns_zone_addresses=tuple(facts.resolved_private_dns_zone_addresses),
                 private_dns_zone_uncertainties=tuple(
                     uncertainty
                     for uncertainty in facts.private_endpoint_uncertainties
-                    if "private_dns_zone_group" in uncertainty
+                    if "private_dns_zone_group" in uncertainty or "private_dns_zone_ids" in uncertainty
                 ),
                 private_dns_zone_group_state=facts.private_dns_zone_group_state,
                 private_dns_zone_ids_state=facts.private_dns_zone_ids_state,
@@ -228,8 +246,21 @@ def _private_endpoint_connections(
     return tuple(connections)
 
 
-def _connection_target_resource_id(record: dict) -> str | None:
+def _connection_target_resource_id(record: dict[str, object]) -> str | None:
     return _optional_string(record.get("private_connection_resource_id"))
+
+
+def _connection_target_lookup_keys(connection: AzurePrivateEndpointConnection) -> tuple[str, ...]:
+    values: list[str | None] = [connection.target_resource_id]
+    if connection.target_resource_address:
+        values.append(f"{connection.target_resource_address}.id")
+    return tuple(azure_reference_key(value) for value in compact_strings(values))
+
+
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
 
 
 def _optional_string(value: object) -> str | None:

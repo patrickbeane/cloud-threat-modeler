@@ -38,6 +38,9 @@ from tfstride.providers.azure.resource_decoration.network_security import (
     MergeNetworkSecurityRulesStage,
     ResolveNetworkSecurityAssociationsStage,
 )
+from tfstride.providers.azure.resource_decoration.network_symbolic_relationships import (
+    ResolveAzureNetworkSymbolicRelationshipsStage,
+)
 from tfstride.providers.azure.resource_decoration.public_exposure import DerivePublicComputeExposureStage
 from tfstride.providers.azure.resource_decoration.service_bus import DecorateServiceBusRelationshipsStage
 from tfstride.providers.azure.resource_decoration.storage import DecorateStorageRelationshipsStage
@@ -58,6 +61,7 @@ class AzureDecorationStage(Protocol):
 def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
     return (
         ResolveAzureSymbolicRelationshipsStage(),
+        ResolveAzureNetworkSymbolicRelationshipsStage(),
         MergeNetworkSecurityRulesStage(),
         ResolveSubnetVirtualNetworkStage(),
         ResolveNetworkSecurityAssociationsStage(),

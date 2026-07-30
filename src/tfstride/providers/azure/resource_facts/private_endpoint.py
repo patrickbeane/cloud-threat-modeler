@@ -12,7 +12,7 @@ class AzurePrivateEndpointFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.PRIVATE_ENDPOINT_ID)
 
     @property
-    def private_service_connections(self) -> list[dict]:
+    def private_service_connections(self) -> list[dict[str, object]]:
         return self.get(AzureResourceMetadata.PRIVATE_SERVICE_CONNECTIONS)
 
     @property
@@ -32,7 +32,26 @@ class AzurePrivateEndpointFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.PRIVATE_DNS_ZONE_IDS)
 
     @property
-    def private_dns_zone_groups(self) -> list[dict]:
+    def resolved_private_endpoint_target_addresses(self) -> list[str]:
+        addresses: list[str] = []
+        for record in self.private_service_connections:
+            value = record.get("resolved_target_resource_address")
+            if isinstance(value, str) and value:
+                addresses.append(value)
+        return addresses
+
+    @property
+    def resolved_private_dns_zone_addresses(self) -> list[str]:
+        addresses: list[str] = []
+        for record in self.private_dns_zone_groups:
+            values = record.get("resolved_private_dns_zone_addresses")
+            if not isinstance(values, (list, tuple)):
+                continue
+            addresses.extend(value for value in values if isinstance(value, str) and value)
+        return addresses
+
+    @property
+    def private_dns_zone_groups(self) -> list[dict[str, object]]:
         return self.get(AzureResourceMetadata.PRIVATE_DNS_ZONE_GROUPS)
 
     @property
