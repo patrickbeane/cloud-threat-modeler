@@ -220,6 +220,197 @@ class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
         self.assertEqual(resolution.state, TerraformReferenceResolutionState.UNRESOLVED)
         self.assertIn("child-module output references are not traversed", resolution.reason or "")
 
+    def test_expanded_resource_sources_preserve_relationship_candidates(self) -> None:
+        source_addresses = (
+            'aws_consumer.items["blue"]',
+            'aws_consumer.items["green"]',
+        )
+        target_addresses = (
+            'aws_target.items["blue"]',
+            'aws_target.items["green"]',
+        )
+        payload = _root_plan(
+            planned_resources=[
+                _planned_resource("aws_target.shared", "aws_target", "shared", {}),
+                *[_planned_resource(address, "aws_target", "items", {}) for address in target_addresses],
+                *[_planned_resource(address, "aws_consumer", "items", {}) for address in source_addresses],
+            ],
+            configuration_resources=[
+                _configuration_resource("aws_target.shared", "aws_target", "shared"),
+                _configuration_resource(
+                    "aws_target.items",
+                    "aws_target",
+                    "items",
+                    for_each_expression={"references": ["var.environments"]},
+                ),
+                _configuration_resource(
+                    "aws_consumer.items",
+                    "aws_consumer",
+                    "items",
+                    expressions={
+                        "shared_target": {
+                            "references": [
+                                "aws_target.shared.id",
+                                "aws_target.shared",
+                            ]
+                        },
+                        "expanded_target": {
+                            "references": [
+                                "aws_target.items.id",
+                                "aws_target.items",
+                            ]
+                        },
+                    },
+                    for_each_expression={"references": ["var.environments"]},
+                ),
+            ],
+            unknown_values={
+                address: {
+                    "shared_target": True,
+                    "expanded_target": True,
+                }
+                for address in source_addresses
+            },
+        )
+
+        resources = _load_resources(payload)
+        for source_address in source_addresses:
+            with self.subTest(source=source_address):
+                shared = resources[source_address].reference_resolution("shared_target")
+                expanded = resources[source_address].reference_resolution("expanded_target")
+
+                self.assertEqual(
+                    shared.provenance,
+                    TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                )
+                self.assertEqual(shared.references, ("aws_target.shared.id",))
+                self.assertEqual(
+                    [target.address for target in shared.targets],
+                    ["aws_target.shared"],
+                )
+                self.assertEqual(
+                    expanded.provenance,
+                    TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                )
+                self.assertEqual(expanded.references, ("aws_target.items.id",))
+                self.assertEqual(
+                    [target.address for target in expanded.targets],
+                    list(target_addresses),
+                )
+
+    def test_expanded_module_sources_preserve_input_relationship_candidates(self) -> None:
+        module_addresses = (
+            'module.consumers["blue"]',
+            'module.consumers["green"]',
+        )
+        source_addresses = tuple(f"{module_address}.aws_consumer.this" for module_address in module_addresses)
+        target_addresses = (
+            'aws_target.items["blue"]',
+            'aws_target.items["green"]',
+        )
+        child_configuration = {
+            "resources": [
+                _configuration_resource(
+                    "aws_consumer.this",
+                    "aws_consumer",
+                    "this",
+                    expressions={
+                        "shared_target": {"references": ["var.shared_target"]},
+                        "expanded_target": {"references": ["var.expanded_target"]},
+                    },
+                )
+            ],
+            "variables": {
+                "shared_target": {},
+                "expanded_target": {},
+            },
+        }
+        payload = _root_plan(
+            planned_resources=[
+                _planned_resource("aws_target.shared", "aws_target", "shared", {}),
+                *[_planned_resource(address, "aws_target", "items", {}) for address in target_addresses],
+            ],
+            planned_child_modules=[
+                {
+                    "address": module_address,
+                    "resources": [
+                        _planned_resource(
+                            source_address,
+                            "aws_consumer",
+                            "this",
+                            {},
+                        )
+                    ],
+                }
+                for module_address, source_address in zip(
+                    module_addresses,
+                    source_addresses,
+                    strict=True,
+                )
+            ],
+            configuration_resources=[
+                _configuration_resource("aws_target.shared", "aws_target", "shared"),
+                _configuration_resource(
+                    "aws_target.items",
+                    "aws_target",
+                    "items",
+                    for_each_expression={"references": ["var.environments"]},
+                ),
+            ],
+            module_calls={
+                "consumers": {
+                    "for_each_expression": {"references": ["var.environments"]},
+                    "expressions": {
+                        "shared_target": {
+                            "references": [
+                                "aws_target.shared.id",
+                                "aws_target.shared",
+                            ]
+                        },
+                        "expanded_target": {
+                            "references": [
+                                "aws_target.items.id",
+                                "aws_target.items",
+                            ]
+                        },
+                    },
+                    "module": child_configuration,
+                }
+            },
+            unknown_values={
+                address: {
+                    "shared_target": True,
+                    "expanded_target": True,
+                }
+                for address in source_addresses
+            },
+        )
+
+        resources = _load_resources(payload)
+        for source_address in source_addresses:
+            with self.subTest(source=source_address):
+                shared = resources[source_address].reference_resolution("shared_target")
+                expanded = resources[source_address].reference_resolution("expanded_target")
+
+                self.assertEqual(
+                    shared.provenance,
+                    TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                )
+                self.assertEqual(shared.references, ("var.shared_target",))
+                self.assertEqual(
+                    [target.address for target in shared.targets],
+                    ["aws_target.shared"],
+                )
+                self.assertEqual(
+                    expanded.provenance,
+                    TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+                )
+                self.assertEqual(expanded.references, ("var.expanded_target",))
+                self.assertEqual(
+                    [target.address for target in expanded.targets],
+                    list(target_addresses),
+                )
+
     def test_count_and_for_each_resource_expansions_are_unsupported(self) -> None:
         payload = _root_plan(
             planned_resources=[
