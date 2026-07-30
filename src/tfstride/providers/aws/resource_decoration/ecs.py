@@ -166,8 +166,11 @@ def _security_group_fronting_load_balancers(
     public_load_balancers_by_security_group: dict[str, list[str]],
 ) -> list[str]:
     fronting_load_balancers: list[str] = []
+    security_group_references = dedupe(
+        [*service.security_group_ids, *aws_facts(service).ecs_symbolic_security_group_addresses]
+    )
     attached_security_groups = [
-        index.security_groups[sg_id] for sg_id in service.security_group_ids if sg_id in index.security_groups
+        index.security_groups[sg_id] for sg_id in security_group_references if sg_id in index.security_groups
     ]
     for security_group in attached_security_groups:
         for rule in security_group.network_rules:

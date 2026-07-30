@@ -119,6 +119,7 @@ class AwsResourceMetadata:
     ECS_SECRET_POSTURE_UNCERTAINTIES = StringListMetadataField("ecs_secret_posture_uncertainties")
     ECS_NETWORK_POSTURE_UNCERTAINTIES = StringListMetadataField("ecs_network_posture_uncertainties")
     ECS_SECURITY_GROUP_REFERENCE_STATE = OptionalStringMetadataField("ecs_security_group_reference_state")
+    ECS_SYMBOLIC_SECURITY_GROUP_ADDRESSES = StringListMetadataField("ecs_symbolic_security_group_addresses")
     REQUIRES_COMPATIBILITIES = StringListMetadataField("requires_compatibilities")
     TRUST_PRINCIPALS = StringListMetadataField("trust_principals")
     RESOURCE_POLICY_SOURCE_ADDRESSES = StringListMetadataField("resource_policy_source_addresses")

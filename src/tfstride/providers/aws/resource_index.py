@@ -38,6 +38,7 @@ class AwsResourceIndex:
     vpcs_with_igw: set[str]
     vpcs_with_public_routes: set[str]
     nat_gateway_ids: set[str]
+    resources_by_address: dict[str, NormalizedResource] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -74,14 +75,21 @@ class AwsResourceIndexBuilder:
         vpcs_with_igw: set[str] = set()
         vpcs_with_public_routes: set[str] = set()
         nat_gateway_ids: set[str] = set()
+        resources_by_address: dict[str, NormalizedResource] = {}
 
         for resource in resources:
+            if resource.address:
+                resources_by_address.setdefault(resource.address, resource)
             resource_type = resource.resource_type
             facts = aws_facts(resource)
             if resource_type == "aws_subnet":
                 subnets[resource.identifier] = resource
+                if resource.address:
+                    subnets[resource.address] = resource
             elif resource_type == "aws_security_group":
                 security_groups[resource.identifier] = resource
+                if resource.address:
+                    security_groups[resource.address] = resource
             elif resource_type == "aws_route_table":
                 route_tables[resource.identifier] = resource
                 if resource.vpc_id and route_table_has_internet_route(facts.routes):
@@ -307,6 +315,7 @@ class AwsResourceIndexBuilder:
             vpcs_with_igw=vpcs_with_igw,
             vpcs_with_public_routes=vpcs_with_public_routes,
             nat_gateway_ids=nat_gateway_ids,
+            resources_by_address=resources_by_address,
         )
 
 

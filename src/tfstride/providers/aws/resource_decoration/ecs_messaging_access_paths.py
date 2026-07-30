@@ -205,6 +205,7 @@ def _target_resources(
                     continue
                 targets[target.address] = (service, target)
                 continue
+
             if _could_target_messaging(resource, services):
                 uncertainties.append(
                     f"{role.address} messaging policy resource {resource!r} does not identify an exact "

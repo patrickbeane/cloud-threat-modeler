@@ -49,6 +49,9 @@ from tfstride.providers.aws.resource_decoration.resource_policies import (
 from tfstride.providers.aws.resource_decoration.security_groups import (
     MergeStandaloneSecurityGroupRulesStage,
 )
+from tfstride.providers.aws.resource_decoration.symbolic_relationships import (
+    ResolveAwsSymbolicRelationshipsStage,
+)
 from tfstride.providers.aws.resource_index import AwsDecorationContext
 
 
@@ -63,6 +66,7 @@ class AwsDecorationStage(Protocol):
 def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
     return (
         MergeStandaloneSecurityGroupRulesStage(),
+        ResolveAwsSymbolicRelationshipsStage(),
         MergeRolePolicyResourcesStage(),
         NormalizeIamAssignmentPostureStage(),
         DecorateKmsRelationshipsStage(),

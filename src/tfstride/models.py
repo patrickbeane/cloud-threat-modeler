@@ -323,6 +323,7 @@ class NormalizedResource:
     public_access_configured: bool = False
     public_exposure: bool = False
     data_sensitivity: str = "standard"
+    reference_resolutions: tuple[TerraformReferenceResolution, ...] = field(default_factory=tuple)
     _metadata: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _metadata_read_view: Mapping[str, Any] = field(init=False, repr=False)
     _decoration_state_frozen: bool = field(default=False, init=False, repr=False)
@@ -334,12 +335,28 @@ class NormalizedResource:
         self.attached_role_arns = tuple(self.attached_role_arns)
         self.network_rules = tuple(self.network_rules)
         self.policy_statements = tuple(self.policy_statements)
+        self.reference_resolutions = tuple(self.reference_resolutions)
         self._metadata = _normalized_metadata(metadata)
         self._metadata_read_view = MappingProxyType(self._metadata)
 
     @property
     def display_name(self) -> str:
         return f"{self.resource_type}.{self.name}"
+
+    def reference_resolution(
+        self,
+        *path: TerraformExpressionPathSegment,
+    ) -> TerraformReferenceResolution:
+        normalized_path = tuple(path)
+        for resolution in self.reference_resolutions:
+            if resolution.path == normalized_path:
+                return resolution
+        return TerraformReferenceResolution(
+            path=normalized_path,
+            state=TerraformReferenceResolutionState.UNRESOLVED,
+            provenance=None,
+            reason="Terraform configuration reference was not retained on the normalized resource",
+        )
 
     def metadata_snapshot(self) -> dict[str, Any]:
         """Return a detached metadata copy for serialization boundaries."""

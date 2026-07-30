@@ -159,6 +159,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
             [stage.name for stage in default_aws_decoration_stages()],
             [
                 "merge_standalone_security_group_rules",
+                "resolve_aws_symbolic_relationships",
                 "merge_role_policy_resources",
                 "normalize_iam_assignment_posture",
                 "decorate_kms_relationships",

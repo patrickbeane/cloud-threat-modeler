@@ -63,6 +63,7 @@ PROVIDER_NEUTRAL_NORMALIZED_RESOURCE_FIELDS = frozenset(
         "public_access_configured",
         "public_exposure",
         "data_sensitivity",
+        "reference_resolutions",
     }
 )
 

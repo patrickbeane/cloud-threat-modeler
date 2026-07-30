@@ -217,7 +217,9 @@ class AwsNormalizer(ProviderNormalizer):
             normalizer = self._resource_normalizers[resource.resource_type]
         except KeyError as exc:
             raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}") from exc
-        return normalizer(resource)
+        normalized = normalizer(resource)
+        normalized.reference_resolutions = resource.reference_resolutions
+        return normalized
 
 
 def _is_aws_resource(resource: TerraformResource) -> bool:

@@ -80,6 +80,10 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_SECURITY_GROUP_REFERENCE_STATE)
 
     @property
+    def ecs_symbolic_security_group_addresses(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_SYMBOLIC_SECURITY_GROUP_ADDRESSES)
+
+    @property
     def ecs_secret_access_paths(self) -> list[dict[str, Any]]:
         return self.get(AwsResourceMetadata.ECS_SECRET_ACCESS_PATHS)
 
