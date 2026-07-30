@@ -78,6 +78,7 @@ from tfstride.providers.gcp.iam_normalizers import (
     normalize_workload_identity_pool,
     normalize_workload_identity_pool_provider,
 )
+from tfstride.providers.gcp.identity_normalizers import normalize_kms_key_ring, normalize_project
 from tfstride.providers.gcp.network_normalizers import (
     GCP_PROVIDER,
     normalize_compute_backend_bucket,
@@ -202,6 +203,7 @@ _GCP_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     GcpResourceType.CONTAINER_CLUSTER: normalize_container_cluster,
     GcpResourceType.CONTAINER_NODE_POOL: normalize_container_node_pool,
     GcpResourceType.KMS_CRYPTO_KEY: normalize_kms_crypto_key,
+    GcpResourceType.KMS_KEY_RING: normalize_kms_key_ring,
     GcpResourceType.KMS_CRYPTO_KEY_VERSION: normalize_kms_crypto_key_version,
     GcpResourceType.KMS_CRYPTO_KEY_IAM_BINDING: normalize_kms_crypto_key_iam_binding,
     GcpResourceType.KMS_CRYPTO_KEY_IAM_MEMBER: normalize_kms_crypto_key_iam_member,
@@ -227,6 +229,7 @@ _GCP_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     ),
     GcpResourceType.ORG_POLICY_POLICY: normalize_org_policy_policy,
     GcpResourceType.ORGANIZATION_POLICY: normalize_organization_policy,
+    GcpResourceType.PROJECT: normalize_project,
     GcpResourceType.PROJECT_ORGANIZATION_POLICY: normalize_project_organization_policy,
     GcpResourceType.PROJECT_IAM_BINDING: normalize_project_iam_binding,
     GcpResourceType.PROJECT_IAM_CUSTOM_ROLE: normalize_project_iam_custom_role,
@@ -313,7 +316,9 @@ class GcpNormalizer(ProviderNormalizer):
             normalizer = self._resource_normalizers[resource.resource_type]
         except KeyError as exc:
             raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}") from exc
-        return normalizer(resource)
+        normalized = normalizer(resource)
+        normalized.reference_resolutions = resource.reference_resolutions
+        return normalized
 
 
 def _is_gcp_resource(resource: TerraformResource) -> bool:

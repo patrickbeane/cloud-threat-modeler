@@ -26,6 +26,7 @@ from tfstride.providers.gcp.resource_decoration.kms_versions import NormalizeKms
 from tfstride.providers.gcp.resource_decoration.load_balancer import DeriveLoadBalancerReachabilityStage
 from tfstride.providers.gcp.resource_decoration.network_posture import DeriveNetworkPostureStage
 from tfstride.providers.gcp.resource_decoration.public_exposure import DerivePublicExposureStage
+from tfstride.providers.gcp.resource_decoration.symbolic_relationships import ResolveGcpSymbolicRelationshipsStage
 from tfstride.providers.gcp.resource_decoration.workload_identity_federation import (
     ModelWorkloadIdentityFederationTrustPathsStage,
 )
@@ -42,6 +43,7 @@ class GcpDecorationStage(Protocol):
 
 def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
     return (
+        ResolveGcpSymbolicRelationshipsStage(),
         DeriveLoadBalancerReachabilityStage(),
         DeriveNetworkPostureStage(),
         DerivePublicExposureStage(),

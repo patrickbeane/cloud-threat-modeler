@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
+from tfstride.providers.gcp.attributes import GcpAttr, GcpValues
+from tfstride.providers.gcp.metadata import GcpResourceMetadata
+from tfstride.providers.gcp.normalizer_common import GCP_PROVIDER
+from tfstride.providers.gcp.resource_utils import first_non_empty
+
+
+def normalize_project(resource: TerraformResource) -> NormalizedResource:
+    values = GcpValues(resource.values)
+    project_id = first_non_empty(
+        values.get(GcpAttr.PROJECT_ID),
+        _project_from_identifier(values.get(GcpAttr.ID)),
+    )
+    identifier = first_non_empty(values.get(GcpAttr.ID), project_id, resource.address)
+    return NormalizedResource(
+        address=resource.address,
+        provider=GCP_PROVIDER,
+        resource_type=resource.resource_type,
+        name=resource.name,
+        category=ResourceCategory.IAM,
+        identifier=identifier,
+        metadata={
+            GcpResourceMetadata.NAME: project_id,
+            GcpResourceMetadata.PROJECT: project_id,
+            GcpResourceMetadata.SELF_LINK: values.get(GcpAttr.SELF_LINK),
+        },
+    )
+
+
+def normalize_kms_key_ring(resource: TerraformResource) -> NormalizedResource:
+    values = GcpValues(resource.values)
+    name = first_non_empty(values.get(GcpAttr.NAME))
+    project = first_non_empty(
+        values.get(GcpAttr.PROJECT),
+        _project_from_identifier(values.get(GcpAttr.ID)),
+    )
+    location = first_non_empty(values.get(GcpAttr.LOCATION))
+    canonical_ring = _key_ring_path(project, location, name)
+    identifier = first_non_empty(values.get(GcpAttr.ID), canonical_ring, resource.address)
+    return NormalizedResource(
+        address=resource.address,
+        provider=GCP_PROVIDER,
+        resource_type=resource.resource_type,
+        name=resource.name,
+        category=ResourceCategory.DATA,
+        identifier=identifier,
+        metadata={
+            GcpResourceMetadata.NAME: name,
+            GcpResourceMetadata.PROJECT: project,
+            GcpResourceMetadata.KMS_KEY_RING: first_non_empty(
+                values.get(GcpAttr.ID),
+                canonical_ring,
+            ),
+            GcpResourceMetadata.SELF_LINK: values.get(GcpAttr.SELF_LINK),
+        },
+    )
+
+
+def _key_ring_path(project: str | None, location: str | None, name: str | None) -> str | None:
+    if not project or not location or not name or "/" in name:
+        return None
+    return f"projects/{project}/locations/{location}/keyRings/{name}"
+
+
+def _project_from_identifier(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.strip("/").split("/")
+    if len(parts) > 1 and parts[0] == "projects" and parts[1]:
+        return parts[1]
+    return None

@@ -256,6 +256,7 @@ class GcpAttr:
     PSC_CONNECTION_STATUS = OptionalStringAttribute("psc_connection_status")
     PRIORITY = OptionalIntAttribute("priority")
     PROJECT = OptionalStringAttribute("project")
+    PROJECT_ID = OptionalStringAttribute("project_id")
     QUERY_INSIGHTS_ENABLED = BoolAttribute("query_insights_enabled")
     PROVIDER = OptionalStringAttribute("provider")
     PROFILE = OptionalStringAttribute("profile")

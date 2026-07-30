@@ -258,6 +258,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
         self.assertEqual(
             [stage.name for stage in default_gcp_decoration_stages()],
             [
+                "resolve_gcp_symbolic_relationships",
                 "derive_load_balancer_reachability",
                 "derive_network_posture",
                 "derive_public_exposure",

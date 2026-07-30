@@ -70,6 +70,7 @@ class GcpResourceType:
     FOLDER_IAM_POLICY = "google_folder_iam_policy"
     FOLDER_ORGANIZATION_POLICY = "google_folder_organization_policy"
     KMS_CRYPTO_KEY = "google_kms_crypto_key"
+    KMS_KEY_RING = "google_kms_key_ring"
     KMS_CRYPTO_KEY_VERSION = "google_kms_crypto_key_version"
     KMS_CRYPTO_KEY_IAM_BINDING = "google_kms_crypto_key_iam_binding"
     KMS_CRYPTO_KEY_IAM_MEMBER = "google_kms_crypto_key_iam_member"
@@ -87,6 +88,7 @@ class GcpResourceType:
     ORGANIZATION_IAM_POLICY = "google_organization_iam_policy"
     ORGANIZATION_POLICY = "google_organization_policy"
     ORG_POLICY_POLICY = "google_org_policy_policy"
+    PROJECT = "google_project"
     PROJECT_IAM_BINDING = "google_project_iam_binding"
     PROJECT_IAM_CUSTOM_ROLE = "google_project_iam_custom_role"
     PROJECT_IAM_MEMBER = "google_project_iam_member"
@@ -429,6 +431,7 @@ GCP_NORMALIZED_RESOURCE_TYPES = frozenset(
         GcpResourceType.CONTAINER_CLUSTER,
         GcpResourceType.CONTAINER_NODE_POOL,
         GcpResourceType.KMS_CRYPTO_KEY,
+        GcpResourceType.KMS_KEY_RING,
         GcpResourceType.KMS_CRYPTO_KEY_VERSION,
         GcpResourceType.KMS_CRYPTO_KEY_IAM_BINDING,
         GcpResourceType.KMS_CRYPTO_KEY_IAM_MEMBER,
@@ -451,6 +454,7 @@ GCP_NORMALIZED_RESOURCE_TYPES = frozenset(
         GcpResourceType.NETWORK_CONNECTIVITY_SERVICE_CONNECTION_POLICY,
         GcpResourceType.ORG_POLICY_POLICY,
         GcpResourceType.ORGANIZATION_POLICY,
+        GcpResourceType.PROJECT,
         GcpResourceType.PROJECT_ORGANIZATION_POLICY,
         GcpResourceType.PROJECT_IAM_BINDING,
         GcpResourceType.PROJECT_IAM_CUSTOM_ROLE,
