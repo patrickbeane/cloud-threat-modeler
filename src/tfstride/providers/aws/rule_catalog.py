@@ -672,6 +672,58 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-kms-decrypt-access",
+        title="Internet-facing ECS service can use KMS to decrypt",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict the task role to only the exact KMS decrypt "
+            "operations and key ARNs required at runtime. Keep key-policy delegation, IAM permissions, and KMS "
+            "grants narrowly scoped, and separate cryptographic identities from internet-facing application roles."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "kms",
+            "iam",
+            "public-access",
+            "cryptography",
+            "information-disclosure",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="aws-public-ecs-kms-signing-access",
+        title="Internet-facing ECS service can use KMS to sign",
+        category=StrideCategory.SPOOFING,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict the task role to only the exact KMS signing "
+            "operations and key ARNs required at runtime. Keep signing keys and authorization sources separate "
+            "from internet-facing application roles, and require explicit relying-party validation controls."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "kms",
+            "iam",
+            "public-access",
+            "cryptography",
+            "spoofing",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-messaging-mutation-access",
         title="Internet-facing ECS service can mutate managed messaging resources",
         category=StrideCategory.TAMPERING,

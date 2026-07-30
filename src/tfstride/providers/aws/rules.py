@@ -14,6 +14,7 @@ from tfstride.providers.aws.ecr_rules import AwsEcrRuleDetectors
 from tfstride.providers.aws.ecs_dynamodb_rules import (
     AwsEcsDynamoDbAccessRuleDetectors,
 )
+from tfstride.providers.aws.ecs_kms_rules import AwsEcsKmsOperationRuleDetectors
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
 from tfstride.providers.aws.ecs_s3_rules import AwsEcsS3AccessRuleDetectors
 from tfstride.providers.aws.ecs_secret_rules import AwsEcsSecretDeliveryRuleDetectors
@@ -91,6 +92,8 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-read-access",
+        "aws-public-ecs-kms-decrypt-access",
+        "aws-public-ecs-kms-signing-access",
         "aws-public-ecs-messaging-mutation-access",
         "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
@@ -162,6 +165,7 @@ def build_aws_rule_contribution(
     ecs_secret_detectors = AwsEcsSecretDeliveryRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
     ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
+    ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
     ecs_messaging_detectors = AwsEcsMessagingAccessRuleDetectors(finding_factory)
     messaging_detectors = AwsMessagingPostureRuleDetectors(finding_factory)
     secrets_manager_detectors = AwsSecretsManagerPostureRuleDetectors(finding_factory)
@@ -240,6 +244,8 @@ def build_aws_rule_contribution(
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
         "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-dynamodb-read-access": (ecs_dynamodb_detectors.detect_public_service_read_access),
+        "aws-public-ecs-kms-decrypt-access": (ecs_kms_detectors.detect_public_service_decrypt_access),
+        "aws-public-ecs-kms-signing-access": (ecs_kms_detectors.detect_public_service_signing_access),
         "aws-public-ecs-messaging-mutation-access": (ecs_messaging_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-sqs-receive-access": (ecs_messaging_detectors.detect_public_service_sqs_receive_access),
         "aws-sns-customer-managed-encryption-missing": (
