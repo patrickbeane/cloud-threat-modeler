@@ -177,7 +177,8 @@ def _render_analysis_coverage(result: AnalysisResult) -> list[str]:
             "- Configuration-reference resolution: "
             f"`{coverage.references.symbolically_resolved_relationships} symbolic`, "
             f"`{coverage.references.ambiguous_symbolic_relationships} ambiguous`, "
-            f"`{coverage.references.unresolved_symbolic_relationships} unresolved`"
+            f"`{coverage.references.unresolved_symbolic_relationships} unresolved`, "
+            f"`{coverage.references.unsupported_symbolic_relationships} unsupported`"
         ),
         f"- Recorded unresolved modeled references: `{coverage.references.unresolved_reference_count}`",
     ]

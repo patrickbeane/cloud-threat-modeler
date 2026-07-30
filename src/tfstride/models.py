@@ -714,6 +714,7 @@ class ReferenceCoverage:
     symbolically_resolved_relationships: int = 0
     ambiguous_symbolic_relationships: int = 0
     unresolved_symbolic_relationships: int = 0
+    unsupported_symbolic_relationships: int = 0
 
 
 @dataclass(slots=True)

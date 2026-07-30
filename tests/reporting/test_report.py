@@ -88,7 +88,7 @@ class MarkdownReportTests(unittest.TestCase):
         self.assertIn("- Enabled provider rules (AWS): `91`", report)
         self.assertIn("- Resources with plan-time unknown values: `0`", report)
         self.assertIn(
-            "- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`",
+            "- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`",
             report,
         )
         self.assertIn("- Recorded unresolved modeled references: `0`", report)
@@ -528,6 +528,7 @@ class JsonReportTests(unittest.TestCase):
         self.assertEqual(coverage["references"]["symbolically_resolved_relationships"], 0)
         self.assertEqual(coverage["references"]["ambiguous_symbolic_relationships"], 0)
         self.assertEqual(coverage["references"]["unresolved_symbolic_relationships"], 0)
+        self.assertEqual(coverage["references"]["unsupported_symbolic_relationships"], 0)
         self.assertEqual(coverage["references"]["unresolved_references"], [])
 
     def test_json_report_includes_suppressed_and_baselined_findings(self) -> None:

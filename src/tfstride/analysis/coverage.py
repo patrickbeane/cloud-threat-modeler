@@ -74,6 +74,7 @@ def _build_reference_coverage(resources: Sequence[NormalizedResource]) -> Refere
     symbolically_resolved_relationships = 0
     ambiguous_symbolic_relationships = 0
     unresolved_symbolic_relationships = 0
+    unsupported_symbolic_relationships = 0
 
     for resource in sorted(resources, key=lambda item: item.address):
         for resolution in resource.reference_resolutions:
@@ -81,13 +82,10 @@ def _build_reference_coverage(resources: Sequence[NormalizedResource]) -> Refere
                 symbolically_resolved_relationships += 1
             elif resolution.state is TerraformReferenceResolutionState.AMBIGUOUS:
                 ambiguous_symbolic_relationships += 1
-            elif resolution.state in {
-                TerraformReferenceResolutionState.UNRESOLVED,
-                TerraformReferenceResolutionState.UNSUPPORTED,
-            }:
-                # Unsupported symbolic traversal is still an unresolved graph edge,
-                # but remains separate from plan-time and posture uncertainty.
+            elif resolution.state is TerraformReferenceResolutionState.UNRESOLVED:
                 unresolved_symbolic_relationships += 1
+            elif resolution.state is TerraformReferenceResolutionState.UNSUPPORTED:
+                unsupported_symbolic_relationships += 1
 
         references = _unresolved_reference_metadata(resource)
         if not references:
@@ -107,6 +105,7 @@ def _build_reference_coverage(resources: Sequence[NormalizedResource]) -> Refere
         symbolically_resolved_relationships=symbolically_resolved_relationships,
         ambiguous_symbolic_relationships=ambiguous_symbolic_relationships,
         unresolved_symbolic_relationships=unresolved_symbolic_relationships,
+        unsupported_symbolic_relationships=unsupported_symbolic_relationships,
     )
 
 

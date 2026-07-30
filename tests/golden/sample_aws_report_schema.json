@@ -69,6 +69,7 @@
     "symbolically_resolved_relationships",
     "ambiguous_symbolic_relationships",
     "unresolved_symbolic_relationships",
+    "unsupported_symbolic_relationships",
     "unresolved_references"
   ],
   "analysis_coverage.references.unresolved_references[]": [

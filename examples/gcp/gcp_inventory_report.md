@@ -24,7 +24,7 @@ This run identified **4 trust boundaries** and **26 findings** across **23 norma
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-sensitive-resource-iam-external-access`: `2`

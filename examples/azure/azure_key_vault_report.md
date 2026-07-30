@@ -24,7 +24,7 @@ This run identified **1 trust boundary** and **11 findings** across **8 normaliz
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-key-vault-public-network-access`: `1`

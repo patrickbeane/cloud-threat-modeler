@@ -24,7 +24,7 @@ This run identified **2 trust boundaries** and **0 findings** across **2 normali
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 
 ## Discovered Trust Boundaries

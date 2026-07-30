@@ -122,6 +122,7 @@ def _serialize_analysis_coverage(result: AnalysisResult) -> AnalysisCoveragePayl
             "symbolically_resolved_relationships": coverage.references.symbolically_resolved_relationships,
             "ambiguous_symbolic_relationships": coverage.references.ambiguous_symbolic_relationships,
             "unresolved_symbolic_relationships": coverage.references.unresolved_symbolic_relationships,
+            "unsupported_symbolic_relationships": coverage.references.unsupported_symbolic_relationships,
             "unresolved_references": [
                 {
                     "resource": reference.resource,

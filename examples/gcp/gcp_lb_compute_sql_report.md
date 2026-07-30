@@ -24,7 +24,7 @@ This run identified **2 trust boundaries** and **2 findings** across **11 normal
 - Enabled provider rules (GCP): `84`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `gcp-cloud-sql-zonal-availability`: `1`

@@ -112,7 +112,8 @@ class AnalysisCoverageTests(unittest.TestCase):
         self.assertEqual(coverage.resources.plan_time_unknown_resources, 0)
         self.assertEqual(coverage.references.symbolically_resolved_relationships, 1)
         self.assertEqual(coverage.references.ambiguous_symbolic_relationships, 1)
-        self.assertEqual(coverage.references.unresolved_symbolic_relationships, 2)
+        self.assertEqual(coverage.references.unresolved_symbolic_relationships, 1)
+        self.assertEqual(coverage.references.unsupported_symbolic_relationships, 1)
         self.assertEqual(coverage.references.unresolved_reference_count, 0)
         self.assertEqual(coverage.references.unresolved_references, [])
 

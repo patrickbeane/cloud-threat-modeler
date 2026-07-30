@@ -67,6 +67,7 @@ class ReferenceCoveragePayload(TypedDict):
     symbolically_resolved_relationships: int
     ambiguous_symbolic_relationships: int
     unresolved_symbolic_relationships: int
+    unsupported_symbolic_relationships: int
 
 
 class AnalysisCoveragePayload(TypedDict):

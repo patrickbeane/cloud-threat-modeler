@@ -24,7 +24,7 @@ This run identified **1 trust boundary** and **7 findings** across **3 normalize
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Unsupported resource types:
   - `azurerm_storage_share`: `1`

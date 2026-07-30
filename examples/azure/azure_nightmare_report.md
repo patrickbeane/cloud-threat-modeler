@@ -24,7 +24,7 @@ This run identified **5 trust boundaries** and **36 findings** across **27 norma
 - Enabled provider rules (Azure): `103`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `azure-public-compute-broad-ingress`: `2`

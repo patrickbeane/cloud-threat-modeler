@@ -381,6 +381,8 @@ Top-level JSON sections include:
 * `observations`
 * `limitations`
 
+`analysis_coverage.references` reports configuration-reference outcomes independently: symbolically resolved, ambiguous, unresolved, and unsupported relationships. The legacy `unresolved_reference_count` field remains separate and counts unresolved modeled-reference metadata rather than graph-resolution outcomes.
+
 ## Suppressions, Baselines, and Config
 
 Suppressions are explicit, reviewable exceptions. Selectors can include fields such as `rule_id`, `resource`, `trust_boundary_id`, `severity`, `title`, or `fingerprint`.

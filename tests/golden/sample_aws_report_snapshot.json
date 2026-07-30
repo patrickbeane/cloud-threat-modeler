@@ -233,6 +233,7 @@
       "symbolically_resolved_relationships": 0,
       "ambiguous_symbolic_relationships": 0,
       "unresolved_symbolic_relationships": 0,
+      "unsupported_symbolic_relationships": 0,
       "unresolved_references": []
     }
   },

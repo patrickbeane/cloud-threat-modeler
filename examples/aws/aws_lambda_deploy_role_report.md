@@ -24,7 +24,7 @@ This run identified **4 trust boundaries** and **6 findings** across **13 normal
 - Enabled provider rules (AWS): `91`
 - Disabled rules: `0`
 - Severity overrides: `0`
-- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`
+- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
 - Recorded unresolved modeled references: `0`
 - Findings by rule:
   - `aws-workload-s3-vpc-endpoint-missing`: `1`
