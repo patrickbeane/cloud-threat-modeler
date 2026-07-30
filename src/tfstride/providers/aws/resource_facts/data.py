@@ -203,6 +203,14 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.KMS_KEY_POLICIES)
 
     @property
+    def kms_operation_authorizations(self) -> list[dict[str, Any]]:
+        return self.get(AwsResourceMetadata.KMS_OPERATION_AUTHORIZATIONS)
+
+    @property
+    def kms_operation_authorization_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES)
+
+    @property
     def kms_unresolved_key_references(self) -> list[str]:
         return self.get(AwsResourceMetadata.KMS_UNRESOLVED_KEY_REFERENCES)
 
@@ -306,6 +314,21 @@ class AwsDataFacts(AwsBaseFacts):
 
     def add_kms_key_policy(self, record: dict[str, Any]) -> None:
         self.set(AwsResourceMetadata.KMS_KEY_POLICIES, [*self.kms_key_policies, record])
+
+    def set_kms_operation_authorization_posture(
+        self,
+        *,
+        authorizations: Sequence[dict[str, Any]],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.KMS_OPERATION_AUTHORIZATIONS,
+            list(authorizations),
+        )
+        self.set(
+            AwsResourceMetadata.KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
 
     def add_kms_policy_source_address(self, value: str | None) -> None:
         self.append(AwsResourceMetadata.KMS_POLICY_SOURCE_ADDRESSES, value)

@@ -55,6 +55,14 @@ class AwsIamFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.INLINE_POLICY_NAMES)
 
     @property
+    def iam_policy_completeness_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.IAM_POLICY_COMPLETENESS_STATE)
+
+    @property
+    def iam_policy_posture_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES)
+
+    @property
     def trust_statements(self) -> list[dict[str, Any]]:
         return self.get(AwsResourceMetadata.TRUST_STATEMENTS)
 
@@ -80,6 +88,16 @@ class AwsIamFacts(AwsBaseFacts):
 
     def add_inline_policy_name(self, value: str | None) -> None:
         self.append(AwsResourceMetadata.INLINE_POLICY_NAMES, value)
+
+    def mark_iam_policy_incomplete(self, uncertainty: str) -> None:
+        self.set(AwsResourceMetadata.IAM_POLICY_COMPLETENESS_STATE, "unknown")
+        self.append(AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES, uncertainty)
+
+    def extend_iam_policy_posture_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES, values)
 
     def add_unresolved_attached_policy_arn(self, value: str | None) -> None:
         self.append(AwsResourceMetadata.UNRESOLVED_ATTACHED_POLICY_ARNS, value)

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Literal
 
 from tfstride.models import IAMPolicyCondition, IAMPolicyStatement, IAMPrincipal
 from tfstride.providers.aws.coercion import as_list, compact
@@ -63,6 +64,100 @@ def parse_policy_statement(statement: Any) -> IAMPolicyStatement:
         principal_entries=principal_entries,
         conditions=parse_condition_entries(statement_dict.get("Condition")),
     )
+
+
+def policy_statement_is_fully_representable(
+    raw_statement: Mapping[str, Any],
+    statement: IAMPolicyStatement,
+    *,
+    principal_mode: Literal["required", "forbidden", "optional"],
+) -> bool:
+    if any(key in raw_statement for key in ("NotAction", "NotResource", "NotPrincipal")):
+        return False
+    if raw_statement.get("Effect") not in {"Allow", "Deny"}:
+        return False
+
+    actions = _policy_string_values(raw_statement.get("Action"))
+    resources = _policy_string_values(raw_statement.get("Resource"))
+    if actions is None or resources is None:
+        return False
+    if statement.actions != actions or statement.resources != resources:
+        return False
+
+    has_principal = "Principal" in raw_statement
+    if principal_mode == "forbidden" and has_principal:
+        return False
+    if principal_mode == "required" and not has_principal:
+        return False
+    if has_principal and not _policy_principal_is_representable(raw_statement.get("Principal")):
+        return False
+    if principal_mode == "required" and not statement.principal_entries:
+        return False
+
+    return _policy_conditions_are_representable(
+        raw_statement.get("Condition"),
+        statement.conditions,
+    )
+
+
+def _policy_string_values(value: object) -> list[str] | None:
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, list) and value and all(isinstance(item, str) and bool(item) for item in value):
+        return list(value)
+    return None
+
+
+def _policy_principal_is_representable(value: object) -> bool:
+    if isinstance(value, str):
+        return bool(value)
+    if not isinstance(value, Mapping) or not value:
+        return False
+    return all(
+        isinstance(kind, str) and bool(kind) and _policy_string_values(principals) is not None
+        for kind, principals in value.items()
+    )
+
+
+def _policy_conditions_are_representable(
+    raw_condition: object,
+    conditions: list[IAMPolicyCondition],
+) -> bool:
+    if raw_condition is None:
+        return not conditions
+    if not isinstance(raw_condition, Mapping) or not raw_condition:
+        return False
+
+    expected: list[tuple[str, str, list[str]]] = []
+    for operator in sorted(raw_condition):
+        keyed_values = raw_condition.get(operator)
+        if not isinstance(operator, str) or not operator:
+            return False
+        if not isinstance(keyed_values, Mapping) or not keyed_values:
+            return False
+        for key in sorted(keyed_values):
+            if not isinstance(key, str) or not key:
+                return False
+            raw_values = keyed_values.get(key)
+            values = _policy_condition_values(raw_values)
+            if values is None:
+                return False
+            expected.append((operator, key, values))
+
+    actual = [(condition.operator, condition.key, list(condition.values)) for condition in conditions]
+    return actual == expected
+
+
+def _policy_condition_values(value: object) -> list[str] | None:
+    raw_values = value if isinstance(value, list) else [value]
+    if not raw_values or any(item in (None, "", []) or isinstance(item, Mapping) for item in raw_values):
+        return None
+    normalized: list[str] = []
+    for item in raw_values:
+        text = str(item)
+        if text not in normalized:
+            normalized.append(text)
+    return normalized
 
 
 def extract_principals(policy_document: dict[str, Any]) -> list[str]:

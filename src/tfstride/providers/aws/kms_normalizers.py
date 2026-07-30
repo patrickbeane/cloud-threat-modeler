@@ -8,7 +8,10 @@ from typing import Any
 from tfstride.models import IAMPolicyStatement, NormalizedResource, ResourceCategory, TerraformResource
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.network_normalizers import AWS_PROVIDER
-from tfstride.providers.aws.policy_documents import parse_policy_statements
+from tfstride.providers.aws.policy_documents import (
+    parse_policy_statements,
+    policy_statement_is_fully_representable,
+)
 from tfstride.providers.coercion import (
     STATE_CONFIGURED,
     STATE_DISABLED,
@@ -313,8 +316,22 @@ def _kms_policy_details(
         return policy_document, (), STATE_CONFIGURED, STATE_UNKNOWN, policy_uncertainties
 
     policy_statements = tuple(parse_policy_statements(policy_document))
-    if len(policy_statements) != len(statement_documents):
+    if len(policy_statements) != len(statement_documents) or not statement_documents:
         add_policy_uncertainty("one or more policy statements could not be normalized")
+        return policy_document, policy_statements, STATE_CONFIGURED, STATE_UNKNOWN, policy_uncertainties
+    if not all(
+        policy_statement_is_fully_representable(
+            raw_statement,
+            statement,
+            principal_mode="required",
+        )
+        for raw_statement, statement in zip(
+            statement_documents,
+            policy_statements,
+            strict=True,
+        )
+    ):
+        add_policy_uncertainty("one or more policy statements use incomplete or unsupported semantics")
         return policy_document, policy_statements, STATE_CONFIGURED, STATE_UNKNOWN, policy_uncertainties
 
     return policy_document, policy_statements, STATE_CONFIGURED, "complete", policy_uncertainties

@@ -31,6 +31,9 @@ from tfstride.providers.aws.resource_decoration.iam import (
     ResolveInstanceProfileRolesStage,
 )
 from tfstride.providers.aws.resource_decoration.kms import DecorateKmsRelationshipsStage
+from tfstride.providers.aws.resource_decoration.kms_operation_authorization import (
+    ModelKmsOperationAuthorizationStage,
+)
 from tfstride.providers.aws.resource_decoration.network_posture import (
     DeriveSubnetPostureStage,
     InferVpcIdsStage,
@@ -70,6 +73,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         MergeRolePolicyResourcesStage(),
         NormalizeIamAssignmentPostureStage(),
         DecorateKmsRelationshipsStage(),
+        ModelKmsOperationAuthorizationStage(),
         ResolveInstanceProfileRolesStage(),
         ResolveOidcProviderTrustStage(),
         ResolveEcsServiceRelationshipsStage(),

@@ -21,12 +21,21 @@ class MergeRolePolicyResourcesStage:
             if role_policy_resource.resource_type != "aws_iam_role_policy":
                 continue
             role_reference = aws_facts(role_policy_resource).role_reference
-            role = context.index.role_index.get(role_reference)
+            role = context.index.role_index.get(role_reference) if role_reference else None
             if role is None:
                 continue
-            aws_mutations(role).merge_policy_statements(clone_policy_statements(role_policy_resource.policy_statements))
-            aws_facts(role).add_inline_policy_resource_address(role_policy_resource.address)
-            aws_facts(role).add_inline_policy_name(aws_facts(role_policy_resource).policy_name)
+            source_facts = aws_facts(role_policy_resource)
+            role_facts = aws_facts(role)
+            aws_mutations(role).merge_policy_statements(
+                clone_policy_statements(list(role_policy_resource.policy_statements))
+            )
+            role_facts.add_inline_policy_resource_address(role_policy_resource.address)
+            role_facts.add_inline_policy_name(source_facts.policy_name)
+            if source_facts.iam_policy_completeness_state != "complete":
+                role_facts.mark_iam_policy_incomplete(
+                    f"{role_policy_resource.address}: inline role policy evidence is incomplete"
+                )
+                role_facts.extend_iam_policy_posture_uncertainties(source_facts.iam_policy_posture_uncertainties)
 
         # Role-policy attachments change the workload's effective privileges, so merge any
         # in-plan customer-managed policy statements onto the target role.
@@ -35,16 +44,22 @@ class MergeRolePolicyResourcesStage:
                 continue
             role_reference = aws_facts(attachment_resource).role_reference
             policy_arn = aws_facts(attachment_resource).policy_arn
-            role = context.index.role_index.get(role_reference)
-            policy = context.index.policy_index.get(policy_arn)
+            role = context.index.role_index.get(role_reference) if role_reference else None
+            policy = context.index.policy_index.get(policy_arn) if policy_arn else None
             if role is None:
                 continue
+            role_facts = aws_facts(role)
             if policy is None:
-                aws_facts(role).add_unresolved_attached_policy_arn(str(policy_arn))
+                role_facts.add_unresolved_attached_policy_arn(str(policy_arn))
+                role_facts.mark_iam_policy_incomplete(f"attached policy {policy_arn} is not modeled in the plan")
                 continue
-            aws_mutations(role).merge_policy_statements(clone_policy_statements(policy.policy_statements))
-            aws_facts(role).add_attached_policy_arn(policy.arn or policy.identifier or policy.address)
-            aws_facts(role).add_attached_policy_address(policy.address)
+            policy_facts = aws_facts(policy)
+            aws_mutations(role).merge_policy_statements(clone_policy_statements(list(policy.policy_statements)))
+            role_facts.add_attached_policy_arn(policy.arn or policy.identifier or policy.address)
+            role_facts.add_attached_policy_address(policy.address)
+            if policy_facts.iam_policy_completeness_state != "complete":
+                role_facts.mark_iam_policy_incomplete(f"{policy.address}: attached policy evidence is incomplete")
+                role_facts.extend_iam_policy_posture_uncertainties(policy_facts.iam_policy_posture_uncertainties)
 
 
 class NormalizeIamAssignmentPostureStage:

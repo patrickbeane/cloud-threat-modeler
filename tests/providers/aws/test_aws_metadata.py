@@ -40,6 +40,8 @@ class AwsResourceMetadataTests(unittest.TestCase):
         expected_keys = {
             "SECURITY_GROUP_ID": "security_group_id",
             "ROLE_REFERENCE": "role",
+            "IAM_POLICY_COMPLETENESS_STATE": "iam_policy_completeness_state",
+            "IAM_POLICY_POSTURE_UNCERTAINTIES": "iam_policy_posture_uncertainties",
             "BUCKET_NAME": "bucket",
             "BUCKET_ACL": "acl",
             "POLICY_DOCUMENT": "policy_document",
@@ -117,6 +119,8 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "KMS_ALIASES": "kms_aliases",
             "KMS_GRANTS": "kms_grants",
             "KMS_KEY_POLICIES": "kms_key_policies",
+            "KMS_OPERATION_AUTHORIZATIONS": "kms_operation_authorizations",
+            "KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES": "kms_operation_authorization_uncertainties",
             "KMS_UNRESOLVED_KEY_REFERENCES": "kms_unresolved_key_references",
             "KMS_ALIAS_NAME": "kms_alias_name",
             "KMS_ALIAS_NAME_PREFIX": "kms_alias_name_prefix",

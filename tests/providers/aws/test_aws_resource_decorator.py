@@ -163,6 +163,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "merge_role_policy_resources",
                 "normalize_iam_assignment_posture",
                 "decorate_kms_relationships",
+                "model_kms_operation_authorization",
                 "resolve_instance_profile_roles",
                 "resolve_oidc_provider_trust",
                 "resolve_ecs_service_relationships",

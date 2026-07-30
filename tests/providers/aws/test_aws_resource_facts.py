@@ -49,6 +49,15 @@ class AwsResourceFactsTests(unittest.TestCase):
                 "kms_enable_key_rotation_state": "enabled",
                 "kms_deletion_window_in_days": 30,
                 "kms_posture_uncertainties": ["enable_key_rotation is unknown after planning"],
+                "kms_operation_authorizations": [
+                    {
+                        "operation": "kms:Decrypt",
+                        "authorization_state": "allowed",
+                    }
+                ],
+                "kms_operation_authorization_uncertainties": ["conditional grant requires runtime evaluation"],
+                "iam_policy_completeness_state": "complete",
+                "iam_policy_posture_uncertainties": [],
                 "trust_statements": [{"Effect": "Allow"}],
                 "s3_versioning_status": "Enabled",
                 "s3_versioning_source_address": "aws_s3_bucket_versioning.logs",
@@ -301,6 +310,16 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertTrue(facts.kms_enable_key_rotation)
         self.assertEqual(facts.kms_deletion_window_in_days, 30)
         self.assertEqual(facts.kms_posture_uncertainties, ["enable_key_rotation is unknown after planning"])
+        self.assertEqual(
+            facts.kms_operation_authorizations,
+            [{"operation": "kms:Decrypt", "authorization_state": "allowed"}],
+        )
+        self.assertEqual(
+            facts.kms_operation_authorization_uncertainties,
+            ["conditional grant requires runtime evaluation"],
+        )
+        self.assertEqual(facts.iam_policy_completeness_state, "complete")
+        self.assertEqual(facts.iam_policy_posture_uncertainties, [])
         self.assertEqual(facts.trust_statements, [{"Effect": "Allow"}])
         self.assertEqual(facts.s3_versioning_status, "Enabled")
         self.assertTrue(facts.s3_versioning_enabled)
@@ -877,6 +896,10 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertIsNone(facts.kms_enable_key_rotation)
         self.assertIsNone(facts.kms_deletion_window_in_days)
         self.assertEqual(facts.kms_posture_uncertainties, [])
+        self.assertEqual(facts.kms_operation_authorizations, [])
+        self.assertEqual(facts.kms_operation_authorization_uncertainties, [])
+        self.assertIsNone(facts.iam_policy_completeness_state)
+        self.assertEqual(facts.iam_policy_posture_uncertainties, [])
         self.assertEqual(facts.eks_posture_uncertainties, [])
 
     def test_policy_document_is_mutated_only_through_facts_facade(self) -> None:
