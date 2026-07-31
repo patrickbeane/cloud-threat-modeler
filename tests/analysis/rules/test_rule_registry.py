@@ -181,6 +181,8 @@ EXPECTED_DEFAULT_RULE_METADATA_IDS = (
     "gcp-cloud-run-secret-access-blast-radius",
     "gcp-public-cloud-run-firestore-mutation-access",
     "gcp-public-cloud-run-firestore-read-access",
+    "gcp-public-cloud-run-kms-decrypt-access",
+    "gcp-public-cloud-run-kms-signing-access",
     "gcp-public-cloud-run-gcs-mutation-access",
     "gcp-public-cloud-run-pubsub-mutation-access",
     "gcp-public-cloud-run-pubsub-consume-access",
@@ -347,7 +349,7 @@ class RuleRegistryTests(unittest.TestCase):
             tuple(item.rule_id for item in metadata),
             EXPECTED_DEFAULT_RULE_METADATA_IDS,
         )
-        self.assertEqual(len(metadata), 280)
+        self.assertEqual(len(metadata), 282)
 
     def test_default_rule_metadata_is_partitioned_by_provider(self) -> None:
         metadata_ids = tuple(metadata.rule_id for metadata in default_rule_registry().rules())
@@ -357,7 +359,7 @@ class RuleRegistryTests(unittest.TestCase):
 
         self.assertEqual(metadata_ids, aws_metadata_ids + gcp_metadata_ids + azure_metadata_ids)
         self.assertEqual(len(aws_metadata_ids), 93)
-        self.assertEqual(len(gcp_metadata_ids), 84)
+        self.assertEqual(len(gcp_metadata_ids), 86)
         self.assertEqual(len(azure_metadata_ids), 103)
         self.assertEqual(set(aws_metadata_ids), set(_flatten_rule_groups(AWS_RULE_GROUP_IDS)))
         self.assertEqual(set(gcp_metadata_ids), set(_flatten_rule_groups(GCP_RULE_GROUP_IDS)))

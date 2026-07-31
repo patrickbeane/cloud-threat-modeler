@@ -775,6 +775,42 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-kms-decrypt-access",
+        title="Public Cloud Run identity has Cloud KMS decrypt authority",
+        category=StrideCategory.INFORMATION_DISCLOSURE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Cloud KMS decrypt permissions and project, key-ring, or CryptoKey scope required. "
+            "Use separate identities for cryptographic operations that do not belong on public workloads."
+        ),
+        tags=("gcp", "cloud-run", "cloud-kms", "iam", "public-access", "cryptography", "information-disclosure"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="gcp-public-cloud-run-kms-signing-access",
+        title="Public Cloud Run identity has Cloud KMS signing authority",
+        category=StrideCategory.SPOOFING,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Cloud KMS signing permissions and project, key-ring, or CryptoKey scope required. "
+            "Use separate identities for signature generation that do not belong on public workloads."
+        ),
+        tags=("gcp", "cloud-run", "cloud-kms", "iam", "public-access", "cryptography", "spoofing"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-gcs-mutation-access",
         title="Public Cloud Run service can modify GCS object storage",
         category=StrideCategory.TAMPERING,
