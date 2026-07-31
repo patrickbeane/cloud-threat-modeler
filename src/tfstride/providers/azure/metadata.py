@@ -349,6 +349,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_key_vault_access_path_uncertainties"
     )
+    APP_SERVICE_KEY_VAULT_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_key_vault_operation_path_uncertainties"
+    )
     APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_access_path_uncertainties"
     )
@@ -362,6 +365,7 @@ class AzureResourceMetadata:
     APP_SERVICE_SCM_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_scm_access_restrictions")
     APP_SERVICE_SECRET_REFERENCES = DictListMetadataField("app_service_secret_references")
     APP_SERVICE_KEY_VAULT_ACCESS_PATHS = DictListMetadataField("app_service_key_vault_access_paths")
+    APP_SERVICE_KEY_VAULT_OPERATION_PATHS = DictListMetadataField("app_service_key_vault_operation_paths")
     APP_SERVICE_STORAGE_ACCESS_PATHS = DictListMetadataField("app_service_storage_access_paths")
     APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = DictListMetadataField("app_service_service_bus_access_paths")
     APP_SERVICE_COSMOSDB_ACCESS_PATHS = DictListMetadataField("app_service_cosmosdb_access_paths")
