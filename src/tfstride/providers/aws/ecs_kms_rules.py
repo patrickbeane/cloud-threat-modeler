@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import build_severity_reasoning, collect_evidence, evidence_item
@@ -20,9 +20,12 @@ _AWS_ECS_SERVICE = "aws_ecs_service"
 _AWS_KMS_KEY = "aws_kms_key"
 _DECRYPT_OPERATION = "kms:Decrypt"
 _SIGN_OPERATION = "kms:Sign"
+_MAC_GENERATION_OPERATION = "kms:GenerateMac"
+_SIGNING_OPERATIONS = frozenset({_SIGN_OPERATION, _MAC_GENERATION_OPERATION})
 _OPERATION_KEY_USAGE = {
     _DECRYPT_OPERATION: "ENCRYPT_DECRYPT",
     _SIGN_OPERATION: "SIGN_VERIFY",
+    _MAC_GENERATION_OPERATION: "GENERATE_VERIFY_MAC",
 }
 _AUTHORIZATION_BASES = frozenset({"key_policy_direct", "iam_via_key_policy", "grant"})
 
@@ -36,20 +39,32 @@ class AwsEcsKmsOperationRuleDetectors:
         context: RuleEvaluationContext,
         rule_id: str,
     ) -> list[Finding]:
-        return self._detect_public_operation_access(context, rule_id, _DECRYPT_OPERATION)
+        return self._detect_public_operation_access(
+            context,
+            rule_id,
+            frozenset({_DECRYPT_OPERATION}),
+            disclosure=True,
+        )
 
     def detect_public_service_signing_access(
         self,
         context: RuleEvaluationContext,
         rule_id: str,
     ) -> list[Finding]:
-        return self._detect_public_operation_access(context, rule_id, _SIGN_OPERATION)
+        return self._detect_public_operation_access(
+            context,
+            rule_id,
+            _SIGNING_OPERATIONS,
+            disclosure=False,
+        )
 
     def _detect_public_operation_access(
         self,
         context: RuleEvaluationContext,
         rule_id: str,
-        operation: str,
+        operations: frozenset[str],
+        *,
+        disclosure: bool,
     ) -> list[Finding]:
         if context.inventory.provider != "aws":
             return []
@@ -63,7 +78,7 @@ class AwsEcsKmsOperationRuleDetectors:
                     path,
                     service.address,
                     context,
-                    operation,
+                    operations,
                 )
             ]
             if not paths:
@@ -77,8 +92,9 @@ class AwsEcsKmsOperationRuleDetectors:
             role_addresses = path_string_values(paths, "role_address")
             key_addresses = path_string_values(paths, "key_address")
             authorization_bases = _authorization_bases(paths)
+            matched_operations = _path_operations(paths)
             severity_reasoning = _operation_severity(
-                operation,
+                disclosure=disclosure,
                 key_count=len(key_addresses),
             )
             affected_resources = [
@@ -96,9 +112,10 @@ class AwsEcsKmsOperationRuleDetectors:
                     trust_boundary_id=internet_boundary_id(load_balancer_addresses, context),
                     rationale=_rationale(
                         service,
-                        operation,
+                        matched_operations,
                         len(key_addresses),
                         authorization_bases,
+                        disclosure=disclosure,
                     ),
                     evidence=collect_evidence(
                         evidence_item(
@@ -113,7 +130,7 @@ class AwsEcsKmsOperationRuleDetectors:
                         evidence_item("kms_operation_paths", _operation_path_evidence(paths)),
                         evidence_item(
                             "assessment_scope",
-                            _assessment_scope(operation),
+                            _assessment_scope(matched_operations),
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -126,11 +143,15 @@ def _is_deterministic_operation_path(
     path: Mapping[str, Any],
     service_address: str,
     context: RuleEvaluationContext,
-    operation: str,
+    operations: frozenset[str],
 ) -> bool:
     key_address = path.get("key_address")
     key = context.inventory.get_by_address(key_address) if isinstance(key_address, str) else None
     if key is None or key.resource_type != _AWS_KMS_KEY:
+        return False
+
+    operation = path.get("operation")
+    if not isinstance(operation, str) or operation not in operations:
         return False
 
     key_facts = aws_facts(key)
@@ -189,11 +210,11 @@ def _authorization_bases(paths: list[dict[str, Any]]) -> list[str]:
     return sorted({value for path in paths for value in _string_values(path.get("authorization_bases"))})
 
 
-def _operation_severity(operation: str, *, key_count: int) -> SeverityReasoning:
+def _operation_severity(*, disclosure: bool, key_count: int) -> SeverityReasoning:
     return build_severity_reasoning(
         internet_exposure=True,
         privilege_breadth=1,
-        data_sensitivity=2 if operation == _DECRYPT_OPERATION else 1,
+        data_sensitivity=2 if disclosure else 1,
         lateral_movement=1,
         blast_radius=2 if key_count > 1 else 1,
     )
@@ -201,38 +222,74 @@ def _operation_severity(operation: str, *, key_count: int) -> SeverityReasoning:
 
 def _rationale(
     service: NormalizedResource,
-    operation: str,
+    operations: list[str],
     key_count: int,
     authorization_bases: list[str],
+    *,
+    disclosure: bool,
 ) -> str:
     basis = ", ".join(authorization_bases)
-    if operation == _DECRYPT_OPERATION:
+    operation_text = _operation_text(operations)
+    if disclosure:
         capability = "could attempt KMS decrypt operations, creating information-disclosure potential"
         qualification = (
             "This establishes cryptographic-operation authority, not proof that the workload possesses useful "
             "ciphertext or can disclose plaintext."
         )
-    else:
+    elif operations == [_SIGN_OPERATION]:
         capability = "could generate KMS signatures, creating spoofing potential"
         qualification = (
             "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
             "application-level signature accepted by a relying system."
         )
+    elif operations == [_MAC_GENERATION_OPERATION]:
+        capability = "could generate KMS message authentication codes, creating spoofing potential"
+        qualification = (
+            "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
+            "message authentication code accepted by a relying system."
+        )
+    else:
+        capability = "could generate KMS signatures or message authentication codes, creating spoofing potential"
+        qualification = (
+            "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
+            "signature or message authentication code accepted by a relying system."
+        )
     return (
         f"{service.display_name} is reachable through an internet-facing load balancer and its ECS task role has "
-        f"deterministic {operation} authority on {key_count} exact modeled KMS key(s) through {basis}. A compromise "
-        f"of the public workload {capability}. {qualification} The KMS key itself is not public."
+        f"deterministic {operation_text} authority on {key_count} exact modeled KMS key(s) through {basis}. "
+        f"A compromise of the public workload {capability}. {qualification} The KMS key itself is not public."
     )
 
 
-def _assessment_scope(operation: str) -> list[str]:
+def _assessment_scope(operations: list[str]) -> list[str]:
     return [
-        f"establishes=deterministic {operation} authority for an ECS task role on an exact modeled KMS key",
         (
-            "does_not_establish=useful ciphertext, plaintext disclosure, accepted application signatures, or "
-            "runtime success outside the modeled AWS policy and grant evidence"
+            f"establishes=deterministic {_operation_text(operations)} authority for an ECS task role "
+            "on exact modeled KMS keys"
+        ),
+        (
+            "does_not_establish=useful ciphertext, plaintext disclosure, accepted application signatures or MACs, "
+            "or runtime success outside the modeled AWS policy and grant evidence"
         ),
     ]
+
+
+def _path_operations(paths: list[dict[str, Any]]) -> list[str]:
+    return [
+        operation
+        for operation in (
+            _DECRYPT_OPERATION,
+            _SIGN_OPERATION,
+            _MAC_GENERATION_OPERATION,
+        )
+        if any(path.get("operation") == operation for path in paths)
+    ]
+
+
+def _operation_text(operations: list[str]) -> str:
+    if len(operations) == 1:
+        return operations[0]
+    return " and ".join(operations)
 
 
 def _task_role_evidence(paths: list[dict[str, Any]]) -> list[str]:
@@ -288,14 +345,15 @@ def _grant_sources(path: Mapping[str, Any]) -> list[str]:
     grants = path.get("kms_grants")
     if not isinstance(grants, list):
         return ["none"]
-    sources = sorted(
-        {
-            source
-            for grant in grants
-            if isinstance(grant, Mapping) and isinstance(source := grant.get("source"), str) and source
-        }
-    )
-    return sources or ["none"]
+
+    sources: set[str] = set()
+    for grant in grants:
+        if not isinstance(grant, Mapping):
+            continue
+        source = cast(Mapping[str, Any], grant).get("source")
+        if isinstance(source, str) and source:
+            sources.add(source)
+    return sorted(sources) or ["none"]
 
 
 def _structured_values(value: object) -> list[str]:

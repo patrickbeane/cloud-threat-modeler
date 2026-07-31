@@ -200,16 +200,22 @@ class GcpPublicCloudRunKmsOperationRuleTests(unittest.TestCase):
             [],
         )
 
-    def test_mac_generation_remains_quiet_for_signing_rule(self) -> None:
-        self.assertEqual(
-            _evaluate(
-                [
-                    _public_cloud_run(),
-                    _public_invoker(),
-                    _as_resource(_key("mac", "MAC")),
-                    _as_resource(_key_member("runtime_mac_signer", "mac", "roles/cloudkms.signer")),
-                ],
-                _SIGN_RULE,
-            ),
-            [],
+    def test_mac_generation_emits_spoofing_finding(self) -> None:
+        findings = _evaluate(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_key("mac", "MAC")),
+                _as_resource(_key_member("runtime_mac_signer", "mac", "roles/cloudkms.signer")),
+            ],
+            _SIGN_RULE,
         )
+
+        self.assertEqual([finding.rule_id for finding in findings], [_SIGN_RULE])
+        finding = findings[0]
+        self.assertEqual(finding.category, StrideCategory.SPOOFING)
+        self.assertIn("deterministic Cloud KMS MAC-generation authority", finding.rationale)
+        self.assertIn("message authentication codes", finding.rationale)
+        evidence = _evidence(finding)
+        self.assertIn("key_purpose=MAC", evidence["kms_operation_paths"][0])
+        self.assertIn("operation_class=mac_generation", evidence["kms_operation_paths"][0])

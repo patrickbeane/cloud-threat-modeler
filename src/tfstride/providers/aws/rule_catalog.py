@@ -699,12 +699,13 @@ AWS_RULE_METADATA = (
     ),
     RuleMetadata(
         rule_id="aws-public-ecs-kms-signing-access",
-        title="Internet-facing ECS service can use KMS to sign",
+        title="Internet-facing ECS service can use KMS to sign or generate MACs",
         category=StrideCategory.SPOOFING,
         recommended_mitigation=(
             "Reduce public ingress to the ECS service and restrict the task role to only the exact KMS signing "
-            "operations and key ARNs required at runtime. Keep signing keys and authorization sources separate "
-            "from internet-facing application roles, and require explicit relying-party validation controls."
+            "or MAC-generation operations and key ARNs required at runtime. Keep signing and MAC keys and "
+            "authorization sources separate from internet-facing application roles, and require explicit "
+            "relying-party validation controls."
         ),
         tags=(
             "aws",

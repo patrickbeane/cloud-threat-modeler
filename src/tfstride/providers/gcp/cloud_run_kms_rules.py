@@ -27,13 +27,17 @@ from tfstride.providers.gcp.resource_utils import binding_members
 _PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
 _DECRYPT_OPERATION = "decrypt"
 _SIGN_OPERATION = "sign"
+_MAC_GENERATION_OPERATION = "mac_generation"
+_SIGNING_OPERATIONS = frozenset({_SIGN_OPERATION, _MAC_GENERATION_OPERATION})
 _OPERATION_PERMISSIONS = {
     _DECRYPT_OPERATION: "cloudkms.cryptoKeyVersions.useToDecrypt",
     _SIGN_OPERATION: "cloudkms.cryptoKeyVersions.useToSign",
+    _MAC_GENERATION_OPERATION: "cloudkms.cryptoKeyVersions.useToSign",
 }
 _OPERATION_PURPOSES = {
     _DECRYPT_OPERATION: "ENCRYPT_DECRYPT",
     _SIGN_OPERATION: "ASYMMETRIC_SIGN",
+    _MAC_GENERATION_OPERATION: "MAC",
 }
 _KMS_KEY_PATH_PATTERN = re.compile(
     r"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/"
@@ -53,20 +57,32 @@ class GcpCloudRunKmsOperationRuleDetectors:
         context: RuleEvaluationContext,
         rule_id: str,
     ) -> list[Finding]:
-        return self._detect_public_operation_access(context, rule_id, _DECRYPT_OPERATION)
+        return self._detect_public_operation_access(
+            context,
+            rule_id,
+            frozenset({_DECRYPT_OPERATION}),
+            disclosure=True,
+        )
 
     def detect_public_cloud_run_kms_signing_access(
         self,
         context: RuleEvaluationContext,
         rule_id: str,
     ) -> list[Finding]:
-        return self._detect_public_operation_access(context, rule_id, _SIGN_OPERATION)
+        return self._detect_public_operation_access(
+            context,
+            rule_id,
+            _SIGNING_OPERATIONS,
+            disclosure=False,
+        )
 
     def _detect_public_operation_access(
         self,
         context: RuleEvaluationContext,
         rule_id: str,
-        operation_class: str,
+        operation_classes: frozenset[str],
+        *,
+        disclosure: bool,
     ) -> list[Finding]:
         if context.inventory.provider != "gcp":
             return []
@@ -81,7 +97,9 @@ class GcpCloudRunKmsOperationRuleDetectors:
             paths = [
                 path
                 for path in gcp_facts(workload).cloud_run_kms_operation_paths
-                if _is_deterministic_operation_path(
+                if isinstance(operation_class := path.get("operation_class"), str)
+                and operation_class in operation_classes
+                and _is_deterministic_operation_path(
                     path,
                     workload,
                     context,
@@ -95,10 +113,11 @@ class GcpCloudRunKmsOperationRuleDetectors:
             iam_resource_addresses = _path_string_values(paths, "iam_resource_address")
             public_source_addresses = sorted({binding["source"] for binding in public_invokers})
             project_scope = any(path.get("scope_type") == "project" for path in paths)
+            matched_operations = _path_operation_classes(paths)
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
                 privilege_breadth=1,
-                data_sensitivity=2 if operation_class == _DECRYPT_OPERATION else 1,
+                data_sensitivity=2 if disclosure else 1,
                 lateral_movement=1,
                 blast_radius=2 if project_scope else 1,
             )
@@ -118,9 +137,10 @@ class GcpCloudRunKmsOperationRuleDetectors:
                     trust_boundary_id=boundary.identifier if boundary else None,
                     rationale=_rationale(
                         workload,
-                        operation_class,
+                        matched_operations,
                         key_addresses,
                         project_scope=project_scope,
+                        disclosure=disclosure,
                     ),
                     evidence=collect_evidence(
                         evidence_item("public_invoker_bindings", _public_invoker_evidence(public_invokers)),
@@ -134,7 +154,10 @@ class GcpCloudRunKmsOperationRuleDetectors:
                         evidence_item("scope_breadth", _scope_breadth_evidence(paths)),
                         evidence_item(
                             "authorization_scope",
-                            _authorization_scope(operation_class, project_scope),
+                            _authorization_scope(
+                                matched_operations,
+                                project_scope,
+                            ),
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -275,15 +298,21 @@ def _key_ring(key_identity: str) -> str:
 
 def _rationale(
     workload: NormalizedResource,
-    operation_class: str,
+    operation_classes: list[str],
     key_addresses: list[str],
     *,
     project_scope: bool,
+    disclosure: bool,
 ) -> str:
-    if operation_class == _DECRYPT_OPERATION:
+    operation_text = _operation_text(operation_classes)
+    if disclosure:
         capability = "could attempt Cloud KMS decrypt operations, creating information-disclosure potential"
-    else:
+    elif operation_classes == [_SIGN_OPERATION]:
         capability = "could generate Cloud KMS signatures, creating spoofing potential"
+    elif operation_classes == [_MAC_GENERATION_OPERATION]:
+        capability = "could generate Cloud KMS message authentication codes, creating spoofing potential"
+    else:
+        capability = "could generate Cloud KMS signatures or message authentication codes, creating spoofing potential"
     scope_text = (
         "At least one grant is project-applicable and can reach modeled CryptoKeys across the project, "
         "so its blast radius is broader than a key-ring- or exact-key-scoped grant."
@@ -292,31 +321,58 @@ def _rationale(
     )
     return (
         f"{workload.display_name} is publicly invokable and its Cloud Run runtime service account has "
-        f"deterministic Cloud KMS {operation_class} authority on {len(key_addresses)} exact modeled CryptoKey(s). "
+        f"deterministic Cloud KMS {operation_text} authority on {len(key_addresses)} exact modeled CryptoKey(s). "
         f"A compromise of the public workload {capability}. {scope_text} This establishes cryptographic-operation "
         "authority, not proof that the workload possesses useful ciphertext, can disclose plaintext, or can produce "
-        "a signature accepted by a relying application. Cloud KMS IAM is modeled at project, key-ring, and CryptoKey "
-        "scope; it is not treated as CryptoKeyVersion-scoped authority."
+        "a signature or message authentication code accepted by a relying application. Cloud KMS IAM is modeled at "
+        "project, key-ring, and CryptoKey scope; it is not treated as CryptoKeyVersion-scoped authority."
     )
 
 
 def _authorization_scope(
-    operation_class: str,
+    operation_classes: list[str],
     project_scope: bool,
 ) -> list[str]:
-    permission = _OPERATION_PERMISSIONS[operation_class]
+    permissions = sorted({_OPERATION_PERMISSIONS[operation] for operation in operation_classes})
     values = [
-        f"establishes=deterministic {permission} IAM authority for the Cloud Run runtime service account",
+        (
+            f"establishes=deterministic {','.join(permissions)} IAM authority for "
+            f"Cloud KMS {_operation_text(operation_classes)} operations by the Cloud Run runtime service account"
+        ),
         "iam_scopes=project,key_ring,crypto_key; iam_scope_is_key_version=false",
         "excludes=cloudkms.cryptoKeyVersions.useToDecryptViaDelegation for direct Cloud Run API use",
         (
-            "does_not_establish=useful ciphertext, plaintext disclosure, accepted application signatures, "
+            "does_not_establish=useful ciphertext, plaintext disclosure, accepted application signatures or MACs, "
             "or runtime success outside modeled IAM evidence"
         ),
     ]
     if project_scope:
         values.append("blast_radius=project-applicable grant is broader than key-ring or exact-key grants")
     return values
+
+
+def _path_operation_classes(paths: list[dict[str, Any]]) -> list[str]:
+    return [
+        operation
+        for operation in (
+            _DECRYPT_OPERATION,
+            _SIGN_OPERATION,
+            _MAC_GENERATION_OPERATION,
+        )
+        if any(path.get("operation_class") == operation for path in paths)
+    ]
+
+
+def _operation_text(operation_classes: list[str]) -> str:
+    labels = {
+        _DECRYPT_OPERATION: "decrypt",
+        _SIGN_OPERATION: "sign",
+        _MAC_GENERATION_OPERATION: "MAC-generation",
+    }
+    operations = [labels[operation] for operation in operation_classes]
+    if len(operations) == 1:
+        return operations[0]
+    return " and ".join(operations)
 
 
 def _scope_breadth_evidence(paths: list[dict[str, Any]]) -> list[str]:

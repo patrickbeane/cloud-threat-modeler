@@ -794,12 +794,13 @@ GCP_RULE_METADATA = (
     ),
     RuleMetadata(
         rule_id="gcp-public-cloud-run-kms-signing-access",
-        title="Public Cloud Run identity has Cloud KMS signing authority",
+        title="Public Cloud Run identity has Cloud KMS signing or MAC-generation authority",
         category=StrideCategory.SPOOFING,
         recommended_mitigation=(
             "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
-            "the exact Cloud KMS signing permissions and project, key-ring, or CryptoKey scope required. "
-            "Use separate identities for signature generation that do not belong on public workloads."
+            "the exact Cloud KMS signing or MAC-generation permissions and project, key-ring, or CryptoKey scope "
+            "required. Use separate identities for signature or MAC generation that do not belong on public "
+            "workloads."
         ),
         tags=("gcp", "cloud-run", "cloud-kms", "iam", "public-access", "cryptography", "spoofing"),
         severity_factors=(

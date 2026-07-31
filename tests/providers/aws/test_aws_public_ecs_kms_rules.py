@@ -22,7 +22,7 @@ from tests.providers.aws.test_aws_public_ecs_dynamodb_mutation_rules import (
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.analysis.trust_boundaries import detect_trust_boundaries
-from tfstride.models import TerraformResource
+from tfstride.models import StrideCategory, TerraformResource
 from tfstride.providers.aws.normalizer import AwsNormalizer
 from tfstride.providers.aws.rules import AWS_RULE_GROUP_IDS
 
@@ -166,6 +166,48 @@ class AwsPublicEcsKmsRuleTests(unittest.TestCase):
         self.assertIn("authorization_bases=iam_via_key_policy", signing_evidence["kms_operation_paths"][0])
         self.assertIn("spoofing potential", signing_finding.rationale)
         self.assertIn("valid application-level signature", signing_finding.rationale)
+
+    def test_public_mac_generation_emits_spoofing_finding(self) -> None:
+        _, _, findings = _evaluate(
+            [
+                *_public_edge(),
+                _key(
+                    "mac",
+                    "GENERATE_VERIFY_MAC",
+                    _policy(
+                        _statement(
+                            "Allow",
+                            "kms:GenerateMac",
+                            "*",
+                            principal=_TASK_ROLE_ARN,
+                        )
+                    ),
+                ),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            "kms:GenerateMac",
+                            _KEY_ARNS["mac"],
+                            principal=_TASK_ROLE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(),
+                _public_service(),
+            ]
+        )
+
+        self.assertEqual([finding.rule_id for finding in findings], [_SIGNING_RULE_ID])
+        finding = findings[0]
+        self.assertEqual(finding.category, StrideCategory.SPOOFING)
+        evidence = {item.key: item.values for item in finding.evidence}
+        self.assertIn("operation=kms:GenerateMac", evidence["kms_operation_paths"][0])
+        self.assertIn("key_usage=GENERATE_VERIFY_MAC", evidence["kms_operation_paths"][0])
+        self.assertIn("message authentication codes", finding.rationale)
+        self.assertIn("spoofing potential", finding.rationale)
 
     def test_private_service_remains_quiet(self) -> None:
         _, _, findings = _evaluate(_public_kms_resources(internal=True))
