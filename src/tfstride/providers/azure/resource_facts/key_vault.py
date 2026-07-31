@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultAuthorizationGrant
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
 
@@ -79,7 +80,7 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_EXPIRATION_STATE)
 
     @property
-    def key_vault_key_authorization_grants(self) -> list[dict[str, Any]]:
+    def key_vault_key_authorization_grants(self) -> list[AzureKeyVaultAuthorizationGrant]:
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS)
 
     @property
@@ -286,7 +287,7 @@ class AzureKeyVaultFacts(AzureBaseFacts):
     def set_key_vault_key_authorization_posture(
         self,
         *,
-        grants: Sequence[dict[str, Any]],
+        grants: Sequence[AzureKeyVaultAuthorizationGrant],
         uncertainties: Sequence[str],
     ) -> None:
         self.set(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS, list(grants))

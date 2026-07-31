@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any, TypedDict
 
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
@@ -11,9 +12,15 @@ from tfstride.resource_metadata import (
     InventoryMetadata,
     OptionalIntMetadataField,
     OptionalStringMetadataField,
+    RecordListMetadataField,
     ResourceMetadata,
     StringListMetadataField,
 )
+
+
+class _EvidenceRecord(TypedDict):
+    source: str
+    operations: list[str]
 
 
 class ResourceMetadataFieldTests(unittest.TestCase):
@@ -108,6 +115,26 @@ class ResourceMetadataFieldTests(unittest.TestCase):
         returned[0]["principals"] = ["also-mutated"]
 
         self.assertEqual(metadata["trust_statements"], [{"principals": ["*"]}])
+
+    def test_record_list_fields_preserve_typed_records_and_detached_copies(self) -> None:
+        metadata: dict[str, Any] = {}
+        field = RecordListMetadataField[_EvidenceRecord]("operation_paths")
+        records: list[_EvidenceRecord] = [{"source": "aws_kms_key.data", "operations": ["kms:Decrypt"]}]
+
+        field.set(metadata, records)
+        records[0]["operations"].append("kms:Sign")
+        metadata["operation_paths"].append("ignored")
+        returned = field.get(metadata)
+        returned[0]["operations"].append("kms:GenerateMac")
+
+        self.assertEqual(
+            metadata["operation_paths"][0],
+            {"source": "aws_kms_key.data", "operations": ["kms:Decrypt"]},
+        )
+        self.assertEqual(
+            field.get(metadata),
+            [{"source": "aws_kms_key.data", "operations": ["kms:Decrypt"]}],
+        )
 
     def test_bool_dict_fields_coerce_values_and_remove_none(self) -> None:
         metadata = {}

@@ -5,6 +5,12 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.aws.kms_evidence import (
+    AwsEcsKmsAuthorizationBasis,
+    AwsEcsKmsOperationPath,
+    AwsKmsAuthorizationBasis,
+    AwsKmsOperationAuthorization,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import dedupe
@@ -18,7 +24,7 @@ _OPERATION_BY_KEY_USAGE: dict[str, str] = {
     "SIGN_VERIFY": "kms:Sign",
     "GENERATE_VERIFY_MAC": "kms:GenerateMac",
 }
-_AUTHORIZATION_BASIS_NAMES = {
+_AUTHORIZATION_BASIS_NAMES: dict[AwsKmsAuthorizationBasis, AwsEcsKmsAuthorizationBasis] = {
     "direct_key_policy": "key_policy_direct",
     "iam_via_account_principal": "iam_via_key_policy",
     "kms_grant": "grant",
@@ -60,7 +66,7 @@ class ProjectEcsKmsOperationPathsOntoServicesStage:
                 continue
 
             facts = aws_facts(service)
-            paths: list[dict[str, Any]] = []
+            paths: list[AwsEcsKmsOperationPath] = []
             uncertainties = [
                 f"{service.address}: task definition reference {reference} is unresolved for "
                 "KMS operation-path projection"
@@ -88,7 +94,7 @@ def _ecs_kms_operation_paths(
     task_definition: NormalizedResource,
     keys: Sequence[NormalizedResource],
     context: AwsDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AwsEcsKmsOperationPath], list[str]]:
     task_facts = aws_facts(task_definition)
     task_role_reference = task_facts.task_role_arn
     if not task_role_reference:
@@ -101,7 +107,7 @@ def _ecs_kms_operation_paths(
             [f"{task_definition.address}: ECS task role {task_role_reference} is not modeled in the plan"],
         )
 
-    paths: list[dict[str, Any]] = []
+    paths: list[AwsEcsKmsOperationPath] = []
     uncertainties: list[str] = []
     seen_key_addresses: set[str] = set()
     for key in keys:
@@ -173,14 +179,19 @@ def _operation_path_record(
     task_definition: NormalizedResource,
     task_role: NormalizedResource,
     key: NormalizedResource,
-    authorization: Mapping[str, Any],
+    authorization: AwsKmsOperationAuthorization,
     key_arn: str,
-) -> dict[str, Any]:
-    authorization_bases = _mapped_bases(authorization.get("authorization_bases"))
-    candidate_bases = _mapped_bases(authorization.get("candidate_authorization_bases"))
-    identity_statements = _mapping_records(authorization.get("identity_policy_statements"))
-    key_statements = _mapping_records(authorization.get("key_policy_statements"))
-    grants = _mapping_records(authorization.get("kms_grants"))
+) -> AwsEcsKmsOperationPath:
+    authorization_bases: list[AwsEcsKmsAuthorizationBasis] = [
+        _AUTHORIZATION_BASIS_NAMES[basis] for basis in authorization["authorization_bases"]
+    ]
+    candidate_bases: list[str] = [
+        basis if basis == "wildcard_key_policy" else _AUTHORIZATION_BASIS_NAMES[basis]
+        for basis in authorization["candidate_authorization_bases"]
+    ]
+    identity_statements = [record.copy() for record in authorization["identity_policy_statements"]]
+    key_statements = [record.copy() for record in authorization["key_policy_statements"]]
+    grants = [record.copy() for record in authorization["kms_grants"]]
     allow_statements = [
         statement for statement in (*identity_statements, *key_statements) if statement.get("effect") == "allow"
     ]
@@ -197,21 +208,21 @@ def _operation_path_record(
         "key_id": aws_facts(key).kms_key_id or key.identifier,
         "key_usage": aws_facts(key).kms_key_usage,
         "key_spec": aws_facts(key).kms_key_spec,
-        "operation": authorization.get("operation"),
+        "operation": authorization["operation"],
         "role_kind": "ecs_task_role",
         "credential_context": "workload_runtime",
         "role_address": task_role.address,
         "role_arn": task_role.arn or aws_facts(task_definition).task_role_arn,
-        "role_policy_complete": authorization.get("identity_policy_complete"),
-        "authorization_state": authorization.get("authorization_state"),
+        "role_policy_complete": authorization["identity_policy_complete"],
+        "authorization_state": authorization["authorization_state"],
         "authorization_basis": authorization_bases[0] if len(authorization_bases) == 1 else None,
         "authorization_bases": authorization_bases,
         "candidate_authorization_bases": candidate_bases,
         "evaluation_basis": "modeled_kms_authorization",
-        "same_account": authorization.get("same_account"),
-        "explicit_deny": authorization.get("explicit_deny"),
-        "conditional_evaluation_required": authorization.get("conditional_evaluation_required"),
-        "constraint_state": authorization.get("constraint_state"),
+        "same_account": authorization["same_account"],
+        "explicit_deny": authorization["explicit_deny"],
+        "conditional_evaluation_required": authorization["conditional_evaluation_required"],
+        "constraint_state": authorization["constraint_state"],
         "policy_action_patterns": _statement_values(
             allow_statements,
             "matching_action_patterns",
@@ -228,26 +239,26 @@ def _operation_path_record(
             deny_statements,
             "matching_resources",
         ),
-        "key_policy_complete": authorization.get("key_policy_complete"),
-        "key_policy_source_addresses": list(authorization.get("key_policy_source_addresses", [])),
-        "identity_policy_source_addresses": list(authorization.get("identity_policy_source_addresses", [])),
-        "key_policy_uncertainties": list(authorization.get("key_policy_uncertainties", [])),
-        "identity_policy_uncertainties": list(authorization.get("identity_policy_uncertainties", [])),
+        "key_policy_complete": authorization["key_policy_complete"],
+        "key_policy_source_addresses": list(authorization["key_policy_source_addresses"]),
+        "identity_policy_source_addresses": list(authorization["identity_policy_source_addresses"]),
+        "key_policy_uncertainties": list(authorization["key_policy_uncertainties"]),
+        "identity_policy_uncertainties": list(authorization["identity_policy_uncertainties"]),
         "identity_policy_statements": identity_statements,
         "key_policy_statements": key_statements,
         "kms_grants": grants,
         "grant_constraints": [
             grant.get("constraints") for grant in grants if isinstance(grant.get("constraints"), Mapping)
         ],
-        "authorization_record": dict(authorization),
+        "authorization_record": authorization.copy(),
     }
 
 
 def _service_record(
     service: NormalizedResource,
     task_definition: NormalizedResource,
-    path: Mapping[str, Any],
-) -> dict[str, Any]:
+    path: AwsEcsKmsOperationPath,
+) -> AwsEcsKmsOperationPath:
     return {
         **path,
         "workload_address": service.address,
@@ -259,7 +270,7 @@ def _service_record(
 
 
 def _authorization_matches_role(
-    authorization: Mapping[str, Any],
+    authorization: AwsKmsOperationAuthorization,
     role: NormalizedResource,
 ) -> bool:
     principal_address = authorization.get("principal_address")
@@ -287,18 +298,6 @@ def _authorization_uncertainty_applies_to_role(
         or "authorization evidence is unresolved" in uncertainty
         or "unresolved KMS grant operations" in uncertainty
     )
-
-
-def _mapping_records(value: object) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
-        return []
-    return [dict(item) for item in value if isinstance(item, Mapping)]
-
-
-def _mapped_bases(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [_AUTHORIZATION_BASIS_NAMES.get(str(item), str(item)) for item in value if isinstance(item, str)]
 
 
 def _statement_values(

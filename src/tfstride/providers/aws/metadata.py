@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath, AwsKmsOperationAuthorization
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -7,6 +8,7 @@ from tfstride.resource_metadata import (
     DictMetadataField,
     OptionalIntMetadataField,
     OptionalStringMetadataField,
+    RecordListMetadataField,
     ResourceMetadata,
     StringListMetadataField,
 )
@@ -362,7 +364,7 @@ class AwsResourceMetadata:
     KMS_ALIASES = DictListMetadataField("kms_aliases")
     KMS_GRANTS = DictListMetadataField("kms_grants")
     KMS_KEY_POLICIES = DictListMetadataField("kms_key_policies")
-    KMS_OPERATION_AUTHORIZATIONS = DictListMetadataField("kms_operation_authorizations")
+    KMS_OPERATION_AUTHORIZATIONS = RecordListMetadataField[AwsKmsOperationAuthorization]("kms_operation_authorizations")
     KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField("kms_operation_authorization_uncertainties")
     KMS_UNRESOLVED_KEY_REFERENCES = StringListMetadataField("kms_unresolved_key_references")
     KMS_ALIAS_NAME = OptionalStringMetadataField("kms_alias_name")
@@ -438,7 +440,7 @@ class AwsResourceMetadata:
     ECS_S3_ACCESS_PATHS = DictListMetadataField("ecs_s3_access_paths")
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
-    ECS_KMS_OPERATION_PATHS = DictListMetadataField("ecs_kms_operation_paths")
+    ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
     ECS_DYNAMODB_INDEX_RELATIONSHIPS = DictListMetadataField("ecs_dynamodb_index_relationships")
     ECR_WRITE_PATHS = DictListMetadataField("ecr_write_paths")
     S3_LIFECYCLE_RULES = DictListMetadataField("s3_lifecycle_rules")

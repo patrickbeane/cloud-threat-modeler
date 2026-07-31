@@ -34,17 +34,47 @@ tfstride = "tfstride.cli:main"
 
 [tool.basedpyright]
 include = [
+  # Shared provider and metadata contracts.
   "src/tfstride/providers/base.py",
   "src/tfstride/providers/plugin.py",
   "src/tfstride/providers/contracts.py",
   "src/tfstride/providers/metadata_ownership.py",
   "src/tfstride/resource_metadata.py",
+
+  # Shared analysis contracts.
   "src/tfstride/analysis/indexes.py",
   "src/tfstride/analysis/boundaries/types.py",
   "src/tfstride/analysis/rule_definitions.py",
+
+  # Provider entry points.
   "src/tfstride/providers/aws/plugin.py",
   "src/tfstride/providers/gcp/plugin.py",
   "src/tfstride/providers/azure/plugin.py",
+
+  # AWS managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/aws/kms_evidence.py",
+  "src/tfstride/providers/aws/metadata.py",
+  "src/tfstride/providers/aws/resource_facts/data.py",
+  "src/tfstride/providers/aws/resource_facts/compute.py",
+  "src/tfstride/providers/aws/resource_decoration/kms_operation_authorization.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_kms_operation_paths.py",
+
+  # GCP managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/gcp/kms_evidence.py",
+  "src/tfstride/providers/gcp/metadata.py",
+  "src/tfstride/providers/gcp/resource_facts/kms.py",
+  "src/tfstride/providers/gcp/resource_facts/compute.py",
+  "src/tfstride/providers/gcp/resource_mutations.py",
+  "src/tfstride/providers/gcp/resource_decoration/kms_iam.py",
+  "src/tfstride/providers/gcp/resource_decoration/cloud_run_kms_operation_paths.py",
+
+  # Azure managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/azure/key_vault_evidence.py",
+  "src/tfstride/providers/azure/metadata.py",
+  "src/tfstride/providers/azure/resource_facts/key_vault.py",
+  "src/tfstride/providers/azure/resource_facts/app_service.py",
+  "src/tfstride/providers/azure/resource_decoration/key_vault_key_authorization.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_key_vault_operation_paths.py",
 ]
 extraPaths = ["src"]
 pythonVersion = "3.11"

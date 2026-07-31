@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.aws.kms_evidence import AwsKmsOperationAuthorization
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 
@@ -203,7 +204,7 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.KMS_KEY_POLICIES)
 
     @property
-    def kms_operation_authorizations(self) -> list[dict[str, Any]]:
+    def kms_operation_authorizations(self) -> list[AwsKmsOperationAuthorization]:
         return self.get(AwsResourceMetadata.KMS_OPERATION_AUTHORIZATIONS)
 
     @property
@@ -318,7 +319,7 @@ class AwsDataFacts(AwsBaseFacts):
     def set_kms_operation_authorization_posture(
         self,
         *,
-        authorizations: Sequence[dict[str, Any]],
+        authorizations: Sequence[AwsKmsOperationAuthorization],
         uncertainties: Sequence[str],
     ) -> None:
         self.set(
@@ -360,7 +361,7 @@ class AwsDataFacts(AwsBaseFacts):
         automatically_after_days: int | None,
         duration: str | None,
         schedule_expression: str | None,
-        rotation_rules: dict[str, Any] | None,
+        rotation_rules: dict[str, Any],
     ) -> None:
         self.set(AwsResourceMetadata.SECRETS_MANAGER_ROTATION_SECRET_ID, secret_id)
         self.set(AwsResourceMetadata.SECRETS_MANAGER_ROTATION_SOURCE_ADDRESS, source_address)

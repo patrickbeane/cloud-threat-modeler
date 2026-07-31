@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 from tfstride.resource_metadata import DictListMetadataField
@@ -112,7 +113,7 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATHS)
 
     @property
-    def ecs_kms_operation_paths(self) -> list[dict[str, Any]]:
+    def ecs_kms_operation_paths(self) -> list[AwsEcsKmsOperationPath]:
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS)
 
     @property
@@ -542,7 +543,7 @@ class AwsComputeFacts(AwsBaseFacts):
     def set_ecs_dynamodb_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATHS, values)
 
-    def set_ecs_kms_operation_paths(self, values: list[dict[str, Any]]) -> None:
+    def set_ecs_kms_operation_paths(self, values: list[AwsEcsKmsOperationPath]) -> None:
         self.set(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS, values)
 
     def set_ecs_dynamodb_index_relationships(

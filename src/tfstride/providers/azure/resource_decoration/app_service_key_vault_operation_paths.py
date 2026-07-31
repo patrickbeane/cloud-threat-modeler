@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.key_vault_evidence import (
+    AzureAppServiceKeyVaultOperationPath,
+    AzureKeyVaultAuthorizationGrant,
+    AzureKeyVaultOperation,
+    AzureKeyVaultOperationClass,
+)
 from tfstride.providers.azure.resource_decoration.workload_identities import workload_managed_identities
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
@@ -12,12 +18,12 @@ from tfstride.providers.azure.resource_types import AZURE_APP_SERVICE_RESOURCE_T
 from tfstride.providers.coercion import dedupe
 
 _RELEVANT_OPERATIONS = frozenset({"decrypt", "unwrap", "sign"})
-_KEY_OPT_BY_OPERATION = {
+_KEY_OPT_BY_OPERATION: dict[AzureKeyVaultOperation, str] = {
     "decrypt": "decrypt",
     "unwrap": "unwrapKey",
     "sign": "sign",
 }
-_OPERATION_CLASS = {
+_OPERATION_CLASS: dict[AzureKeyVaultOperation, AzureKeyVaultOperationClass] = {
     "decrypt": "plaintext_recovery",
     "unwrap": "plaintext_recovery",
     "sign": "authenticator_generation",
@@ -59,7 +65,7 @@ def _app_service_key_vault_operation_paths(
     workload: NormalizedResource,
     keys: Sequence[NormalizedResource],
     context: AzureDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AzureAppServiceKeyVaultOperationPath], list[str]]:
     workload_facts = azure_facts(workload)
     identities, identity_uncertainties = workload_managed_identities(workload, context)
     uncertainties = [
@@ -74,7 +80,7 @@ def _app_service_key_vault_operation_paths(
         for identity, _ in identities
         if (principal := _known_string(azure_facts(identity).principal_id)) is not None
     }
-    paths: list[dict[str, Any]] = []
+    paths: list[AzureAppServiceKeyVaultOperationPath] = []
     for key in keys:
         key_facts = azure_facts(key)
         if key_facts.key_vault_key_identity_state != "resolved":
@@ -101,14 +107,16 @@ def _app_service_key_vault_operation_paths(
         uncertain_sources: set[str] = set()
 
         for grant in key_facts.key_vault_key_authorization_grants:
-            source_address = _known_string(grant.get("grant_source_address"))
+            source_address = grant["grant_source_address"]
             source = source_address or key.address
             principal_id = _known_string(grant.get("principal_id"))
             grant_operations = _string_values(grant.get("matched_operations"))
-            relevant_operations = tuple(
-                operation for operation in grant_operations if operation in _RELEVANT_OPERATIONS
+            relevant_operations: tuple[AzureKeyVaultOperation, ...] = tuple(
+                cast(AzureKeyVaultOperation, operation)
+                for operation in grant_operations
+                if operation in _RELEVANT_OPERATIONS
             )
-            candidate_operations = (
+            candidate_operations: tuple[AzureKeyVaultOperation, ...] = (
                 relevant_operations
                 if key_operations_unknown
                 else tuple(operation for operation in relevant_operations if operation in supported_operations)
@@ -210,12 +218,12 @@ def _operation_path_record(
     identity_kind: str,
     key: NormalizedResource,
     vault: NormalizedResource,
-    operation: str,
-    grant: Mapping[str, Any],
-) -> dict[str, Any]:
+    operation: AzureKeyVaultOperation,
+    grant: AzureKeyVaultAuthorizationGrant,
+) -> AzureAppServiceKeyVaultOperationPath:
     key_facts = azure_facts(key)
     vault_facts = azure_facts(vault)
-    source_address = _known_string(grant.get("grant_source_address"))
+    source_address = grant["grant_source_address"]
     return {
         "workload_address": workload.address,
         "workload_type": workload.resource_type,
@@ -239,16 +247,16 @@ def _operation_path_record(
         "operation": operation,
         "operation_class": _OPERATION_CLASS[operation],
         "matched_key_operation": _KEY_OPT_BY_OPERATION[operation],
-        "grant_kind": grant.get("grant_kind"),
-        "grant_basis": grant.get("grant_basis"),
+        "grant_kind": grant["grant_kind"],
+        "grant_basis": grant["grant_basis"],
         "grant_source_address": source_address,
         "grant_source_type": _grant_source_type(source_address, grant, vault),
-        "scope_type": grant.get("grant_scope_type"),
-        "scope": grant.get("grant_scope"),
+        "scope_type": grant["grant_scope_type"],
+        "scope": grant["grant_scope"],
         "scope_arm_id": _scope_arm_id(grant, key, vault),
-        "authorization_model": grant.get("authorization_model"),
-        "authorization_model_state": grant.get("authorization_model_state"),
-        "authorization_state": grant.get("authorization_state"),
+        "authorization_model": grant["authorization_model"],
+        "authorization_model_state": grant["authorization_model_state"],
+        "authorization_state": grant["authorization_state"],
         "management_mode": grant.get("management_mode"),
         "management_state": grant.get("management_state"),
         "role_definition_name": grant.get("role_definition_name"),
@@ -259,15 +267,15 @@ def _operation_path_record(
         "matched_data_actions": list(_string_values(grant.get("matched_data_actions"))),
         "key_permissions": list(_string_values(grant.get("key_permissions"))),
         "condition": _mapping_copy(grant.get("condition")),
-        "condition_state": grant.get("condition_state"),
-        "condition_applicability_state": grant.get("condition_applicability_state"),
+        "condition_state": grant["condition_state"],
+        "condition_applicability_state": grant["condition_applicability_state"],
         "evaluation_basis": "modeled_key_vault_key_authorization",
-        "authorization_grant_record": dict(grant),
+        "authorization_grant_record": grant.copy(),
     }
 
 
 def _grant_is_deterministic(
-    grant: Mapping[str, Any],
+    grant: AzureKeyVaultAuthorizationGrant,
     key: NormalizedResource,
     vault: NormalizedResource,
     context: AzureDecorationContext,
@@ -308,7 +316,7 @@ def _grant_is_deterministic(
 
 
 def _scope_arm_id(
-    grant: Mapping[str, Any],
+    grant: AzureKeyVaultAuthorizationGrant,
     key: NormalizedResource,
     vault: NormalizedResource,
 ) -> str | None:
@@ -332,7 +340,7 @@ def _scope_arm_id(
 
 def _grant_source_type(
     source_address: str | None,
-    grant: Mapping[str, Any],
+    grant: AzureKeyVaultAuthorizationGrant,
     vault: NormalizedResource,
 ) -> str | None:
     if source_address == vault.address:
@@ -358,9 +366,9 @@ def _uncertainty_source_may_match(
 
 
 def _grants_by_source(
-    grants: Sequence[Mapping[str, Any]],
-) -> dict[str, tuple[Mapping[str, Any], ...]]:
-    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    grants: Sequence[AzureKeyVaultAuthorizationGrant],
+) -> dict[str, tuple[AzureKeyVaultAuthorizationGrant, ...]]:
+    grouped: dict[str, list[AzureKeyVaultAuthorizationGrant]] = {}
     for grant in grants:
         source = _known_string(grant.get("grant_source_address"))
         if source is not None:
@@ -368,7 +376,7 @@ def _grants_by_source(
     return {source: tuple(values) for source, values in grouped.items()}
 
 
-def _grant_operations_are_unresolved(grant: Mapping[str, Any]) -> bool:
+def _grant_operations_are_unresolved(grant: AzureKeyVaultAuthorizationGrant) -> bool:
     return bool(
         grant.get("key_permissions_state") == "unknown"
         or grant.get("role_resolution_state") not in {None, "resolved", "modeled_subset"}
@@ -402,8 +410,10 @@ def _mapping_copy(value: object) -> dict[str, Any] | None:
     return dict(value)
 
 
-def _dedupe_dicts(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
+def _dedupe_dicts(
+    values: list[AzureAppServiceKeyVaultOperationPath],
+) -> list[AzureAppServiceKeyVaultOperationPath]:
+    result: list[AzureAppServiceKeyVaultOperationPath] = []
     for value in values:
         if value not in result:
             result.append(value)

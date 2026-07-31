@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from tfstride.providers.azure.key_vault_evidence import AzureAppServiceKeyVaultOperationPath
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
 
@@ -44,14 +45,17 @@ class AzureAppServiceFacts(AzureBaseFacts):
         self.extend(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_ACCESS_PATH_UNCERTAINTIES, values)
 
     @property
-    def app_service_key_vault_operation_paths(self) -> list[dict[str, Any]]:
+    def app_service_key_vault_operation_paths(self) -> list[AzureAppServiceKeyVaultOperationPath]:
         return self.get(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_OPERATION_PATHS)
 
     @property
     def app_service_key_vault_operation_path_uncertainties(self) -> list[str]:
         return self.get(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_OPERATION_PATH_UNCERTAINTIES)
 
-    def set_app_service_key_vault_operation_paths(self, values: list[dict[str, Any]]) -> None:
+    def set_app_service_key_vault_operation_paths(
+        self,
+        values: list[AzureAppServiceKeyVaultOperationPath],
+    ) -> None:
         self.set(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_OPERATION_PATHS, values)
 
     def extend_app_service_key_vault_operation_path_uncertainties(self, values: list[str]) -> None:

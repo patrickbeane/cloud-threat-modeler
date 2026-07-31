@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from tfstride.providers.gcp.kms_evidence import GcpCloudRunKmsOperationPath, GcpKmsIamGrant
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
     DictMetadataField,
     OptionalIntMetadataField,
     OptionalStringMetadataField,
+    RecordListMetadataField,
     StringListMetadataField,
 )
 
@@ -400,7 +402,7 @@ class GcpResourceMetadata:
     FIREWALL_DENY = DictListMetadataField("deny")
     FIREWALL_POLICY_MATCH = DictMetadataField("firewall_policy_match")
     IAM_BINDINGS = DictListMetadataField("iam_bindings")
-    KMS_IAM_GRANTS = DictListMetadataField("kms_iam_grants")
+    KMS_IAM_GRANTS = RecordListMetadataField[GcpKmsIamGrant]("kms_iam_grants")
     FIRESTORE_IAM_GRANTS = DictListMetadataField("firestore_iam_grants")
     PRIVILEGED_ACCESS_GRANTS = DictListMetadataField("privileged_access_grants")
     WORKLOAD_IDENTITY_FEDERATION_TRUST_PATHS = DictListMetadataField("workload_identity_federation_trust_paths")
@@ -459,6 +461,8 @@ class GcpResourceMetadata:
     CLOUD_RUN_GCS_ACCESS_PATHS = DictListMetadataField("cloud_run_gcs_access_paths")
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
-    CLOUD_RUN_KMS_OPERATION_PATHS = DictListMetadataField("cloud_run_kms_operation_paths")
+    CLOUD_RUN_KMS_OPERATION_PATHS = RecordListMetadataField[GcpCloudRunKmsOperationPath](
+        "cloud_run_kms_operation_paths"
+    )
     NAT_SUBNETWORKS = DictListMetadataField("nat_subnetworks")
     LABELS = DictMetadataField("labels")

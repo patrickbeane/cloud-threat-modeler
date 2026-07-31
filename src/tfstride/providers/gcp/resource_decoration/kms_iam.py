@@ -6,6 +6,7 @@ from typing import Any
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
+from tfstride.providers.gcp.kms_evidence import GcpKmsIamGrant
 from tfstride.providers.gcp.resource_decoration.iam import iam_bindings
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
@@ -167,14 +168,14 @@ def _kms_iam_posture(
     iam_resources: tuple[NormalizedResource, ...],
     custom_roles: Mapping[str, _CustomRole],
     context: GcpDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[GcpKmsIamGrant], list[str]]:
     key_path = _key_path(key)
     key_ring = _key_ring(key_path, gcp_facts(key).kms_key_ring)
     project = _project_from_path(key_path or key_ring)
     if key_path is None or key_ring is None or project is None:
         return [], [f"{key.address}: exact Cloud KMS key ancestry is unresolved"]
 
-    grants: list[dict[str, Any]] = []
+    grants: list[GcpKmsIamGrant] = []
     management_sources: list[dict[str, Any]] = []
     uncertainties: list[str] = []
     for iam_resource in iam_resources:
@@ -257,7 +258,7 @@ def _kms_iam_posture(
                 if condition_state == "configured"
                 else "granted"
             )
-            grant: dict[str, Any] = {
+            grant: GcpKmsIamGrant = {
                 "role": role,
                 "role_kind": role_resolution.role_kind,
                 "role_resolution_state": role_resolution.state,
@@ -422,7 +423,7 @@ def _management_mode(resource: NormalizedResource) -> str:
 
 
 def _apply_management_ambiguity(
-    grants: list[dict[str, Any]],
+    grants: list[GcpKmsIamGrant],
     management_sources: list[dict[str, Any]],
     uncertainties: list[str],
     key_path: str,
@@ -479,7 +480,7 @@ def _apply_management_ambiguity(
 
 
 def _mark_ambiguous(
-    grants: list[dict[str, Any]],
+    grants: list[GcpKmsIamGrant],
     *,
     scope_type: str,
     scope: str,
@@ -518,7 +519,7 @@ def _custom_roles_by_reference(
 
 def _custom_role_references(resource: NormalizedResource) -> set[str]:
     facts = gcp_facts(resource)
-    references = {
+    references: set[str | None] = {
         resource.address,
         f"{resource.address}.id",
         f"{resource.address}.name",
@@ -593,8 +594,8 @@ def _known_string(value: object) -> str | None:
     return text or None
 
 
-def _dedupe_grants(grants: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    deduped: list[dict[str, Any]] = []
+def _dedupe_grants(grants: list[GcpKmsIamGrant]) -> list[GcpKmsIamGrant]:
+    deduped: list[GcpKmsIamGrant] = []
     for grant in grants:
         if grant not in deduped:
             deduped.append(grant)

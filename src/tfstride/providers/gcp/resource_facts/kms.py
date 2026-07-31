@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.providers.gcp.kms_evidence import GcpKmsIamGrant
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
 
@@ -32,7 +33,7 @@ class GcpKmsFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.KMS_POSTURE_UNCERTAINTIES)
 
     @property
-    def kms_iam_grants(self) -> list[dict[str, object]]:
+    def kms_iam_grants(self) -> list[GcpKmsIamGrant]:
         return self.get(GcpResourceMetadata.KMS_IAM_GRANTS)
 
     @property

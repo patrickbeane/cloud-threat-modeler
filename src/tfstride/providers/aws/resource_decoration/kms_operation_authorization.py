@@ -3,25 +3,21 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 from tfstride.models import IAMPolicyCondition, IAMPolicyStatement, NormalizedResource
+from tfstride.providers.aws.kms_evidence import (
+    AwsKmsAuthorizationBasis,
+    AwsKmsCandidateAuthorizationBasis,
+    AwsKmsGrantAuthorizationEvidence,
+    AwsKmsOperationAuthorization,
+    AwsKmsPolicyConditionEvidence,
+    AwsKmsPolicyStatementEvidence,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import dedupe
 from tfstride.resource_helpers import parse_aws_account_id
-
-AuthorizationBasis = Literal[
-    "direct_key_policy",
-    "iam_via_account_principal",
-    "kms_grant",
-]
-CandidateAuthorizationBasis = Literal[
-    "direct_key_policy",
-    "iam_via_account_principal",
-    "kms_grant",
-    "wildcard_key_policy",
-]
 
 _KMS_KEY = "aws_kms_key"
 _IAM_ROLE = "aws_iam_role"
@@ -116,7 +112,7 @@ def _operation_authorization_posture(
     key: NormalizedResource,
     roles: tuple[NormalizedResource, ...],
     context: AwsDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AwsKmsOperationAuthorization], list[str]]:
     key_facts = aws_facts(key)
     key_arn = key_facts.kms_key_arn or key.arn
     if not _is_exact_kms_key_arn(key_arn):
@@ -136,7 +132,7 @@ def _operation_authorization_posture(
             f"{key.address}: effective KMS key policy is incomplete, conflicting, malformed, or unknown"
         )
 
-    authorizations: list[dict[str, Any]] = []
+    authorizations: list[AwsKmsOperationAuthorization] = []
     for role in roles:
         role_arn = role.arn
         if not _is_exact_iam_role_arn(role_arn):
@@ -234,7 +230,7 @@ def _authorization_record(
     key_policy_complete: bool,
     role_policy_complete: bool,
     same_account: bool,
-) -> tuple[dict[str, Any], list[str]]:
+) -> tuple[AwsKmsOperationAuthorization, list[str]]:
     identity_denies = [match for match in identity_matches if match.effect == "deny"]
     identity_allows = [match for match in identity_matches if match.effect == "allow"]
     unconditional_identity_deny = _has_unconditional(identity_denies)
@@ -247,7 +243,7 @@ def _authorization_record(
     deterministic_grants = [match for match in grant_matches if match.deterministic]
     uncertain_grants = [match for match in grant_matches if not match.deterministic]
 
-    candidate_bases: list[CandidateAuthorizationBasis] = []
+    candidate_bases: list[AwsKmsCandidateAuthorizationBasis] = []
     if direct_matches:
         candidate_bases.append("direct_key_policy")
     if identity_allows or (delegation_matches and not role_policy_complete):
@@ -257,7 +253,7 @@ def _authorization_record(
     if wildcard_allow_matches:
         candidate_bases.append("wildcard_key_policy")
 
-    allowed_bases: list[AuthorizationBasis] = []
+    allowed_bases: list[AwsKmsAuthorizationBasis] = []
     if unconditional_direct_allow:
         allowed_bases.append("direct_key_policy")
     if unconditional_delegation and unconditional_identity_allow:
@@ -322,7 +318,7 @@ def _authorization_record(
     ]
     conditional_evidence_present = conditional_deny or conditional_allow
     authorization_requires_condition_evaluation = state == "unknown" and conditional_evidence_present
-    record = {
+    record: AwsKmsOperationAuthorization = {
         "key_address": key.address,
         "key_arn": key_facts.kms_key_arn or key.arn,
         "key_id": key_facts.kms_key_id or key.identifier,
@@ -654,7 +650,7 @@ def _aws_principal_values(statement: IAMPolicyStatement) -> set[str]:
     return {entry.value for entry in statement.principal_entries if entry.kind.casefold() in {"aws", "unknown"}}
 
 
-def _statement_record(match: _StatementMatch) -> dict[str, Any]:
+def _statement_record(match: _StatementMatch) -> AwsKmsPolicyStatementEvidence:
     statement = match.statement
     return {
         "source_kind": match.source_kind,
@@ -670,7 +666,7 @@ def _statement_record(match: _StatementMatch) -> dict[str, Any]:
     }
 
 
-def _grant_record(match: _GrantMatch) -> dict[str, Any]:
+def _grant_record(match: _GrantMatch) -> AwsKmsGrantAuthorizationEvidence:
     return {
         "source": match.source,
         "operation": match.operation,
@@ -681,7 +677,7 @@ def _grant_record(match: _GrantMatch) -> dict[str, Any]:
     }
 
 
-def _condition_record(condition: IAMPolicyCondition) -> dict[str, Any]:
+def _condition_record(condition: IAMPolicyCondition) -> AwsKmsPolicyConditionEvidence:
     return {
         "operator": condition.operator,
         "key": condition.key,

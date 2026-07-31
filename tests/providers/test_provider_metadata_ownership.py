@@ -21,6 +21,7 @@ from tfstride.resource_metadata import (
     MetadataField,
     OptionalIntMetadataField,
     OptionalStringMetadataField,
+    RecordListMetadataField,
     ResourceMetadata,
     StringListMetadataField,
 )
@@ -65,6 +66,8 @@ def _sample_metadata_value(field: MetadataField[Any]) -> Any:
     if isinstance(field, OptionalIntMetadataField):
         return 1
     if isinstance(field, DictListMetadataField):
+        return [{"sample": "value"}]
+    if isinstance(field, RecordListMetadataField):
         return [{"sample": "value"}]
     if isinstance(field, BoolDictMetadataField):
         return {"sample": True}

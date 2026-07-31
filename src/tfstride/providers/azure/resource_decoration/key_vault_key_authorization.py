@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Any
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultAuthorizationGrant
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AzureResourceType
@@ -308,7 +308,7 @@ def _key_authorization_posture(
     key: NormalizedResource,
     assignments: tuple[NormalizedResource, ...],
     context: AzureDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AzureKeyVaultAuthorizationGrant], list[str]]:
     key_facts = azure_facts(key)
     if key_facts.key_vault_key_identity_state != "resolved":
         return [], [f"{key.address}: exact Key Vault key identity is unresolved"]
@@ -321,7 +321,7 @@ def _key_authorization_posture(
     authorization_model = _authorization_model(vault_facts.rbac_authorization_enabled)
     authorization_model_unknown = authorization_model == "unknown"
     uncertainties: list[str] = []
-    grants: list[dict[str, Any]] = []
+    grants: list[AzureKeyVaultAuthorizationGrant] = []
     if authorization_model in {"access_policy", "unknown"}:
         policy_grants, policy_uncertainties = _access_policy_grants(
             key,
@@ -368,7 +368,7 @@ def _access_policy_grants(
     vault: NormalizedResource,
     *,
     model_unknown: bool,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AzureKeyVaultAuthorizationGrant], list[str]]:
     vault_facts = azure_facts(vault)
     policies = vault_facts.key_vault_access_policies
     management_modes = {str(policy.get("management_mode")) for policy in policies if policy.get("management_mode")}
@@ -387,7 +387,7 @@ def _access_policy_grants(
             "standalone Terraform access-policy managers overlap"
         )
 
-    grants: list[dict[str, Any]] = []
+    grants: list[AzureKeyVaultAuthorizationGrant] = []
     for policy in policies:
         permission_state = _known_string(policy.get("key_permissions_state")) or (
             "configured" if _string_values(policy.get("key_permissions")) else "not_configured"
@@ -457,8 +457,8 @@ def _rbac_grants(
     context: AzureDecorationContext,
     *,
     model_unknown: bool,
-) -> tuple[list[dict[str, Any]], list[str]]:
-    grants: list[dict[str, Any]] = []
+) -> tuple[list[AzureKeyVaultAuthorizationGrant], list[str]]:
+    grants: list[AzureKeyVaultAuthorizationGrant] = []
     uncertainties: list[str] = []
     for assignment in assignments:
         scope_resolution = _assignment_scope(assignment, key, vault, context)
@@ -533,7 +533,7 @@ def _rbac_grants(
                 f"for Key Vault key data actions on {key.address}"
             )
 
-        grant: dict[str, Any] = {
+        grant: AzureKeyVaultAuthorizationGrant = {
             "grant_kind": "rbac",
             "grant_source_address": assignment.address,
             "grant_basis": "azure_rbac_assignment",
@@ -916,8 +916,10 @@ def _string_values(value: object) -> list[str]:
     return sorted({str(item).strip().casefold() for item in value if isinstance(item, str) and item.strip()})
 
 
-def _dedupe_dicts(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
+def _dedupe_dicts(
+    values: list[AzureKeyVaultAuthorizationGrant],
+) -> list[AzureKeyVaultAuthorizationGrant]:
+    result: list[AzureKeyVaultAuthorizationGrant] = []
     for value in values:
         if value not in result:
             result.append(value)

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from tfstride.providers.azure.key_vault_evidence import (
+    AzureAppServiceKeyVaultOperationPath,
+    AzureKeyVaultAuthorizationGrant,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
     DictMetadataField,
     OptionalIntMetadataField,
     OptionalStringMetadataField,
+    RecordListMetadataField,
     StringListMetadataField,
 )
 
@@ -188,7 +193,9 @@ class AzureResourceMetadata:
     KEY_VAULT_KEY_VERSIONLESS_RESOURCE_ID = OptionalStringMetadataField("key_vault_key_versionless_resource_id")
     KEY_VAULT_KEY_IDENTITY_STATE = OptionalStringMetadataField("key_vault_key_identity_state")
     KEY_VAULT_KEY_EXPIRATION_STATE = OptionalStringMetadataField("key_vault_key_expiration_state")
-    KEY_VAULT_KEY_AUTHORIZATION_GRANTS = DictListMetadataField("key_vault_key_authorization_grants")
+    KEY_VAULT_KEY_AUTHORIZATION_GRANTS = RecordListMetadataField[AzureKeyVaultAuthorizationGrant](
+        "key_vault_key_authorization_grants"
+    )
     KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField("key_vault_key_authorization_uncertainties")
     KEY_VAULT_EXPIRATION_DATE = OptionalStringMetadataField("key_vault_expiration_date")
     KEY_VAULT_NOT_BEFORE_DATE = OptionalStringMetadataField("key_vault_not_before_date")
@@ -365,7 +372,9 @@ class AzureResourceMetadata:
     APP_SERVICE_SCM_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_scm_access_restrictions")
     APP_SERVICE_SECRET_REFERENCES = DictListMetadataField("app_service_secret_references")
     APP_SERVICE_KEY_VAULT_ACCESS_PATHS = DictListMetadataField("app_service_key_vault_access_paths")
-    APP_SERVICE_KEY_VAULT_OPERATION_PATHS = DictListMetadataField("app_service_key_vault_operation_paths")
+    APP_SERVICE_KEY_VAULT_OPERATION_PATHS = RecordListMetadataField[AzureAppServiceKeyVaultOperationPath](
+        "app_service_key_vault_operation_paths"
+    )
     APP_SERVICE_STORAGE_ACCESS_PATHS = DictListMetadataField("app_service_storage_access_paths")
     APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = DictListMetadataField("app_service_service_bus_access_paths")
     APP_SERVICE_COSMOSDB_ACCESS_PATHS = DictListMetadataField("app_service_cosmosdb_access_paths")

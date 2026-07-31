@@ -7,6 +7,11 @@ from typing import Any
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
+from tfstride.providers.gcp.kms_evidence import (
+    GcpCloudRunKmsOperationPath,
+    GcpKmsIamGrant,
+    GcpKmsKeyVersionEvidence,
+)
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
 from tfstride.providers.gcp.resource_types import (
@@ -77,7 +82,7 @@ def _cloud_run_kms_operation_paths(
     keys: Sequence[NormalizedResource],
     versions: Sequence[NormalizedResource],
     resources_by_address: Mapping[str, NormalizedResource],
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[GcpCloudRunKmsOperationPath], list[str]]:
     workload_facts = gcp_facts(workload)
     service_account_email = workload_facts.service_account_email
     service_account_member = workload_facts.service_account_member
@@ -91,7 +96,7 @@ def _cloud_run_kms_operation_paths(
     ):
         return [], [f"{workload.address}: Cloud Run service account identity is unresolved"]
 
-    paths: list[dict[str, Any]] = []
+    paths: list[GcpCloudRunKmsOperationPath] = []
     uncertainties: list[str] = []
     seen: set[tuple[str, str, str, str, str]] = set()
     for key in keys:
@@ -222,7 +227,7 @@ def _cloud_run_kms_operation_paths(
 
 
 def _grant_is_exact_for_key(
-    grant: Mapping[str, object],
+    grant: GcpKmsIamGrant,
     key: NormalizedResource,
     identity: _KeyIdentity,
     resources_by_address: Mapping[str, NormalizedResource],
@@ -274,9 +279,9 @@ def _operation_path_record(
     service_account_member: str,
     permission: str,
     operation_class: str,
-    grant: Mapping[str, object],
-    version_records: list[dict[str, Any]],
-) -> dict[str, Any]:
+    grant: GcpKmsIamGrant,
+    version_records: list[GcpKmsKeyVersionEvidence],
+) -> GcpCloudRunKmsOperationPath:
     return {
         "workload_address": workload.address,
         "workload_type": workload.resource_type,
@@ -313,10 +318,10 @@ def _operation_path_record(
         "condition_state": grant.get("condition_state"),
         "authorization_state": grant.get("authorization_state"),
         "authorization_model": "cloud_kms_iam",
-        "key_versions": [dict(record) for record in version_records],
+        "key_versions": [record.copy() for record in version_records],
         "key_version_evidence_scope": "modeled_versions_of_crypto_key",
         "iam_scope_is_key_version": False,
-        "iam_grant_record": dict(grant),
+        "iam_grant_record": grant.copy(),
     }
 
 
@@ -356,8 +361,8 @@ def _key_version_records(
     key: NormalizedResource,
     key_path: str,
     versions: Sequence[NormalizedResource],
-) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
+) -> list[GcpKmsKeyVersionEvidence]:
+    records: list[GcpKmsKeyVersionEvidence] = []
     for version in versions:
         facts = gcp_facts(version)
         if facts.kms_crypto_key_version_resolved_key_address != key.address:

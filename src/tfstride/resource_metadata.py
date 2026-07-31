@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 T = TypeVar("T")
+RecordT = TypeVar("RecordT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +127,20 @@ class DictListMetadataField(MetadataField[list[dict[str, Any]]]):
         return [deepcopy(value) for value in values if isinstance(value, dict)]
 
     def set(self, metadata: dict[str, Any], value: list[dict[str, Any]]) -> None:
+        metadata[self.key] = [deepcopy(item) for item in value if isinstance(item, dict)]
+
+
+@dataclass(frozen=True, slots=True)
+class RecordListMetadataField(MetadataField[list[RecordT]], Generic[RecordT]):
+    """Preserve provider-owned structured records through generic metadata storage."""
+
+    def get(self, metadata: Mapping[str, Any]) -> list[RecordT]:
+        values = metadata.get(self.key)
+        if not isinstance(values, list):
+            return []
+        return [cast(RecordT, deepcopy(value)) for value in values if isinstance(value, dict)]
+
+    def set(self, metadata: dict[str, Any], value: list[RecordT]) -> None:
         metadata[self.key] = [deepcopy(item) for item in value if isinstance(item, dict)]
 
 
