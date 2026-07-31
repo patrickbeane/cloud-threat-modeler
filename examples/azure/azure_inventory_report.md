@@ -20,8 +20,8 @@ This run identified **3 trust boundaries** and **24 findings** across **15 norma
 - Normalized resources: `15`
 - Unsupported resources: `0`
 - Resources with plan-time unknown values: `0`
-- Registered provider rules (Azure): `103`
-- Enabled provider rules (Azure): `103`
+- Registered provider rules (Azure): `105`
+- Enabled provider rules (Azure): `105`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`

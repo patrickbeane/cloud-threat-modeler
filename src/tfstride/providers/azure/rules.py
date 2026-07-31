@@ -12,6 +12,9 @@ from tfstride.analysis.rule_registry import RuleRegistry, default_rule_registry
 from tfstride.providers.azure.aks_rules import AzureAksRuleDetectors
 from tfstride.providers.azure.app_service_container_rules import AzureAppServiceContainerRuleDetectors
 from tfstride.providers.azure.app_service_cosmosdb_rules import AzureAppServiceCosmosDbRuleDetectors
+from tfstride.providers.azure.app_service_key_vault_operation_rules import (
+    AzureAppServiceKeyVaultOperationRuleDetectors,
+)
 from tfstride.providers.azure.app_service_key_vault_rules import AzureAppServiceKeyVaultRuleDetectors
 from tfstride.providers.azure.app_service_messaging_rules import AzureAppServiceMessagingRuleDetectors
 from tfstride.providers.azure.app_service_rules import AzureAppServiceRuleDetectors
@@ -104,6 +107,8 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-app-service-sensitive-app-setting-inline",
         "azure-app-service-key-vault-reference-identity-not-configured",
         "azure-app-service-key-vault-secret-access-overprivileged",
+        "azure-public-app-service-key-vault-decrypt-access",
+        "azure-public-app-service-key-vault-signing-access",
         "azure-diagnostic-settings-missing",
         "azure-diagnostic-setting-no-log-destination",
         "azure-diagnostic-setting-audit-logs-incomplete",
@@ -162,6 +167,7 @@ def build_azure_rule_contribution(
     app_service_messaging_detectors = AzureAppServiceMessagingRuleDetectors(finding_factory)
     app_service_storage_detectors = AzureAppServiceStorageRuleDetectors(finding_factory)
     app_service_key_vault_detectors = AzureAppServiceKeyVaultRuleDetectors(finding_factory)
+    app_service_key_vault_operation_detectors = AzureAppServiceKeyVaultOperationRuleDetectors(finding_factory)
     audit_detectors = AzureAuditRuleDetectors(finding_factory)
     aks_detectors = AzureAksRuleDetectors(finding_factory)
     storage_detectors = AzureStorageRuleDetectors(finding_factory)
@@ -302,6 +308,12 @@ def build_azure_rule_contribution(
         ),
         "azure-app-service-key-vault-secret-access-overprivileged": (
             app_service_key_vault_detectors.detect_secret_access_overprivileged
+        ),
+        "azure-public-app-service-key-vault-decrypt-access": (
+            app_service_key_vault_operation_detectors.detect_public_app_service_key_vault_decrypt_access
+        ),
+        "azure-public-app-service-key-vault-signing-access": (
+            app_service_key_vault_operation_detectors.detect_public_app_service_key_vault_signing_access
         ),
         "azure-diagnostic-settings-missing": audit_detectors.detect_missing_diagnostic_settings,
         "azure-diagnostic-setting-no-log-destination": audit_detectors.detect_diagnostic_setting_no_log_destination,
