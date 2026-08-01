@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import build_severity_reasoning, collect_evidence, evidence_item
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
@@ -13,6 +14,8 @@ _KMS_MIN_DESTROY_SCHEDULED_DURATION_SECONDS = _KMS_MIN_DESTROY_SCHEDULED_DURATIO
 
 
 class GcpKmsRuleDetectors:
+    _finding_factory: FindingFactory
+
     def detect_kms_key_rotation_not_configured_or_too_long(
         self,
         context: RuleEvaluationContext,

@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Literal, NotRequired, TypedDict
 
+GcpKmsScopeType = Literal["project", "key_ring", "crypto_key"]
+GcpKmsGrantBasis = Literal["project_iam", "key_ring_iam", "crypto_key_iam"]
+GcpKmsOperationClass = Literal["decrypt", "sign", "mac_generation"]
+GcpKmsOperationPermission = Literal[
+    "cloudkms.cryptoKeyVersions.useToDecrypt",
+    "cloudkms.cryptoKeyVersions.useToSign",
+]
+
 
 class GcpKmsIamGrant(TypedDict):
     role: str
@@ -12,7 +20,7 @@ class GcpKmsIamGrant(TypedDict):
     members: list[str]
     source: str
     source_type: str
-    scope_type: str
+    scope_type: GcpKmsScopeType
     scope: str
     source_scope_reference: str | None
     project: str
@@ -23,7 +31,7 @@ class GcpKmsIamGrant(TypedDict):
     authorization_state: str
     management_mode: str
     management_state: str
-    grant_basis: str
+    grant_basis: GcpKmsGrantBasis
     custom_role_permissions: NotRequired[list[str]]
     role_definition_address: NotRequired[str]
     condition: NotRequired[dict[str, Any]]
@@ -58,9 +66,9 @@ class GcpCloudRunKmsOperationPath(TypedDict):
     key_project: str
     key_ring: str
     key_purpose: str | None
-    operation: str
-    operation_class: str
-    matched_permissions: list[str]
+    operation: GcpKmsOperationPermission
+    operation_class: GcpKmsOperationClass
+    matched_permissions: list[GcpKmsOperationPermission]
     iam_resource_address: str
     iam_resource_type: str
     role: str
@@ -71,8 +79,8 @@ class GcpCloudRunKmsOperationPath(TypedDict):
     role_definition_address: str | None
     scope_effective_permissions: list[str]
     grant_members: list[str]
-    grant_basis: str
-    scope_type: str
+    grant_basis: GcpKmsGrantBasis
+    scope_type: GcpKmsScopeType
     scope: str
     source_scope_reference: str | None
     management_mode: str

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeGuard
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
@@ -11,6 +11,9 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsOperationPath,
     GcpKmsIamGrant,
     GcpKmsKeyVersionEvidence,
+    GcpKmsOperationClass,
+    GcpKmsOperationPermission,
+    GcpKmsScopeType,
 )
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
@@ -22,10 +25,10 @@ from tfstride.providers.gcp.resource_types import (
     GcpResourceType,
 )
 
-_DECRYPT_PERMISSION = "cloudkms.cryptoKeyVersions.useToDecrypt"
+_DECRYPT_PERMISSION: GcpKmsOperationPermission = "cloudkms.cryptoKeyVersions.useToDecrypt"
 _DELEGATED_DECRYPT_PERMISSION = "cloudkms.cryptoKeyVersions.useToDecryptViaDelegation"
-_SIGN_PERMISSION = "cloudkms.cryptoKeyVersions.useToSign"
-_RELEVANT_PERMISSIONS = frozenset({_DECRYPT_PERMISSION, _SIGN_PERMISSION})
+_SIGN_PERMISSION: GcpKmsOperationPermission = "cloudkms.cryptoKeyVersions.useToSign"
+_RELEVANT_PERMISSIONS: frozenset[GcpKmsOperationPermission] = frozenset({_DECRYPT_PERMISSION, _SIGN_PERMISSION})
 _IAM_RESOURCE_TYPES = (
     GCP_PROJECT_IAM_RESOURCE_TYPES | GCP_KMS_KEY_RING_IAM_RESOURCE_TYPES | GCP_KMS_CRYPTO_KEY_IAM_RESOURCE_TYPES
 )
@@ -107,7 +110,7 @@ def _cloud_run_kms_operation_paths(
 
         key_facts = gcp_facts(key)
         version_records = _key_version_records(key, identity.path, versions)
-        sources_with_unresolved_members = {
+        sources_with_unresolved_members: set[str] = {
             uncertainty.partition(":")[0]
             for uncertainty in key_facts.kms_iam_posture_uncertainties
             if "IAM members are unresolved" in uncertainty
@@ -130,10 +133,8 @@ def _cloud_run_kms_operation_paths(
                 continue
 
             permissions = _string_list(grant.get("scope_effective_permissions"))
-            candidate_permissions = [
-                permission
-                for permission in permissions
-                if permission != _DELEGATED_DECRYPT_PERMISSION and permission in _RELEVANT_PERMISSIONS
+            candidate_permissions: list[GcpKmsOperationPermission] = [
+                permission for permission in permissions if _is_relevant_permission(permission)
             ]
             role_resolution_state = _known_string(grant.get("role_resolution_state"))
             if not candidate_permissions:
@@ -248,17 +249,21 @@ def _grant_is_exact_for_key(
     if grant.get("key_ring") != identity.key_ring:
         return False
 
-    scope_type = _known_string(grant.get("scope_type"))
+    scope_type = grant["scope_type"]
     scope = _known_string(grant.get("scope"))
-    expected_scope = {
+    expected_scopes: dict[GcpKmsScopeType, str] = {
         "project": identity.project,
         "key_ring": identity.key_ring,
         "crypto_key": identity.path,
-    }.get(scope_type or "")
+    }
+    expected_scope = expected_scopes[scope_type]
     return expected_scope is not None and scope == expected_scope
 
 
-def _operation_class(permission: str, purpose: str | None) -> str | None:
+def _operation_class(
+    permission: GcpKmsOperationPermission,
+    purpose: str | None,
+) -> GcpKmsOperationClass | None:
     if purpose is None:
         return None
     if permission == _DECRYPT_PERMISSION:
@@ -277,8 +282,8 @@ def _operation_path_record(
     identity: _KeyIdentity,
     service_account_email: str,
     service_account_member: str,
-    permission: str,
-    operation_class: str,
+    permission: GcpKmsOperationPermission,
+    operation_class: GcpKmsOperationClass,
     grant: GcpKmsIamGrant,
     version_records: list[GcpKmsKeyVersionEvidence],
 ) -> GcpCloudRunKmsOperationPath:
@@ -405,6 +410,10 @@ def _is_exact_service_account_identity(
     if "${" in email or ("google_" in email and "." in email):
         return False
     return member == f"serviceAccount:{email}"
+
+
+def _is_relevant_permission(value: str) -> TypeGuard[GcpKmsOperationPermission]:
+    return value != _DELEGATED_DECRYPT_PERMISSION and value in _RELEVANT_PERMISSIONS
 
 
 def _mapping_copy(value: object) -> dict[str, Any] | None:

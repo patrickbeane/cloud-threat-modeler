@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
-from tfstride.providers.gcp.kms_evidence import GcpKmsIamGrant
+from tfstride.providers.gcp.kms_evidence import (
+    GcpKmsGrantBasis,
+    GcpKmsIamGrant,
+    GcpKmsScopeType,
+)
 from tfstride.providers.gcp.resource_decoration.iam import iam_bindings
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
@@ -127,6 +131,24 @@ class _CustomRole:
     permissions_state: str
 
 
+class _ManagementSource(TypedDict):
+    source: str
+    scope_type: GcpKmsScopeType
+    scope: str
+    management_mode: str
+    roles: list[str]
+
+
+_ApplicableScopeType = GcpKmsScopeType | Literal["unrelated"]
+
+
+_GRANT_BASIS_BY_SCOPE: dict[GcpKmsScopeType, GcpKmsGrantBasis] = {
+    "project": "project_iam",
+    "key_ring": "key_ring_iam",
+    "crypto_key": "crypto_key_iam",
+}
+
+
 class NormalizeKmsIamPostureStage:
     """Project exact project, key-ring, and key IAM grants onto Cloud KMS keys."""
 
@@ -176,7 +198,7 @@ def _kms_iam_posture(
         return [], [f"{key.address}: exact Cloud KMS key ancestry is unresolved"]
 
     grants: list[GcpKmsIamGrant] = []
-    management_sources: list[dict[str, Any]] = []
+    management_sources: list[_ManagementSource] = []
     uncertainties: list[str] = []
     for iam_resource in iam_resources:
         scope_type, scope = _applicable_scope(
@@ -280,7 +302,7 @@ def _kms_iam_posture(
                 "authorization_state": authorization_state,
                 "management_mode": management_mode,
                 "management_state": "unambiguous",
-                "grant_basis": f"{scope_type}_iam",
+                "grant_basis": _GRANT_BASIS_BY_SCOPE[scope_type],
             }
             if role_resolution.custom_role_permissions:
                 grant["custom_role_permissions"] = list(role_resolution.custom_role_permissions)
@@ -319,7 +341,7 @@ def _applicable_scope(
     key_ring: str,
     project: str,
     context: GcpDecorationContext,
-) -> tuple[str | None, str | None]:
+) -> tuple[_ApplicableScopeType | None, str | None]:
     facts = gcp_facts(iam_resource)
     if facts.iam_scope_reference_state in {"unknown", "not_configured"}:
         return None, None
@@ -338,7 +360,7 @@ def _applicable_scope(
         GCP_NETWORK_REFERENCE_SUFFIXES,
     )
     if iam_resource.resource_type in GCP_KMS_KEY_RING_IAM_RESOURCE_TYPES:
-        key_ring_references = {
+        key_ring_references: set[str] = {
             gcp_reference_key(reference, GCP_NETWORK_REFERENCE_SUFFIXES)
             for reference in (key_ring, gcp_facts(key).kms_key_ring)
             if reference
@@ -398,7 +420,7 @@ def _role_may_affect_kms(resolution: _RoleResolution) -> bool:
 
 def _scope_effective_permissions(
     permissions: tuple[str, ...],
-    scope_type: str,
+    scope_type: GcpKmsScopeType,
 ) -> tuple[str, ...]:
     if scope_type in {"project", "key_ring"}:
         return permissions
@@ -424,19 +446,21 @@ def _management_mode(resource: NormalizedResource) -> str:
 
 def _apply_management_ambiguity(
     grants: list[GcpKmsIamGrant],
-    management_sources: list[dict[str, Any]],
+    management_sources: list[_ManagementSource],
     uncertainties: list[str],
     key_path: str,
 ) -> None:
-    scopes = {(str(source["scope_type"]), str(source["scope"])) for source in management_sources}
+    scopes: set[tuple[GcpKmsScopeType, str]] = {
+        (source["scope_type"], source["scope"]) for source in management_sources
+    }
     for scope_type, scope in sorted(scopes):
         sources = [
             source for source in management_sources if source["scope_type"] == scope_type and source["scope"] == scope
         ]
-        policy_sources = {
+        policy_sources: set[str] = {
             str(source["source"]) for source in sources if source["management_mode"] == "authoritative_policy"
         }
-        other_sources = {
+        other_sources: set[str] = {
             str(source["source"]) for source in sources if source["management_mode"] != "authoritative_policy"
         }
         if len(policy_sources) > 1 or (policy_sources and other_sources):
@@ -452,14 +476,14 @@ def _apply_management_ambiguity(
             )
             continue
 
-        roles = sorted({role for source in sources for role in source["roles"]})
+        roles: list[str] = sorted({role for source in sources for role in source["roles"]})
         for role in roles:
-            binding_sources = {
+            binding_sources: set[str] = {
                 str(source["source"])
                 for source in sources
                 if source["management_mode"] == "authoritative_role_binding" and role in source["roles"]
             }
-            member_sources = {
+            member_sources: set[str] = {
                 str(source["source"])
                 for source in sources
                 if source["management_mode"] == "additive_member" and role in source["roles"]
@@ -482,7 +506,7 @@ def _apply_management_ambiguity(
 def _mark_ambiguous(
     grants: list[GcpKmsIamGrant],
     *,
-    scope_type: str,
+    scope_type: GcpKmsScopeType,
     scope: str,
     role: str | None = None,
 ) -> None:

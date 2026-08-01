@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
-from typing import Any, cast
+from collections.abc import Sequence
+from typing import Literal, TypedDict
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -14,6 +14,13 @@ from tfstride.analysis.finding_helpers import (
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
+from tfstride.providers.gcp.kms_evidence import (
+    GcpCloudRunKmsOperationPath,
+    GcpKmsKeyVersionEvidence,
+    GcpKmsOperationClass,
+    GcpKmsOperationPermission,
+    GcpKmsScopeType,
+)
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_types import (
     GCP_CLOUD_RUN_RESOURCE_TYPES,
@@ -24,17 +31,27 @@ from tfstride.providers.gcp.resource_types import (
 )
 from tfstride.providers.gcp.resource_utils import binding_members
 
+
+class _PublicInvokerBinding(TypedDict):
+    source: str
+    role: str
+    member: str
+
+
+_PathAddressKey = Literal["key_address", "iam_resource_address"]
+
+
 _PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
-_DECRYPT_OPERATION = "decrypt"
-_SIGN_OPERATION = "sign"
-_MAC_GENERATION_OPERATION = "mac_generation"
-_SIGNING_OPERATIONS = frozenset({_SIGN_OPERATION, _MAC_GENERATION_OPERATION})
-_OPERATION_PERMISSIONS = {
+_DECRYPT_OPERATION: GcpKmsOperationClass = "decrypt"
+_SIGN_OPERATION: GcpKmsOperationClass = "sign"
+_MAC_GENERATION_OPERATION: GcpKmsOperationClass = "mac_generation"
+_SIGNING_OPERATIONS: frozenset[GcpKmsOperationClass] = frozenset({_SIGN_OPERATION, _MAC_GENERATION_OPERATION})
+_OPERATION_PERMISSIONS: dict[GcpKmsOperationClass, GcpKmsOperationPermission] = {
     _DECRYPT_OPERATION: "cloudkms.cryptoKeyVersions.useToDecrypt",
     _SIGN_OPERATION: "cloudkms.cryptoKeyVersions.useToSign",
     _MAC_GENERATION_OPERATION: "cloudkms.cryptoKeyVersions.useToSign",
 }
-_OPERATION_PURPOSES = {
+_OPERATION_PURPOSES: dict[GcpKmsOperationClass, str] = {
     _DECRYPT_OPERATION: "ENCRYPT_DECRYPT",
     _SIGN_OPERATION: "ASYMMETRIC_SIGN",
     _MAC_GENERATION_OPERATION: "MAC",
@@ -80,7 +97,7 @@ class GcpCloudRunKmsOperationRuleDetectors:
         self,
         context: RuleEvaluationContext,
         rule_id: str,
-        operation_classes: frozenset[str],
+        operation_classes: frozenset[GcpKmsOperationClass],
         *,
         disclosure: bool,
     ) -> list[Finding]:
@@ -94,16 +111,15 @@ class GcpCloudRunKmsOperationRuleDetectors:
             if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
-            paths = [
+            paths: list[GcpCloudRunKmsOperationPath] = [
                 path
                 for path in gcp_facts(workload).cloud_run_kms_operation_paths
-                if isinstance(operation_class := path.get("operation_class"), str)
-                and operation_class in operation_classes
+                if path["operation_class"] in operation_classes
                 and _is_deterministic_operation_path(
                     path,
                     workload,
                     context,
-                    operation_class,
+                    path["operation_class"],
                 )
             ]
             if not paths:
@@ -111,7 +127,7 @@ class GcpCloudRunKmsOperationRuleDetectors:
 
             key_addresses = _path_string_values(paths, "key_address")
             iam_resource_addresses = _path_string_values(paths, "iam_resource_address")
-            public_source_addresses = sorted({binding["source"] for binding in public_invokers})
+            public_source_addresses: list[str] = sorted({binding["source"] for binding in public_invokers})
             project_scope = any(path.get("scope_type") == "project" for path in paths)
             matched_operations = _path_operation_classes(paths)
             severity_reasoning = build_severity_reasoning(
@@ -168,8 +184,8 @@ class GcpCloudRunKmsOperationRuleDetectors:
 
 def _unconditional_public_invokers(
     resource: NormalizedResource,
-) -> list[dict[str, str]]:
-    invokers: list[dict[str, str]] = []
+) -> list[_PublicInvokerBinding]:
+    invokers: list[_PublicInvokerBinding] = []
     for binding in gcp_facts(resource).bindings:
         role = _known_string(binding.get("role"))
         source = _known_string(binding.get("source"))
@@ -187,10 +203,10 @@ def _unconditional_public_invokers(
 
 
 def _is_deterministic_operation_path(
-    path: Mapping[str, Any],
+    path: GcpCloudRunKmsOperationPath,
     workload: NormalizedResource,
     context: RuleEvaluationContext,
-    operation_class: str,
+    operation_class: GcpKmsOperationClass,
 ) -> bool:
     if (
         path.get("workload_address") != workload.address
@@ -273,7 +289,7 @@ def _expected_scope(
     iam_resource_type: str,
     key_identity: str,
     project: str,
-) -> tuple[str | None, str | None]:
+) -> tuple[GcpKmsScopeType | None, str | None]:
     if iam_resource_type in _PROJECT_IAM_TYPES:
         return "project", project
     if iam_resource_type in _KEY_RING_IAM_TYPES:
@@ -298,7 +314,7 @@ def _key_ring(key_identity: str) -> str:
 
 def _rationale(
     workload: NormalizedResource,
-    operation_classes: list[str],
+    operation_classes: list[GcpKmsOperationClass],
     key_addresses: list[str],
     *,
     project_scope: bool,
@@ -330,7 +346,7 @@ def _rationale(
 
 
 def _authorization_scope(
-    operation_classes: list[str],
+    operation_classes: list[GcpKmsOperationClass],
     project_scope: bool,
 ) -> list[str]:
     permissions = sorted({_OPERATION_PERMISSIONS[operation] for operation in operation_classes})
@@ -351,7 +367,9 @@ def _authorization_scope(
     return values
 
 
-def _path_operation_classes(paths: list[dict[str, Any]]) -> list[str]:
+def _path_operation_classes(
+    paths: Sequence[GcpCloudRunKmsOperationPath],
+) -> list[GcpKmsOperationClass]:
     return [
         operation
         for operation in (
@@ -363,7 +381,7 @@ def _path_operation_classes(paths: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def _operation_text(operation_classes: list[str]) -> str:
+def _operation_text(operation_classes: Sequence[GcpKmsOperationClass]) -> str:
     labels = {
         _DECRYPT_OPERATION: "decrypt",
         _SIGN_OPERATION: "sign",
@@ -375,20 +393,22 @@ def _operation_text(operation_classes: list[str]) -> str:
     return " and ".join(operations)
 
 
-def _scope_breadth_evidence(paths: list[dict[str, Any]]) -> list[str]:
-    grants_by_scope = {
+def _scope_breadth_evidence(
+    paths: Sequence[GcpCloudRunKmsOperationPath],
+) -> list[str]:
+    grants_by_scope: dict[GcpKmsScopeType, set[tuple[str, str, str]]] = {
         scope_type: {
             (
-                path.get("iam_resource_address"),
-                path.get("role"),
-                path.get("scope"),
+                path["iam_resource_address"],
+                path["role"],
+                path["scope"],
             )
             for path in paths
             if path.get("scope_type") == scope_type
         }
         for scope_type in ("project", "key_ring", "crypto_key")
     }
-    modeled_keys = {path.get("key_address") for path in paths if isinstance(path.get("key_address"), str)}
+    modeled_keys: set[str] = {path["key_address"] for path in paths}
     return [
         (
             f"project_grants={len(grants_by_scope['project'])}; "
@@ -400,7 +420,7 @@ def _scope_breadth_evidence(paths: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def _runtime_identity_evidence(paths: list[dict[str, Any]]) -> list[str]:
+def _runtime_identity_evidence(paths: Sequence[GcpCloudRunKmsOperationPath]) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -416,7 +436,7 @@ def _runtime_identity_evidence(paths: list[dict[str, Any]]) -> list[str]:
     )
 
 
-def _operation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+def _operation_path_evidence(paths: Sequence[GcpCloudRunKmsOperationPath]) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -447,23 +467,20 @@ def _operation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
     )
 
 
-def _version_evidence(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
+def _version_evidence(
+    versions: Sequence[GcpKmsKeyVersionEvidence],
+) -> list[str]:
     records: list[str] = []
-    for record in value:
-        if not isinstance(record, Mapping):
-            continue
-        version_record = cast(Mapping[str, Any], record)
+    for version in versions:
         records.append(
             ";".join(
                 (
-                    f"address={version_record.get('version_address') or 'unknown'}",
-                    f"name={version_record.get('version_resource_name') or 'unknown'}",
-                    f"state={version_record.get('state') or 'unknown'}",
-                    f"algorithm={version_record.get('algorithm') or 'unknown'}",
-                    f"protection_level={version_record.get('protection_level') or 'unknown'}",
-                    f"import_posture={version_record.get('import_posture') or 'unknown'}",
+                    "address=" + version["version_address"],
+                    "name=" + (version["version_resource_name"] or "unknown"),
+                    "state=" + (version["state"] or "unknown"),
+                    "algorithm=" + (version["algorithm"] or "unknown"),
+                    "protection_level=" + (version["protection_level"] or "unknown"),
+                    "import_posture=" + (version["import_posture"] or "unknown"),
                 )
             )
         )
@@ -477,7 +494,7 @@ def _public_exposure_configuration(resource: NormalizedResource) -> list[str]:
     return [f"invoker_iam_check=disabled; ingress={ingress}"]
 
 
-def _public_invoker_evidence(invokers: list[dict[str, str]]) -> list[str]:
+def _public_invoker_evidence(invokers: Sequence[_PublicInvokerBinding]) -> list[str]:
     return sorted(
         {
             f"source={invoker['source']}; role={invoker['role']}; member={invoker['member']}; condition=none"
@@ -486,8 +503,11 @@ def _public_invoker_evidence(invokers: list[dict[str, str]]) -> list[str]:
     )
 
 
-def _path_string_values(paths: list[dict[str, Any]], key: str) -> list[str]:
-    return sorted({value for path in paths if (value := _known_string(path.get(key))) is not None})
+def _path_string_values(
+    paths: Sequence[GcpCloudRunKmsOperationPath],
+    key: _PathAddressKey,
+) -> list[str]:
+    return sorted({path[key] for path in paths})
 
 
 def _known_string(value: object) -> str | None:
