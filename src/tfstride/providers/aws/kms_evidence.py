@@ -23,6 +23,55 @@ class AwsKmsPolicyConditionEvidence(TypedDict):
     values: list[str]
 
 
+class AwsKmsPolicyPrincipalEvidence(TypedDict):
+    kind: str
+    value: str
+
+
+class AwsKmsSerializedPolicyStatement(TypedDict):
+    effect: str
+    actions: list[str]
+    resources: list[str]
+    principals: list[str]
+    principal_entries: list[AwsKmsPolicyPrincipalEvidence]
+    conditions: list[AwsKmsPolicyConditionEvidence]
+
+
+class AwsKmsAliasRelationship(TypedDict):
+    source: str
+    alias_name: str | None
+    alias_name_prefix: str | None
+    alias_arn: str | None
+    target_key_id: str | None
+    target_key_arn: str | None
+    target_key_reference: str
+    resolved_key_address: str
+
+
+class AwsKmsGrantRelationship(TypedDict):
+    source: str
+    grant_id: str | None
+    name: str | None
+    key_reference: str
+    grantee_principal: str | None
+    operations: list[str]
+    retiring_principal: str | None
+    constraints: dict[str, Any]
+    retire_on_delete_state: str | None
+    resolved_key_address: str
+
+
+class AwsKmsKeyPolicyEvidence(TypedDict):
+    source: str
+    source_type: Literal["inline", "standalone"]
+    configuration_state: str | None
+    completeness_state: str | None
+    bypass_lockout_safety_check_state: str | None
+    policy_statements: list[AwsKmsSerializedPolicyStatement]
+    posture_uncertainties: list[str]
+    resolved_key_address: str
+
+
 class AwsKmsPolicyStatementEvidence(TypedDict):
     source_kind: str
     effect: str

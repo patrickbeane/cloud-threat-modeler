@@ -6,6 +6,10 @@ from copy import deepcopy
 from typing import Any
 
 from tfstride.models import IAMPolicyStatement, NormalizedResource, ResourceCategory, TerraformResource
+from tfstride.providers.aws.kms_evidence import (
+    AwsKmsKeyPolicyEvidence,
+    AwsKmsSerializedPolicyStatement,
+)
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.network_normalizers import AWS_PROVIDER
 from tfstride.providers.aws.policy_documents import (
@@ -56,7 +60,7 @@ def normalize_kms_key(resource: TerraformResource) -> NormalizedResource:
     bypass_uncertainties = uncertainties[bypass_uncertainty_start:]
     policy_source_uncertainties = [*policy_uncertainties, *bypass_uncertainties]
     policy_source_present = policy_configuration_state in {STATE_CONFIGURED, STATE_UNKNOWN}
-    policy_record = (
+    policy_record: AwsKmsKeyPolicyEvidence | None = (
         {
             "source": resource.address,
             "source_type": "inline",
@@ -345,7 +349,9 @@ def _policy_statement_documents(value: Any) -> list[Mapping[str, Any]] | None:
     return None
 
 
-def serialize_kms_policy_statements(statements: tuple[IAMPolicyStatement, ...]) -> list[dict[str, Any]]:
+def serialize_kms_policy_statements(
+    statements: tuple[IAMPolicyStatement, ...],
+) -> list[AwsKmsSerializedPolicyStatement]:
     return [
         {
             "effect": statement.effect,

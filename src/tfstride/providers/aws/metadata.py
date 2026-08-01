@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath, AwsKmsOperationAuthorization
+from tfstride.providers.aws.kms_evidence import (
+    AwsEcsKmsOperationPath,
+    AwsKmsAliasRelationship,
+    AwsKmsGrantRelationship,
+    AwsKmsKeyPolicyEvidence,
+    AwsKmsOperationAuthorization,
+)
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -361,9 +367,9 @@ class AwsResourceMetadata:
     KMS_POLICY_COMPLETENESS_STATE = OptionalStringMetadataField("kms_policy_completeness_state")
     KMS_POLICY_SOURCE_ADDRESSES = StringListMetadataField("kms_policy_source_addresses")
     KMS_POLICY_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_policy_posture_uncertainties")
-    KMS_ALIASES = DictListMetadataField("kms_aliases")
-    KMS_GRANTS = DictListMetadataField("kms_grants")
-    KMS_KEY_POLICIES = DictListMetadataField("kms_key_policies")
+    KMS_ALIASES = RecordListMetadataField[AwsKmsAliasRelationship]("kms_aliases")
+    KMS_GRANTS = RecordListMetadataField[AwsKmsGrantRelationship]("kms_grants")
+    KMS_KEY_POLICIES = RecordListMetadataField[AwsKmsKeyPolicyEvidence]("kms_key_policies")
     KMS_OPERATION_AUTHORIZATIONS = RecordListMetadataField[AwsKmsOperationAuthorization]("kms_operation_authorizations")
     KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField("kms_operation_authorization_uncertainties")
     KMS_UNRESOLVED_KEY_REFERENCES = StringListMetadataField("kms_unresolved_key_references")

@@ -3,7 +3,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from tfstride.providers.aws.kms_evidence import AwsKmsOperationAuthorization
+from tfstride.providers.aws.kms_evidence import (
+    AwsKmsAliasRelationship,
+    AwsKmsGrantRelationship,
+    AwsKmsKeyPolicyEvidence,
+    AwsKmsOperationAuthorization,
+)
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 
@@ -192,15 +197,15 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.KMS_POLICY_POSTURE_UNCERTAINTIES)
 
     @property
-    def kms_aliases(self) -> list[dict[str, Any]]:
+    def kms_aliases(self) -> list[AwsKmsAliasRelationship]:
         return self.get(AwsResourceMetadata.KMS_ALIASES)
 
     @property
-    def kms_grants(self) -> list[dict[str, Any]]:
+    def kms_grants(self) -> list[AwsKmsGrantRelationship]:
         return self.get(AwsResourceMetadata.KMS_GRANTS)
 
     @property
-    def kms_key_policies(self) -> list[dict[str, Any]]:
+    def kms_key_policies(self) -> list[AwsKmsKeyPolicyEvidence]:
         return self.get(AwsResourceMetadata.KMS_KEY_POLICIES)
 
     @property
@@ -307,13 +312,13 @@ class AwsDataFacts(AwsBaseFacts):
     def kms_posture_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.KMS_POSTURE_UNCERTAINTIES)
 
-    def add_kms_alias(self, record: dict[str, Any]) -> None:
+    def add_kms_alias(self, record: AwsKmsAliasRelationship) -> None:
         self.set(AwsResourceMetadata.KMS_ALIASES, [*self.kms_aliases, record])
 
-    def add_kms_grant(self, record: dict[str, Any]) -> None:
+    def add_kms_grant(self, record: AwsKmsGrantRelationship) -> None:
         self.set(AwsResourceMetadata.KMS_GRANTS, [*self.kms_grants, record])
 
-    def add_kms_key_policy(self, record: dict[str, Any]) -> None:
+    def add_kms_key_policy(self, record: AwsKmsKeyPolicyEvidence) -> None:
         self.set(AwsResourceMetadata.KMS_KEY_POLICIES, [*self.kms_key_policies, record])
 
     def set_kms_operation_authorization_posture(

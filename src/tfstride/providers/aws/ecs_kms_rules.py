@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
-from typing import Any, cast
+from collections.abc import Mapping, Sequence
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import build_severity_reasoning, collect_evidence, evidence_item
@@ -14,6 +13,7 @@ from tfstride.providers.aws.ecs_path_rule_helpers import (
     public_service_network_path,
     resolved_public_load_balancers,
 )
+from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath
 from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
@@ -140,7 +140,7 @@ class AwsEcsKmsOperationRuleDetectors:
 
 
 def _is_deterministic_operation_path(
-    path: Mapping[str, Any],
+    path: AwsEcsKmsOperationPath,
     service_address: str,
     context: RuleEvaluationContext,
     operations: frozenset[str],
@@ -206,7 +206,7 @@ def _is_exact_kms_key_arn(value: object) -> bool:
     )
 
 
-def _authorization_bases(paths: list[dict[str, Any]]) -> list[str]:
+def _authorization_bases(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
     return sorted({value for path in paths for value in _string_values(path.get("authorization_bases"))})
 
 
@@ -274,7 +274,7 @@ def _assessment_scope(operations: list[str]) -> list[str]:
     ]
 
 
-def _path_operations(paths: list[dict[str, Any]]) -> list[str]:
+def _path_operations(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
     return [
         operation
         for operation in (
@@ -292,7 +292,7 @@ def _operation_text(operations: list[str]) -> str:
     return " and ".join(operations)
 
 
-def _task_role_evidence(paths: list[dict[str, Any]]) -> list[str]:
+def _task_role_evidence(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -309,7 +309,7 @@ def _task_role_evidence(paths: list[dict[str, Any]]) -> list[str]:
     )
 
 
-def _operation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
+def _operation_path_evidence(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -341,17 +341,11 @@ def _operation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
     )
 
 
-def _grant_sources(path: Mapping[str, Any]) -> list[str]:
-    grants = path.get("kms_grants")
-    if not isinstance(grants, list):
-        return ["none"]
-
+def _grant_sources(path: AwsEcsKmsOperationPath) -> list[str]:
     sources: set[str] = set()
-    for grant in grants:
-        if not isinstance(grant, Mapping):
-            continue
-        source = cast(Mapping[str, Any], grant).get("source")
-        if isinstance(source, str) and source:
+    for grant in path["kms_grants"]:
+        source = grant["source"]
+        if source:
             sources.add(source)
     return sorted(sources) or ["none"]
 

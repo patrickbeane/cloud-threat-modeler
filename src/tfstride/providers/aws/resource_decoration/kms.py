@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.aws.kms_evidence import AwsKmsAliasRelationship, AwsKmsGrantRelationship
 from tfstride.providers.aws.kms_normalizers import serialize_kms_policy_statements
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_decoration.policies import clone_policy_statements
@@ -24,12 +25,12 @@ class DecorateKmsRelationshipsStage:
             alias_facts = aws_facts(alias)
             target_reference = alias_facts.kms_alias_target_key_reference
             key = context.index.kms_keys.get(target_reference) if target_reference else None
-            if key is None:
+            if key is None or target_reference is None:
                 alias_facts.add_unresolved_kms_key_reference(target_reference)
                 continue
 
             alias_facts.set(AwsResourceMetadata.KMS_ALIAS_RESOLVED_KEY_ADDRESS, key.address)
-            alias_record = {
+            alias_record: AwsKmsAliasRelationship = {
                 "source": alias.address,
                 "alias_name": alias_facts.kms_alias_name,
                 "alias_name_prefix": alias_facts.kms_alias_name_prefix,
@@ -48,12 +49,12 @@ class DecorateKmsRelationshipsStage:
             grant_facts = aws_facts(grant)
             key_reference = grant_facts.kms_grant_key_reference
             key = context.index.kms_keys.get(key_reference) if key_reference else None
-            if key is None:
+            if key is None or key_reference is None:
                 grant_facts.add_unresolved_kms_key_reference(key_reference)
                 continue
 
             grant_facts.set(AwsResourceMetadata.KMS_GRANT_RESOLVED_KEY_ADDRESS, key.address)
-            grant_record = {
+            grant_record: AwsKmsGrantRelationship = {
                 "source": grant.address,
                 "grant_id": grant_facts.kms_grant_id,
                 "name": grant_facts.kms_grant_name,

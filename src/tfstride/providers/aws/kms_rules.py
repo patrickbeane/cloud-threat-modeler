@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -11,6 +10,7 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
+from tfstride.providers.aws.kms_evidence import AwsKmsGrantRelationship, AwsKmsKeyPolicyEvidence
 from tfstride.providers.aws.policy_conditions import assess_principal
 from tfstride.providers.aws.resource_facts import AwsResourceFacts, aws_facts
 from tfstride.providers.coercion import STATE_DISABLED, STATE_ENABLED, STATE_UNKNOWN
@@ -433,11 +433,9 @@ def _kms_rotation_rationale(
 def _bypassed_policy_sources(
     key: NormalizedResource,
     context: RuleEvaluationContext,
-) -> list[tuple[str, Mapping[str, Any]]]:
-    sources: list[tuple[str, Mapping[str, Any]]] = []
+) -> list[tuple[str, AwsKmsKeyPolicyEvidence]]:
+    sources: list[tuple[str, AwsKmsKeyPolicyEvidence]] = []
     for raw_policy in aws_facts(key).kms_key_policies:
-        if not isinstance(raw_policy, Mapping):
-            continue
         source = _known_string(raw_policy.get("source"))
         if source is None or raw_policy.get("resolved_key_address") != key.address:
             continue
@@ -459,7 +457,7 @@ def _bypassed_policy_sources(
 
 
 def _bypassed_policy_source_evidence(
-    sources: list[tuple[str, Mapping[str, Any]]],
+    sources: list[tuple[str, AwsKmsKeyPolicyEvidence]],
 ) -> list[str]:
     values: list[str] = []
     for source, policy in sources:
@@ -486,11 +484,9 @@ def _bypassed_policy_source_evidence(
 def _deterministic_key_grants(
     key: NormalizedResource,
     context: RuleEvaluationContext,
-) -> list[Mapping[str, Any]]:
-    grants: list[Mapping[str, Any]] = []
+) -> list[AwsKmsGrantRelationship]:
+    grants: list[AwsKmsGrantRelationship] = []
     for raw_grant in aws_facts(key).kms_grants:
-        if not isinstance(raw_grant, Mapping):
-            continue
         source = _known_string(raw_grant.get("source"))
         if source is None or raw_grant.get("resolved_key_address") != key.address:
             continue
@@ -514,7 +510,7 @@ def _grant_authorization_uncertainties(facts: AwsResourceFacts) -> list[str]:
     ]
 
 
-def _grant_operations(grant: Mapping[str, Any]) -> list[str]:
+def _grant_operations(grant: AwsKmsGrantRelationship) -> list[str]:
     raw_operations = grant.get("operations")
     if not isinstance(raw_operations, list):
         return []
@@ -569,7 +565,7 @@ def _has_effective_grant_constraints(value: object) -> bool:
 
 
 def _kms_grant_evidence(
-    grant: Mapping[str, Any],
+    grant: AwsKmsGrantRelationship,
     operations: list[str],
 ) -> list[str]:
     constraints = grant.get("constraints")
