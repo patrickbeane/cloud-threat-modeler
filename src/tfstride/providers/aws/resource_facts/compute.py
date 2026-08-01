@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath
+from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 from tfstride.resource_metadata import DictListMetadataField
@@ -117,6 +117,10 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS)
 
     @property
+    def ecs_kms_management_paths(self) -> list[AwsEcsKmsManagementPath]:
+        return self.get(AwsResourceMetadata.ECS_KMS_MANAGEMENT_PATHS)
+
+    @property
     def ecs_dynamodb_index_relationships(self) -> list[dict[str, Any]]:
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_INDEX_RELATIONSHIPS)
 
@@ -127,6 +131,10 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_kms_operation_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_kms_management_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES)
 
     @property
     def unresolved_task_definition_references(self) -> list[str]:
@@ -546,6 +554,9 @@ class AwsComputeFacts(AwsBaseFacts):
     def set_ecs_kms_operation_paths(self, values: list[AwsEcsKmsOperationPath]) -> None:
         self.set(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS, values)
 
+    def set_ecs_kms_management_paths(self, values: list[AwsEcsKmsManagementPath]) -> None:
+        self.set(AwsResourceMetadata.ECS_KMS_MANAGEMENT_PATHS, values)
+
     def set_ecs_dynamodb_index_relationships(
         self,
         values: list[dict[str, Any]],
@@ -563,6 +574,12 @@ class AwsComputeFacts(AwsBaseFacts):
         values: Sequence[str | None],
     ) -> None:
         self.extend(AwsResourceMetadata.ECS_KMS_OPERATION_PATH_UNCERTAINTIES, values)
+
+    def extend_ecs_kms_management_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(AwsResourceMetadata.ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES, values)
 
     def extend_ecr_write_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECR_WRITE_PATH_UNCERTAINTIES, values)

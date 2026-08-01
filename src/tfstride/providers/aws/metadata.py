@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tfstride.providers.aws.kms_evidence import (
+    AwsEcsKmsManagementPath,
     AwsEcsKmsOperationPath,
     AwsKmsAliasRelationship,
     AwsKmsGrantRelationship,
@@ -74,6 +75,7 @@ class AwsResourceMetadata:
     ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_messaging_access_path_uncertainties")
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     ECS_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_operation_path_uncertainties")
+    ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_management_path_uncertainties")
     S3_POSTURE_UNCERTAINTIES = StringListMetadataField("s3_posture_uncertainties")
     DYNAMODB_POSTURE_UNCERTAINTIES = StringListMetadataField("dynamodb_posture_uncertainties")
     DYNAMODB_INDEX_NAMES = StringListMetadataField("dynamodb_index_names")
@@ -447,6 +449,7 @@ class AwsResourceMetadata:
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
+    ECS_KMS_MANAGEMENT_PATHS = RecordListMetadataField[AwsEcsKmsManagementPath]("ecs_kms_management_paths")
     ECS_DYNAMODB_INDEX_RELATIONSHIPS = DictListMetadataField("ecs_dynamodb_index_relationships")
     ECR_WRITE_PATHS = DictListMetadataField("ecr_write_paths")
     S3_LIFECYCLE_RULES = DictListMetadataField("s3_lifecycle_rules")

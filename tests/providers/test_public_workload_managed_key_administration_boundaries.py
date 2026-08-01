@@ -432,8 +432,37 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
         self.assertTrue(imported_material["conditional_policy_evidence_present"])
         self.assertFalse(imported_material["authorization_requires_condition_evaluation"])
 
-        # Administrative and recovery authority stays out of the existing
-        # cryptographic-operation path family.
+        # Administrative authority uses a separate path family; recovery,
+        # rotation, and metadata-only operations remain quiet.
+        task_management_paths = aws_facts(task_definition).ecs_kms_management_paths
+        self.assertEqual(
+            [(path["key_address"], path["operation"], path["management_effect"]) for path in task_management_paths],
+            [
+                ("aws_kms_key.data", "kms:CreateGrant", "delegation"),
+                ("aws_kms_key.data", "kms:PutKeyPolicy", "delegation"),
+                ("aws_kms_key.data", "kms:DisableKey", "disruption"),
+                ("aws_kms_key.imported", "kms:DeleteImportedKeyMaterial", "disruption"),
+            ],
+        )
+        self.assertEqual(
+            task_management_paths[0]["grant_constraints"],
+            [{"encryption_context_equals": {"service": "orders"}}],
+        )
+        imported_path = task_management_paths[-1]
+        self.assertEqual(imported_path["key_origin"], "EXTERNAL")
+        self.assertEqual(imported_path["key_origin_compatibility_state"], "compatible")
+        self.assertTrue(imported_path["conditional_policy_evidence_present"])
+        self.assertFalse(imported_path["authorization_requires_condition_evaluation"])
+
+        service_management_paths = workload_facts.ecs_kms_management_paths
+        self.assertEqual(len(service_management_paths), 4)
+        self.assertTrue(all(path["workload_address"] == workload.address for path in service_management_paths))
+        self.assertTrue(
+            all(path["task_definition_address"] == task_definition.address for path in service_management_paths)
+        )
+        self.assertTrue(
+            all(path.get("internet_facing_load_balancers") == ["aws_lb.public"] for path in service_management_paths)
+        )
         self.assertEqual(aws_facts(task_definition).ecs_kms_operation_paths, [])
         self.assertEqual(workload_facts.ecs_kms_operation_paths, [])
 

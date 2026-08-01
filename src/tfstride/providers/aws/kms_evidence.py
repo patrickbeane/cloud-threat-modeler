@@ -30,6 +30,12 @@ AwsKmsKeyOriginCompatibilityState = Literal[
     "not_applicable",
 ]
 AwsEcsKmsAuthorizationBasis = Literal["key_policy_direct", "iam_via_key_policy", "grant"]
+AwsEcsKmsManagementEffect = Literal["delegation", "disruption"]
+AwsEcsKmsManagementOperationClass = Literal[
+    "authorization_administration",
+    "disruptive_administration",
+    "destructive_administration",
+]
 
 
 class AwsKmsPolicyConditionEvidence(TypedDict):
@@ -144,6 +150,56 @@ class AwsKmsOperationAuthorization(TypedDict):
     key_policy_statements: list[AwsKmsPolicyStatementEvidence]
     kms_grants: list[AwsKmsGrantAuthorizationEvidence]
     evaluation_scope: Literal["modeled_key_policy_identity_policies_and_grants"]
+
+
+class AwsEcsKmsManagementPath(TypedDict):
+    workload_address: str
+    workload_type: str
+    task_definition_address: str
+    task_definition_arn: str | None
+    key_address: str
+    key_arn: str
+    key_id: str | None
+    key_usage: str | None
+    key_spec: str | None
+    key_origin: str | None
+    required_key_origins: list[str]
+    key_origin_compatibility_state: AwsKmsKeyOriginCompatibilityState
+    deletion_window_in_days: int | None
+    operation: str
+    operation_class: AwsEcsKmsManagementOperationClass
+    management_effect: AwsEcsKmsManagementEffect
+    supported_authorization_bases: list[AwsKmsAuthorizationBasis]
+    role_kind: Literal["ecs_task_role"]
+    credential_context: Literal["workload_runtime"]
+    role_address: str
+    role_arn: str | None
+    role_policy_complete: bool
+    authorization_state: Literal["allowed"]
+    authorization_basis: AwsEcsKmsAuthorizationBasis | None
+    authorization_bases: list[AwsEcsKmsAuthorizationBasis]
+    candidate_authorization_bases: list[str]
+    evaluation_basis: Literal["modeled_kms_authorization"]
+    same_account: bool
+    explicit_deny: bool
+    conditional_policy_evidence_present: bool
+    authorization_requires_condition_evaluation: bool
+    constraint_state: str
+    policy_action_patterns: list[str]
+    policy_resources: list[str]
+    deny_action_patterns: list[str]
+    deny_policy_resources: list[str]
+    key_policy_complete: bool
+    key_policy_source_addresses: list[str]
+    identity_policy_source_addresses: list[str]
+    key_policy_uncertainties: list[str]
+    identity_policy_uncertainties: list[str]
+    identity_policy_statements: list[AwsKmsPolicyStatementEvidence]
+    key_policy_statements: list[AwsKmsPolicyStatementEvidence]
+    kms_grants: list[AwsKmsGrantAuthorizationEvidence]
+    grant_constraints: list[dict[str, Any]]
+    authorization_record: AwsKmsOperationAuthorization
+    internet_facing_load_balancers: NotRequired[list[str]]
 
 
 class AwsEcsKmsOperationPath(TypedDict):
