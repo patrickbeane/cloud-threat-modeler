@@ -200,7 +200,7 @@ class AzureKeyVaultRuleDetectors:
                 self._finding_factory.build(
                     rule_id=rule_id,
                     severity=severity_reasoning.severity,
-                    affected_resources=dedupe_addresses([item.address, facts.resolved_key_vault_address]),
+                    affected_resources=_affected_resource_addresses(item.address, facts.resolved_key_vault_address),
                     trust_boundary_id=None,
                     rationale=(
                         f"{item.display_name} does not show deterministic Key Vault secret or certificate "
@@ -242,7 +242,7 @@ class AzureKeyVaultRuleDetectors:
                 self._finding_factory.build(
                     rule_id=rule_id,
                     severity=severity_reasoning.severity,
-                    affected_resources=dedupe_addresses([key.address, facts.resolved_key_vault_address]),
+                    affected_resources=_affected_resource_addresses(key.address, facts.resolved_key_vault_address),
                     trust_boundary_id=None,
                     rationale=(
                         f"{key.display_name} has deterministic Key Vault key shape evidence below the "
@@ -285,7 +285,7 @@ class AzureKeyVaultRuleDetectors:
                 self._finding_factory.build(
                     rule_id=rule_id,
                     severity=severity_reasoning.severity,
-                    affected_resources=dedupe_addresses([key.address, facts.resolved_key_vault_address]),
+                    affected_resources=_affected_resource_addresses(key.address, facts.resolved_key_vault_address),
                     trust_boundary_id=None,
                     rationale=(
                         f"{key.display_name} does not show bounded Key Vault key rotation and expiry "
@@ -530,6 +530,16 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
     return parsed.replace(tzinfo=None)
 
 
+def _affected_resource_addresses(
+    resource_address: str,
+    vault_address: str | None,
+) -> list[str]:
+    addresses = [resource_address]
+    if vault_address is not None:
+        addresses.append(vault_address)
+    return dedupe_addresses(addresses)
+
+
 def _key_vault_lifecycle_label(resource_type: str) -> str:
     if resource_type == AzureResourceType.KEY_VAULT_CERTIFICATE:
         return "certificate"
@@ -555,7 +565,7 @@ def _role_assignment_is_privileged(assignment: Mapping[str, Any]) -> bool:
 
 
 def _describe_access_policy(policy: Mapping[str, Any]) -> str:
-    permission_parts = []
+    permission_parts: list[str] = []
     for field in (
         "key_permissions",
         "secret_permissions",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
@@ -45,6 +45,8 @@ _KEY_VAULT_DNS_SUFFIXES = (
     ".vault.usgovcloudapi.net",
     ".vault.microsoftazure.de",
 )
+
+_KeyVaultKeyIdentityState = Literal["resolved", "partial", "unknown", "ambiguous"]
 
 
 def normalize_key_vault(resource: TerraformResource) -> NormalizedResource:
@@ -472,6 +474,7 @@ def _key_vault_key_identity_metadata(
             uncertainties,
         )
 
+    identity_state: _KeyVaultKeyIdentityState
     if conflicting_fields:
         identity_state = "ambiguous"
         identity_values.clear()
@@ -848,7 +851,7 @@ def _rotation_policy_record(
         record["expire_after"] = expire_after
     if notify_before_expiry:
         record["notify_before_expiry"] = notify_before_expiry
-    automatic = {}
+    automatic: dict[str, str] = {}
     if time_after_creation:
         automatic["time_after_creation"] = time_after_creation
     if time_before_expiry:

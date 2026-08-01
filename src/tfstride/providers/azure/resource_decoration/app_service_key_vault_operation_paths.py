@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any, TypeGuard
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
+    AzureKeyVaultGrantScopeType,
     AzureKeyVaultOperation,
     AzureKeyVaultOperationClass,
+    AzureKeyVaultPathScopeType,
+    AzureKeyVaultRuntimeIdentityKind,
 )
 from tfstride.providers.azure.resource_decoration.workload_identities import workload_managed_identities
 from tfstride.providers.azure.resource_facts import azure_facts
@@ -17,7 +20,7 @@ from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AZURE_APP_SERVICE_RESOURCE_TYPES, AzureResourceType
 from tfstride.providers.coercion import dedupe
 
-_RELEVANT_OPERATIONS = frozenset({"decrypt", "unwrap", "sign"})
+_RELEVANT_OPERATIONS: frozenset[AzureKeyVaultOperation] = frozenset({"decrypt", "unwrap", "sign"})
 _KEY_OPT_BY_OPERATION: dict[AzureKeyVaultOperation, str] = {
     "decrypt": "decrypt",
     "unwrap": "unwrapKey",
@@ -28,7 +31,9 @@ _OPERATION_CLASS: dict[AzureKeyVaultOperation, AzureKeyVaultOperationClass] = {
     "unwrap": "plaintext_recovery",
     "sign": "authenticator_generation",
 }
-_SUPPORTED_SCOPE_TYPES = frozenset({"subscription", "resource_group", "vault", "key"})
+_SUPPORTED_SCOPE_TYPES: frozenset[AzureKeyVaultPathScopeType] = frozenset(
+    {"subscription", "resource_group", "vault", "key"}
+)
 _VAULT_ID_PATTERN = re.compile(
     r"^(?P<subscription>/subscriptions/[^/]+)"
     r"(?P<resource_group>/resourceGroups/[^/]+)"
@@ -68,14 +73,14 @@ def _app_service_key_vault_operation_paths(
 ) -> tuple[list[AzureAppServiceKeyVaultOperationPath], list[str]]:
     workload_facts = azure_facts(workload)
     identities, identity_uncertainties = workload_managed_identities(workload, context)
-    uncertainties = [
+    uncertainties: list[str] = [
         *identity_uncertainties,
         *[f"{workload.address}: {value}" for value in workload_facts.managed_identity_uncertainties],
     ]
     if not identities:
         return [], dedupe(uncertainties)
 
-    identity_principals = {
+    identity_principals: set[str] = {
         principal.casefold()
         for identity, _ in identities
         if (principal := _known_string(azure_facts(identity).principal_id)) is not None
@@ -97,7 +102,7 @@ def _app_service_key_vault_operation_paths(
         key_operations_unknown = any(
             "key_opts is unknown" in value for value in key_facts.key_vault_key_posture_uncertainties
         )
-        supported_operations = frozenset(
+        supported_operations: frozenset[AzureKeyVaultOperation] = frozenset(
             operation for operation, key_opt in _KEY_OPT_BY_OPERATION.items() if key_opt.casefold() in key_operations
         )
         if not key_operations_unknown and not supported_operations:
@@ -112,9 +117,7 @@ def _app_service_key_vault_operation_paths(
             principal_id = _known_string(grant.get("principal_id"))
             grant_operations = _string_values(grant.get("matched_operations"))
             relevant_operations: tuple[AzureKeyVaultOperation, ...] = tuple(
-                cast(AzureKeyVaultOperation, operation)
-                for operation in grant_operations
-                if operation in _RELEVANT_OPERATIONS
+                operation for operation in grant_operations if _is_relevant_operation(operation)
             )
             candidate_operations: tuple[AzureKeyVaultOperation, ...] = (
                 relevant_operations
@@ -134,10 +137,11 @@ def _app_service_key_vault_operation_paths(
                         f"Key Vault key {key.address}"
                     )
                 continue
-            matching_identities = [
+            matching_identities: list[tuple[NormalizedResource, AzureKeyVaultRuntimeIdentityKind]] = [
                 (identity, identity_kind)
                 for identity, identity_kind in identities
-                if _same_identifier(azure_facts(identity).principal_id, principal_id)
+                if _is_runtime_identity_kind(identity_kind)
+                and _same_identifier(azure_facts(identity).principal_id, principal_id)
             ]
             if not matching_identities:
                 continue
@@ -161,6 +165,9 @@ def _app_service_key_vault_operation_paths(
 
             for operation in candidate_operations:
                 for identity, identity_kind in matching_identities:
+                    scope_type = grant["grant_scope_type"]
+                    if not _is_supported_scope_type(scope_type):
+                        continue
                     if not _grant_is_deterministic(grant, key, vault, context):
                         uncertain_sources.add(source)
                         uncertainties.append(
@@ -180,6 +187,7 @@ def _app_service_key_vault_operation_paths(
                             key,
                             vault,
                             operation,
+                            scope_type,
                             grant,
                         )
                     )
@@ -215,10 +223,11 @@ def _app_service_key_vault_operation_paths(
 def _operation_path_record(
     workload: NormalizedResource,
     identity: NormalizedResource,
-    identity_kind: str,
+    identity_kind: AzureKeyVaultRuntimeIdentityKind,
     key: NormalizedResource,
     vault: NormalizedResource,
     operation: AzureKeyVaultOperation,
+    scope_type: AzureKeyVaultPathScopeType,
     grant: AzureKeyVaultAuthorizationGrant,
 ) -> AzureAppServiceKeyVaultOperationPath:
     key_facts = azure_facts(key)
@@ -251,7 +260,7 @@ def _operation_path_record(
         "grant_basis": grant["grant_basis"],
         "grant_source_address": source_address,
         "grant_source_type": _grant_source_type(source_address, grant, vault),
-        "scope_type": grant["grant_scope_type"],
+        "scope_type": scope_type,
         "scope": grant["grant_scope"],
         "scope_arm_id": _scope_arm_id(grant, key, vault),
         "authorization_model": grant["authorization_model"],
@@ -280,9 +289,9 @@ def _grant_is_deterministic(
     vault: NormalizedResource,
     context: AzureDecorationContext,
 ) -> bool:
-    grant_kind = _known_string(grant.get("grant_kind"))
-    source_address = _known_string(grant.get("grant_source_address"))
-    source = context.index.resources_by_address.get(source_address or "")
+    grant_kind = grant["grant_kind"]
+    source_address = grant["grant_source_address"]
+    source = context.index.resources_by_address.get(source_address)
     if source is None or grant.get("key_address") != key.address:
         return False
     if grant.get("key_vault_address") != vault.address:
@@ -320,7 +329,7 @@ def _scope_arm_id(
     key: NormalizedResource,
     vault: NormalizedResource,
 ) -> str | None:
-    scope_type = _known_string(grant.get("grant_scope_type"))
+    scope_type = grant["grant_scope_type"]
     vault_id = _known_string(azure_facts(vault).key_vault_id)
     if scope_type == "key":
         return azure_facts(key).key_vault_key_versionless_resource_id
@@ -339,7 +348,7 @@ def _scope_arm_id(
 
 
 def _grant_source_type(
-    source_address: str | None,
+    source_address: str,
     grant: AzureKeyVaultAuthorizationGrant,
     vault: NormalizedResource,
 ) -> str | None:
@@ -402,6 +411,20 @@ def _string_values(value: object) -> tuple[str, ...]:
     if not isinstance(value, (list, tuple)):
         return ()
     return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
+
+
+def _is_relevant_operation(value: str) -> TypeGuard[AzureKeyVaultOperation]:
+    return value in _RELEVANT_OPERATIONS
+
+
+def _is_runtime_identity_kind(value: str) -> TypeGuard[AzureKeyVaultRuntimeIdentityKind]:
+    return value in {"system_assigned", "user_assigned"}
+
+
+def _is_supported_scope_type(
+    value: AzureKeyVaultGrantScopeType,
+) -> TypeGuard[AzureKeyVaultPathScopeType]:
+    return value in _SUPPORTED_SCOPE_TYPES
 
 
 def _mapping_copy(value: object) -> dict[str, Any] | None:

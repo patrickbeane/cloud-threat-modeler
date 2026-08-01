@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
+from typing import Literal
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -13,17 +13,44 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
-from tfstride.providers.azure.resource_facts import azure_facts
+from tfstride.providers.azure.key_vault_evidence import (
+    AzureAppServiceKeyVaultOperationPath,
+    AzureKeyVaultGrantBasis,
+    AzureKeyVaultGrantKind,
+    AzureKeyVaultOperation,
+    AzureKeyVaultPathScopeType,
+)
+from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_types import (
     AZURE_APP_SERVICE_RESOURCE_TYPES,
     AzureResourceType,
 )
 
-_DECRYPT_OPERATION = "decrypt"
-_DECRYPT_OPERATIONS = frozenset({"decrypt", "unwrap"})
-_SIGN_OPERATION = "sign"
-_SUPPORTED_SCOPE_TYPES = frozenset({"subscription", "resource_group", "vault", "key"})
-_PARENT_SCOPE_TYPES = frozenset({"subscription", "resource_group", "vault"})
+_RuleOperationClass = Literal["decrypt", "sign"]
+_PathAddressKey = Literal[
+    "key_address",
+    "key_vault_address",
+    "identity_address",
+    "grant_source_address",
+    "role_definition_address",
+]
+_GrantFingerprint = tuple[
+    str,
+    AzureKeyVaultGrantKind,
+    AzureKeyVaultGrantBasis,
+    str | None,
+    str | None,
+]
+
+
+_DECRYPT_OPERATION: _RuleOperationClass = "decrypt"
+_DECRYPT_OPERATIONS: frozenset[AzureKeyVaultOperation] = frozenset({"decrypt", "unwrap"})
+_SIGN_OPERATION: _RuleOperationClass = "sign"
+_OPERATION_ORDER: tuple[AzureKeyVaultOperation, ...] = ("decrypt", "unwrap", "sign")
+_SUPPORTED_SCOPE_TYPES: frozenset[AzureKeyVaultPathScopeType] = frozenset(
+    {"subscription", "resource_group", "vault", "key"}
+)
+_PARENT_SCOPE_TYPES: frozenset[AzureKeyVaultPathScopeType] = frozenset({"subscription", "resource_group", "vault"})
 _ACCESS_POLICY_SOURCE_TYPES = frozenset({AzureResourceType.KEY_VAULT, AzureResourceType.KEY_VAULT_ACCESS_POLICY})
 _VAULT_ID_PATTERN = re.compile(
     r"^(?P<subscription>/subscriptions/[^/]+)"
@@ -55,7 +82,7 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
         self,
         context: RuleEvaluationContext,
         rule_id: str,
-        operation_class: str,
+        operation_class: _RuleOperationClass,
     ) -> list[Finding]:
         if context.inventory.provider != "azure":
             return []
@@ -66,7 +93,7 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
             if facts.public_network_access_enabled is not True:
                 continue
 
-            paths = [
+            paths: list[AzureAppServiceKeyVaultOperationPath] = [
                 path
                 for path in facts.app_service_key_vault_operation_paths
                 if _is_deterministic_operation_path(path, app, context, operation_class)
@@ -127,12 +154,12 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
 
 
 def _is_deterministic_operation_path(
-    path: Mapping[str, Any],
+    path: AzureAppServiceKeyVaultOperationPath,
     app: NormalizedResource,
     context: RuleEvaluationContext,
-    operation_class: str,
+    operation_class: _RuleOperationClass,
 ) -> bool:
-    operation = _known_string(path.get("operation"))
+    operation = path["operation"]
     if operation_class == _DECRYPT_OPERATION:
         if operation not in _DECRYPT_OPERATIONS or path.get("operation_class") != "plaintext_recovery":
             return False
@@ -229,7 +256,7 @@ def _is_deterministic_operation_path(
     return True
 
 
-def _user_identity_is_attached(facts: Any, address: str) -> bool:
+def _user_identity_is_attached(facts: AzureResourceFacts, address: str) -> bool:
     if address in facts.resolved_attached_identity_addresses:
         return True
     return any(
@@ -237,17 +264,18 @@ def _user_identity_is_attached(facts: Any, address: str) -> bool:
     )
 
 
-def _path_matches_key_identity(path: Mapping[str, Any], facts: Any) -> bool:
-    return all(
-        _same_optional_identifier(path.get(path_field), getattr(facts, fact_name))
-        for path_field, fact_name in (
-            ("key_uri", "key_vault_key_uri"),
-            ("key_versionless_uri", "key_vault_key_versionless_uri"),
-            ("key_resource_id", "key_vault_key_resource_id"),
-            ("key_versionless_resource_id", "key_vault_key_versionless_resource_id"),
-            ("key_version", "key_vault_key_version"),
-        )
+def _path_matches_key_identity(
+    path: AzureAppServiceKeyVaultOperationPath,
+    facts: AzureResourceFacts,
+) -> bool:
+    identity_pairs = (
+        (path["key_uri"], facts.key_vault_key_uri),
+        (path["key_versionless_uri"], facts.key_vault_key_versionless_uri),
+        (path["key_resource_id"], facts.key_vault_key_resource_id),
+        (path["key_versionless_resource_id"], facts.key_vault_key_versionless_resource_id),
+        (path["key_version"], facts.key_vault_key_version),
     )
+    return all(_same_optional_identifier(left, right) for left, right in identity_pairs)
 
 
 def _same_optional_identifier(left: object, right: object) -> bool:
@@ -262,18 +290,18 @@ def _same_identifier(left: str | None, right: str | None) -> bool:
     return _same_optional_identifier(left, right) and left is not None and right is not None
 
 
-def _has_exact_versionless_key_identity(facts: Any) -> bool:
+def _has_exact_versionless_key_identity(facts: AzureResourceFacts) -> bool:
     return bool(
         _known_string(facts.key_vault_key_versionless_uri) or _known_string(facts.key_vault_key_versionless_resource_id)
     )
 
 
-def _key_operation_is_supported(facts: Any, operation: str) -> bool:
+def _key_operation_is_supported(facts: AzureResourceFacts, operation: str) -> bool:
     return operation.casefold() in {value.casefold() for value in facts.key_vault_key_ops}
 
 
 def _grant_source_is_valid(
-    path: Mapping[str, Any],
+    path: AzureAppServiceKeyVaultOperationPath,
     source: NormalizedResource,
     vault: NormalizedResource,
 ) -> bool:
@@ -296,7 +324,7 @@ def _grant_source_is_valid(
 
 
 def _scope_is_exact(
-    path: Mapping[str, Any],
+    path: AzureAppServiceKeyVaultOperationPath,
     key: NormalizedResource,
     vault: NormalizedResource,
 ) -> bool:
@@ -326,8 +354,8 @@ def _scope_is_exact(
 
 def _rationale(
     app: NormalizedResource,
-    operation_class: str,
-    operations: Sequence[str],
+    operation_class: _RuleOperationClass,
+    operations: Sequence[AzureKeyVaultOperation],
     key_addresses: list[str],
     *,
     parent_scope: bool,
@@ -361,8 +389,8 @@ def _rationale(
 
 
 def _authorization_scope(
-    operation_class: str,
-    operations: Sequence[str],
+    operation_class: _RuleOperationClass,
+    operations: Sequence[AzureKeyVaultOperation],
     parent_scope: bool,
 ) -> list[str]:
     operation_text = _operation_text(operations) if operation_class == _DECRYPT_OPERATION else "signing"
@@ -381,15 +409,13 @@ def _authorization_scope(
     return values
 
 
-def _path_operations(paths: Sequence[Mapping[str, Any]]) -> list[str]:
-    return [
-        operation
-        for operation in ("decrypt", "unwrap", "sign")
-        if any(path.get("operation") == operation for path in paths)
-    ]
+def _path_operations(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+) -> list[AzureKeyVaultOperation]:
+    return [operation for operation in _OPERATION_ORDER if any(path.get("operation") == operation for path in paths)]
 
 
-def _operation_text(operations: Sequence[str]) -> str:
+def _operation_text(operations: Sequence[AzureKeyVaultOperation]) -> str:
     if len(operations) == 1:
         return operations[0]
     if len(operations) == 2:
@@ -397,7 +423,7 @@ def _operation_text(operations: Sequence[str]) -> str:
     return ", ".join(operations[:-1]) + f", and {operations[-1]}"
 
 
-def _plaintext_recovery_capability(operations: Sequence[str]) -> str:
+def _plaintext_recovery_capability(operations: Sequence[AzureKeyVaultOperation]) -> str:
     operation_text = _operation_text(operations)
     if operations == ["decrypt"]:
         return "could submit ciphertext to Key Vault decrypt operations, creating plaintext-recovery and information-disclosure potential"
@@ -421,7 +447,9 @@ def _public_endpoint_evidence(app: NormalizedResource) -> list[str]:
     ]
 
 
-def _runtime_identity_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
+def _runtime_identity_evidence(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -437,7 +465,9 @@ def _runtime_identity_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
     )
 
 
-def _operation_path_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
+def _operation_path_evidence(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+) -> list[str]:
     return sorted(
         {
             "; ".join(
@@ -479,13 +509,15 @@ def _operation_path_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
     )
 
 
-def _scope_breadth_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
-    grants_by_scope: dict[str, set[tuple[object, ...]]] = {
+def _scope_breadth_evidence(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+) -> list[str]:
+    grants_by_scope: dict[AzureKeyVaultPathScopeType, set[_GrantFingerprint]] = {
         scope_type: set() for scope_type in ("subscription", "resource_group", "vault", "key")
     }
-    modeled_keys = {value for path in paths if isinstance(value := path.get("key_address"), str) and value}
+    modeled_keys: set[str] = {path["key_address"] for path in paths}
     for path in paths:
-        scope_type = path.get("scope_type")
+        scope_type = path["scope_type"]
         if scope_type not in grants_by_scope:
             continue
         grants_by_scope[scope_type].add(
@@ -517,8 +549,11 @@ def _scope_breadth_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:
     ]
 
 
-def _path_values(paths: Sequence[Mapping[str, Any]], key: str) -> list[str]:
-    return sorted({value for path in paths if isinstance(value := path.get(key), str) and value})
+def _path_values(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+    key: _PathAddressKey,
+) -> list[str]:
+    return sorted({value for path in paths if (value := path.get(key)) is not None})
 
 
 def _known_string(value: object) -> str | None:

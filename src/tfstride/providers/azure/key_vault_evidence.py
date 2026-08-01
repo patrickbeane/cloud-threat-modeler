@@ -4,16 +4,24 @@ from typing import Any, Literal, TypedDict
 
 AzureKeyVaultOperation = Literal["decrypt", "unwrap", "sign"]
 AzureKeyVaultOperationClass = Literal["plaintext_recovery", "authenticator_generation"]
+AzureKeyVaultGrantKind = Literal["access_policy", "rbac"]
+AzureKeyVaultGrantBasis = Literal["key_vault_access_policy", "azure_rbac_assignment"]
+AzureKeyVaultAuthorizationModel = Literal["access_policy", "azure_rbac"]
+AzureKeyVaultAuthorizationModelState = Literal["active", "unknown"]
+AzureKeyVaultAuthorizationState = Literal["granted", "conditional", "ambiguous", "unknown"]
+AzureKeyVaultGrantScopeType = Literal["management_group", "subscription", "resource_group", "vault", "key"]
+AzureKeyVaultPathScopeType = Literal["subscription", "resource_group", "vault", "key"]
+AzureKeyVaultRuntimeIdentityKind = Literal["system_assigned", "user_assigned"]
 
 
 class _AzureKeyVaultAuthorizationGrantRequired(TypedDict):
-    grant_kind: Literal["access_policy", "rbac"]
+    grant_kind: AzureKeyVaultGrantKind
     grant_source_address: str
-    grant_basis: str
-    authorization_model: Literal["access_policy", "azure_rbac"]
-    authorization_model_state: str
-    authorization_state: str
-    grant_scope_type: str
+    grant_basis: AzureKeyVaultGrantBasis
+    authorization_model: AzureKeyVaultAuthorizationModel
+    authorization_model_state: AzureKeyVaultAuthorizationModelState
+    authorization_state: AzureKeyVaultAuthorizationState
+    grant_scope_type: AzureKeyVaultGrantScopeType
     grant_scope: str | None
     key_vault_address: str
     key_vault_id: str | None
@@ -56,7 +64,7 @@ class AzureAppServiceKeyVaultOperationPath(TypedDict):
     workload_address: str
     workload_type: str
     identity_address: str
-    identity_kind: str
+    identity_kind: AzureKeyVaultRuntimeIdentityKind
     principal_id: str | None
     credential_context: Literal["workload_runtime"]
     key_address: str
@@ -75,16 +83,16 @@ class AzureAppServiceKeyVaultOperationPath(TypedDict):
     operation: AzureKeyVaultOperation
     operation_class: AzureKeyVaultOperationClass
     matched_key_operation: str
-    grant_kind: str
-    grant_basis: str
+    grant_kind: AzureKeyVaultGrantKind
+    grant_basis: AzureKeyVaultGrantBasis
     grant_source_address: str
     grant_source_type: str | None
-    scope_type: str
+    scope_type: AzureKeyVaultPathScopeType
     scope: str | None
     scope_arm_id: str | None
-    authorization_model: str
-    authorization_model_state: str
-    authorization_state: str
+    authorization_model: AzureKeyVaultAuthorizationModel
+    authorization_model_state: AzureKeyVaultAuthorizationModelState
+    authorization_state: AzureKeyVaultAuthorizationState
     management_mode: str | None
     management_state: str | None
     role_definition_name: str | None

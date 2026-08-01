@@ -3,9 +3,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
+from typing import Literal
 
 from tfstride.models import NormalizedResource
-from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultAuthorizationGrant
+from tfstride.providers.azure.key_vault_evidence import (
+    AzureKeyVaultAuthorizationGrant,
+    AzureKeyVaultAuthorizationModel,
+    AzureKeyVaultGrantScopeType,
+)
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AzureResourceType
@@ -270,9 +275,12 @@ class _RoleResolution:
     assignable_scope_state: str = "not_applicable"
 
 
+_AssignmentScopeType = AzureKeyVaultGrantScopeType | Literal["unrelated", "unknown", "invalid"]
+
+
 @dataclass(frozen=True, slots=True)
 class _AssignmentScopeResolution:
-    scope_type: str
+    scope_type: _AssignmentScopeType
     state: str
     arm_scope: str | None = None
 
@@ -355,7 +363,9 @@ def _key_authorization_posture(
     return grants, dedupe(uncertainties)
 
 
-def _authorization_model(rbac_enabled: bool | None) -> str:
+def _authorization_model(
+    rbac_enabled: bool | None,
+) -> AzureKeyVaultAuthorizationModel | Literal["unknown"]:
     if rbac_enabled is True:
         return "azure_rbac"
     if rbac_enabled is False:
@@ -371,7 +381,9 @@ def _access_policy_grants(
 ) -> tuple[list[AzureKeyVaultAuthorizationGrant], list[str]]:
     vault_facts = azure_facts(vault)
     policies = vault_facts.key_vault_access_policies
-    management_modes = {str(policy.get("management_mode")) for policy in policies if policy.get("management_mode")}
+    management_modes: set[str] = {
+        str(policy.get("management_mode")) for policy in policies if policy.get("management_mode")
+    }
     management_ambiguous = {
         "inline_access_policy",
         "standalone_access_policy",
