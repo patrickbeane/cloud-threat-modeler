@@ -725,6 +725,59 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-kms-key-disruption",
+        title="Internet-facing ECS service can disrupt KMS keys",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict the task role to only the exact KMS key "
+            "disruption operations and key ARNs required at runtime. Keep disable, deletion, and imported-key "
+            "material controls with separate operational identities, and preserve recovery windows for dependent "
+            "encrypted data."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "kms",
+            "iam",
+            "public-access",
+            "cryptography",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="aws-public-ecs-kms-authorization-delegation",
+        title="Internet-facing ECS service can delegate KMS authorization",
+        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and remove KMS key-policy and grant administration from "
+            "internet-facing task roles where possible. Restrict any required delegation to exact keys and narrow "
+            "grant or key-policy operations, and use separate operational identities for authorization changes."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "kms",
+            "iam",
+            "public-access",
+            "cryptography",
+            "elevation-of-privilege",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-messaging-mutation-access",
         title="Internet-facing ECS service can mutate managed messaging resources",
         category=StrideCategory.TAMPERING,

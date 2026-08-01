@@ -13,7 +13,12 @@ from tfstride.providers.aws.ecs_path_rule_helpers import (
     public_service_network_path,
     resolved_public_load_balancers,
 )
-from tfstride.providers.aws.kms_evidence import AwsEcsKmsOperationPath
+from tfstride.providers.aws.kms_evidence import (
+    AwsEcsKmsManagementEffect,
+    AwsEcsKmsManagementOperationClass,
+    AwsEcsKmsManagementPath,
+    AwsEcsKmsOperationPath,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
@@ -28,6 +33,17 @@ _OPERATION_KEY_USAGE = {
     _MAC_GENERATION_OPERATION: "GENERATE_VERIFY_MAC",
 }
 _AUTHORIZATION_BASES = frozenset({"key_policy_direct", "iam_via_key_policy", "grant"})
+_MANAGEMENT_OPERATION_DEFINITIONS: dict[
+    str,
+    tuple[AwsEcsKmsManagementOperationClass, AwsEcsKmsManagementEffect],
+] = {
+    "kms:CreateGrant": ("authorization_administration", "delegation"),
+    "kms:PutKeyPolicy": ("authorization_administration", "delegation"),
+    "kms:DisableKey": ("disruptive_administration", "disruption"),
+    "kms:ScheduleKeyDeletion": ("destructive_administration", "disruption"),
+    "kms:DeleteImportedKeyMaterial": ("destructive_administration", "disruption"),
+}
+_MANAGEMENT_OPERATION_ORDER = tuple(_MANAGEMENT_OPERATION_DEFINITIONS)
 
 
 class AwsEcsKmsOperationRuleDetectors:
@@ -57,6 +73,20 @@ class AwsEcsKmsOperationRuleDetectors:
             _SIGNING_OPERATIONS,
             disclosure=False,
         )
+
+    def detect_public_service_kms_key_disruption(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_public_management_access(context, rule_id, "disruption")
+
+    def detect_public_service_kms_authorization_delegation(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_public_management_access(context, rule_id, "delegation")
 
     def _detect_public_operation_access(
         self,
@@ -138,6 +168,81 @@ class AwsEcsKmsOperationRuleDetectors:
             )
         return findings
 
+    def _detect_public_management_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+        management_effect: AwsEcsKmsManagementEffect,
+    ) -> list[Finding]:
+        if context.inventory.provider != "aws":
+            return []
+
+        findings: list[Finding] = []
+        for service in context.inventory.by_type(_AWS_ECS_SERVICE):
+            paths = [
+                path
+                for path in aws_facts(service).ecs_kms_management_paths
+                if _is_deterministic_management_path(
+                    path,
+                    service.address,
+                    context,
+                    management_effect,
+                )
+            ]
+            if not paths:
+                continue
+
+            load_balancer_addresses = resolved_public_load_balancers(paths, context)
+            if not load_balancer_addresses:
+                continue
+
+            task_definition_addresses = path_string_values(paths, "task_definition_address")
+            role_addresses = path_string_values(paths, "role_address")
+            key_addresses = path_string_values(paths, "key_address")
+            authorization_bases = _authorization_bases(paths)
+            operations = _management_operations(paths)
+            severity_reasoning = _management_severity(len(key_addresses))
+            affected_resources = [
+                *load_balancer_addresses,
+                service.address,
+                *task_definition_addresses,
+                *role_addresses,
+                *key_addresses,
+            ]
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=list(dict.fromkeys(affected_resources)),
+                    trust_boundary_id=internet_boundary_id(load_balancer_addresses, context),
+                    rationale=_management_rationale(
+                        service,
+                        operations,
+                        len(key_addresses),
+                        authorization_bases,
+                        management_effect,
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item(
+                            "network_path",
+                            public_service_network_path(load_balancer_addresses, service.address),
+                        ),
+                        evidence_item(
+                            "task_definitions",
+                            [f"address={address}" for address in task_definition_addresses],
+                        ),
+                        evidence_item("task_roles", _task_role_evidence(paths)),
+                        evidence_item("kms_management_paths", _management_path_evidence(paths)),
+                        evidence_item(
+                            "assessment_scope",
+                            _management_assessment_scope(operations, management_effect),
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
+
 
 def _is_deterministic_operation_path(
     path: AwsEcsKmsOperationPath,
@@ -188,6 +293,67 @@ def _is_deterministic_operation_path(
     )
 
 
+def _is_deterministic_management_path(
+    path: AwsEcsKmsManagementPath,
+    service_address: str,
+    context: RuleEvaluationContext,
+    management_effect: AwsEcsKmsManagementEffect,
+) -> bool:
+    key_address = path.get("key_address")
+    key = context.inventory.get_by_address(key_address) if isinstance(key_address, str) else None
+    if key is None or key.resource_type != _AWS_KMS_KEY:
+        return False
+
+    key_facts = aws_facts(key)
+    key_arn = key_facts.kms_key_arn or key.arn
+    operation = path.get("operation")
+    operation_class = path.get("operation_class")
+    authorization_bases = path.get("authorization_bases")
+    origin_compatibility = path.get("key_origin_compatibility_state")
+    authorization_record = path.get("authorization_record")
+    return (
+        path.get("workload_type") == _AWS_ECS_SERVICE
+        and path.get("workload_address") == service_address
+        and all(
+            isinstance(path.get(key_name), str) and bool(path.get(key_name))
+            for key_name in (
+                "task_definition_address",
+                "role_address",
+                "key_address",
+                "key_arn",
+                "operation",
+            )
+        )
+        and path.get("key_arn") == key_arn
+        and _is_exact_kms_key_arn(key_arn)
+        and isinstance(operation, str)
+        and operation in _MANAGEMENT_OPERATION_ORDER
+        and _MANAGEMENT_OPERATION_DEFINITIONS.get(operation)
+        == (
+            operation_class,
+            path.get("management_effect"),
+        )
+        and path.get("management_effect") == management_effect
+        and path.get("role_kind") == "ecs_task_role"
+        and path.get("credential_context") == "workload_runtime"
+        and path.get("authorization_state") == "allowed"
+        and path.get("role_policy_complete") is True
+        and path.get("key_policy_complete") is True
+        and path.get("same_account") is True
+        and path.get("explicit_deny") is False
+        and path.get("authorization_requires_condition_evaluation") is False
+        and origin_compatibility in {"compatible", "not_applicable"}
+        and isinstance(authorization_bases, list)
+        and bool(authorization_bases)
+        and all(isinstance(value, str) and value in _AUTHORIZATION_BASES for value in authorization_bases)
+        and isinstance(authorization_record, Mapping)
+        and authorization_record.get("operation") == operation
+        and authorization_record.get("key_address") == key_address
+        and authorization_record.get("key_arn") == key_arn
+        and authorization_record.get("authorization_state") == "allowed"
+    )
+
+
 def _is_exact_kms_key_arn(value: object) -> bool:
     if not isinstance(value, str) or not value.startswith("arn:"):
         return False
@@ -206,8 +372,119 @@ def _is_exact_kms_key_arn(value: object) -> bool:
     )
 
 
-def _authorization_bases(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
+def _authorization_bases(paths: Sequence[Mapping[str, object]]) -> list[str]:
     return sorted({value for path in paths for value in _string_values(path.get("authorization_bases"))})
+
+
+def _management_operations(paths: Sequence[AwsEcsKmsManagementPath]) -> list[str]:
+    return [
+        operation
+        for operation in _MANAGEMENT_OPERATION_ORDER
+        if any(path.get("operation") == operation for path in paths)
+    ]
+
+
+def _management_severity(key_count: int) -> SeverityReasoning:
+    return build_severity_reasoning(
+        internet_exposure=True,
+        privilege_breadth=2,
+        data_sensitivity=1,
+        lateral_movement=1,
+        blast_radius=2 if key_count > 1 else 1,
+    )
+
+
+def _management_rationale(
+    service: NormalizedResource,
+    operations: list[str],
+    key_count: int,
+    authorization_bases: list[str],
+    management_effect: AwsEcsKmsManagementEffect,
+) -> str:
+    operation_text = _operation_text(operations)
+    basis = ", ".join(authorization_bases)
+    if management_effect == "disruption":
+        consequence = "could disrupt KMS-backed data or cryptographic availability through those operations"
+        capability = "deterministic KMS key-disruption authority"
+    else:
+        consequence = "could change KMS authorization or delegate further key authority through those operations"
+        capability = "deterministic KMS authorization-delegation authority"
+    return (
+        f"{service.display_name} is reachable through an internet-facing load balancer and its ECS task role has "
+        f"{capability} ({operation_text}) on {key_count} exact modeled KMS key(s) through {basis}. A compromise "
+        f"of the public workload {consequence}. This establishes cryptographic key-management authority, not proof "
+        "that the operation will succeed outside the modeled AWS policy, grant, and key-state evidence. The KMS "
+        "key itself is not public."
+    )
+
+
+def _management_assessment_scope(
+    operations: list[str],
+    management_effect: AwsEcsKmsManagementEffect,
+) -> list[str]:
+    effect_text = "key disruption" if management_effect == "disruption" else "authorization delegation"
+    return [
+        (
+            f"establishes=deterministic {_operation_text(operations)} authority for ECS task roles "
+            f"with {effect_text} effect on exact modeled KMS keys"
+        ),
+        (
+            "does_not_establish=successful operation completion, authority over keys outside the modeled plan, "
+            "or runtime impact beyond the preserved AWS policy, grant, and key-state evidence"
+        ),
+    ]
+
+
+def _management_path_evidence(paths: Sequence[AwsEcsKmsManagementPath]) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"key_address={path['key_address']}",
+                    f"key_arn={path['key_arn']}",
+                    f"key_id={path.get('key_id') or 'unknown'}",
+                    f"key_usage={path.get('key_usage') or 'unknown'}",
+                    f"key_origin={path.get('key_origin') or 'unknown'}",
+                    f"operation={path['operation']}",
+                    f"operation_class={path['operation_class']}",
+                    f"management_effect={path['management_effect']}",
+                    f"task_definition={path['task_definition_address']}",
+                    f"task_role={path['role_address']}",
+                    f"authorization_state={path['authorization_state']}",
+                    f"authorization_bases={','.join(_string_values(path.get('authorization_bases')))}",
+                    f"candidate_authorization_bases={','.join(_string_values(path.get('candidate_authorization_bases')))}",
+                    f"policy_action_patterns={','.join(_string_values(path.get('policy_action_patterns')))}",
+                    f"policy_resources={','.join(_string_values(path.get('policy_resources')))}",
+                    f"deny_action_patterns={','.join(_string_values(path.get('deny_action_patterns')) or ['none'])}",
+                    f"key_policy_sources={','.join(_string_values(path.get('key_policy_source_addresses')) or ['none'])}",
+                    f"identity_policy_sources={','.join(_string_values(path.get('identity_policy_source_addresses')) or ['none'])}",
+                    f"grant_sources={','.join(_management_grant_sources(path))}",
+                    f"grant_constraints={';'.join(_structured_values(path.get('grant_constraints')) or ['none'])}",
+                    f"constraint_state={path.get('constraint_state') or 'not_configured'}",
+                    (
+                        "conditional_policy_evidence_present="
+                        f"{str(path.get('conditional_policy_evidence_present')).lower()}"
+                    ),
+                    (
+                        "authorization_requires_condition_evaluation="
+                        f"{str(path.get('authorization_requires_condition_evaluation')).lower()}"
+                    ),
+                    f"key_origin_compatibility={path.get('key_origin_compatibility_state')}",
+                    "operation_evaluation=deterministic_allowed",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _management_grant_sources(path: AwsEcsKmsManagementPath) -> list[str]:
+    sources: set[str] = set()
+    for grant in path["kms_grants"]:
+        source = grant.get("source")
+        if source:
+            sources.add(source)
+    return sorted(sources) or ["none"]
 
 
 def _operation_severity(*, disclosure: bool, key_count: int) -> SeverityReasoning:
@@ -292,12 +569,12 @@ def _operation_text(operations: list[str]) -> str:
     return " and ".join(operations)
 
 
-def _task_role_evidence(paths: Sequence[AwsEcsKmsOperationPath]) -> list[str]:
+def _task_role_evidence(paths: Sequence[Mapping[str, object]]) -> list[str]:
     return sorted(
         {
             "; ".join(
                 (
-                    f"address={path['role_address']}",
+                    f"address={path.get('role_address')}",
                     f"arn={path.get('role_arn') or 'unknown'}",
                     "role_kind=ecs_task_role",
                     "credential_context=workload_runtime",

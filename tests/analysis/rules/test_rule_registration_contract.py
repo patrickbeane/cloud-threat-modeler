@@ -72,6 +72,8 @@ EXPECTED_AWS_RULE_GROUP_IDS = (
         "aws-public-ecs-dynamodb-read-access",
         "aws-public-ecs-kms-decrypt-access",
         "aws-public-ecs-kms-signing-access",
+        "aws-public-ecs-kms-key-disruption",
+        "aws-public-ecs-kms-authorization-delegation",
         "aws-public-ecs-messaging-mutation-access",
         "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
@@ -453,9 +455,9 @@ class DefaultRuleRegistrationContractTests(unittest.TestCase):
     def test_default_rule_group_count_and_lengths_are_stable(self) -> None:
         self.assertEqual(len(EXPECTED_DEFAULT_RULE_GROUP_IDS), 6)
         self.assertEqual(
-            tuple(len(rule_group) for rule_group in EXPECTED_DEFAULT_RULE_GROUP_IDS), (258, 2, 2, 17, 3, 2)
+            tuple(len(rule_group) for rule_group in EXPECTED_DEFAULT_RULE_GROUP_IDS), (260, 2, 2, 17, 3, 2)
         )
-        self.assertEqual(tuple(len(rule_group) for rule_group in aws_rules.AWS_RULE_GROUP_IDS), (82, 2, 2, 3, 2, 2))
+        self.assertEqual(tuple(len(rule_group) for rule_group in aws_rules.AWS_RULE_GROUP_IDS), (84, 2, 2, 3, 2, 2))
         self.assertEqual(tuple(len(rule_group) for rule_group in gcp_rules.GCP_RULE_GROUP_IDS), (71, 0, 0, 14, 1, 0))
         self.assertEqual(
             tuple(len(rule_group) for rule_group in azure_rules.AZURE_RULE_GROUP_IDS), (105, 0, 0, 0, 0, 0)

@@ -20,8 +20,8 @@ This run identified **2 trust boundaries** and **2 findings** across **2 normali
 - Normalized resources: `2`
 - Unsupported resources: `0`
 - Resources with plan-time unknown values: `0`
-- Registered provider rules (AWS): `93`
-- Enabled provider rules (AWS): `93`
+- Registered provider rules (AWS): `95`
+- Enabled provider rules (AWS): `95`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`

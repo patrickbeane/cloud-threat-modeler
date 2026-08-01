@@ -70,6 +70,8 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/kms_operation_authorization.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_kms_operation_paths.py",
   "src/tfstride/providers/aws/resource_decoration_stages.py",
+  "src/tfstride/providers/aws/rules.py",
+  "src/tfstride/providers/aws/rule_catalog.py",
   "src/tfstride/providers/aws/kms_rules.py",
   "src/tfstride/providers/aws/ecs_kms_rules.py",
 

@@ -78,6 +78,8 @@ EXPECTED_DEFAULT_RULE_METADATA_IDS = (
     "aws-public-ecs-dynamodb-read-access",
     "aws-public-ecs-kms-decrypt-access",
     "aws-public-ecs-kms-signing-access",
+    "aws-public-ecs-kms-key-disruption",
+    "aws-public-ecs-kms-authorization-delegation",
     "aws-public-ecs-messaging-mutation-access",
     "aws-public-ecs-sqs-receive-access",
     "aws-sns-customer-managed-encryption-missing",
@@ -351,7 +353,7 @@ class RuleRegistryTests(unittest.TestCase):
             tuple(item.rule_id for item in metadata),
             EXPECTED_DEFAULT_RULE_METADATA_IDS,
         )
-        self.assertEqual(len(metadata), 284)
+        self.assertEqual(len(metadata), 286)
 
     def test_default_rule_metadata_is_partitioned_by_provider(self) -> None:
         metadata_ids = tuple(metadata.rule_id for metadata in default_rule_registry().rules())
@@ -360,7 +362,7 @@ class RuleRegistryTests(unittest.TestCase):
         azure_metadata_ids = tuple(rule_id for rule_id in metadata_ids if rule_id.startswith("azure-"))
 
         self.assertEqual(metadata_ids, aws_metadata_ids + gcp_metadata_ids + azure_metadata_ids)
-        self.assertEqual(len(aws_metadata_ids), 93)
+        self.assertEqual(len(aws_metadata_ids), 95)
         self.assertEqual(len(gcp_metadata_ids), 86)
         self.assertEqual(len(azure_metadata_ids), 105)
         self.assertEqual(set(aws_metadata_ids), set(_flatten_rule_groups(AWS_RULE_GROUP_IDS)))

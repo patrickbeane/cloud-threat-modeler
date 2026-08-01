@@ -94,6 +94,8 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-dynamodb-read-access",
         "aws-public-ecs-kms-decrypt-access",
         "aws-public-ecs-kms-signing-access",
+        "aws-public-ecs-kms-key-disruption",
+        "aws-public-ecs-kms-authorization-delegation",
         "aws-public-ecs-messaging-mutation-access",
         "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
@@ -246,6 +248,10 @@ def build_aws_rule_contribution(
         "aws-public-ecs-dynamodb-read-access": (ecs_dynamodb_detectors.detect_public_service_read_access),
         "aws-public-ecs-kms-decrypt-access": (ecs_kms_detectors.detect_public_service_decrypt_access),
         "aws-public-ecs-kms-signing-access": (ecs_kms_detectors.detect_public_service_signing_access),
+        "aws-public-ecs-kms-key-disruption": (ecs_kms_detectors.detect_public_service_kms_key_disruption),
+        "aws-public-ecs-kms-authorization-delegation": (
+            ecs_kms_detectors.detect_public_service_kms_authorization_delegation
+        ),
         "aws-public-ecs-messaging-mutation-access": (ecs_messaging_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-sqs-receive-access": (ecs_messaging_detectors.detect_public_service_sqs_receive_access),
         "aws-sns-customer-managed-encryption-missing": (
