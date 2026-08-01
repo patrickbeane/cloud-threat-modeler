@@ -49,6 +49,12 @@ include = [
   # Terraform plan configuration-reference resolution.
   "src/tfstride/input/configuration_references.py",
 
+  # Provider symbolic relationship resolution.
+  "src/tfstride/providers/aws/resource_decoration/symbolic_relationships.py",
+  "src/tfstride/providers/gcp/resource_decoration/symbolic_relationships.py",
+  "src/tfstride/providers/azure/resource_decoration/symbolic_relationships.py",
+  "src/tfstride/providers/azure/resource_decoration/network_symbolic_relationships.py",
+
   # Provider entry points.
   "src/tfstride/providers/aws/plugin.py",
   "src/tfstride/providers/gcp/plugin.py",

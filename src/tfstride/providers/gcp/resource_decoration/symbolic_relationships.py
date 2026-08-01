@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from typing import Any
 
 from tfstride.models import (
     NormalizedResource,
@@ -29,6 +30,7 @@ from tfstride.providers.gcp.resource_types import (
     GcpResourceType,
 )
 from tfstride.providers.gcp.resource_utils import gcp_reference_key, service_account_member
+from tfstride.resource_metadata import OptionalStringMetadataField
 
 _GENERIC_REFERENCE_SUFFIXES = (".id", ".name", ".self_link")
 _PROJECT_REFERENCE_SUFFIXES = (".id", ".name", ".project_id")
@@ -47,11 +49,11 @@ _CLOUD_RUN_SERVICE_ACCOUNT_PATHS = {
 
 def _relationship(
     resource_types: Collection[str],
-    field: object,
+    field: OptionalStringMetadataField,
     target_types: Collection[str],
     source_paths: Collection[tuple[str | int, ...]],
     suffixes: Collection[str],
-) -> tuple[set[str], object, set[str], set[tuple[str | int, ...]], tuple[str, ...]]:
+) -> tuple[set[str], OptionalStringMetadataField, set[str], set[tuple[str | int, ...]], tuple[str, ...]]:
     return (
         set(resource_types),
         field,
@@ -297,11 +299,13 @@ class ResolveGcpSymbolicRelationshipsStage:
         if email is None:
             return
         member = service_account_member(email)
+        if member is None:
+            return
         facts.set(GcpResourceMetadata.IAM_MEMBER, member)
         facts.set(GcpResourceMetadata.IAM_MEMBERS, [member])
         bindings = facts.bindings
         if bindings:
-            normalized_bindings: list[dict[str, object]] = []
+            normalized_bindings: list[dict[str, Any]] = []
             for binding in bindings:
                 updated = dict(binding)
                 updated["members"] = [member]
