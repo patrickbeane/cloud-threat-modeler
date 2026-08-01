@@ -625,7 +625,7 @@ ruff format --check .
 vulture src tests --min-confidence 100
 ```
 
-The scoped basedpyright gate protects provider/plugin contracts, metadata ownership, and shared provider-boundary seams; it is intentionally not full-repository strict mode yet.
+The scoped basedpyright gate protects provider/plugin contracts, metadata ownership, shared provider-boundary seams, and the managed-key normalization-to-finding pipeline; it is intentionally not full-repository strict mode yet.
 
 The suite is also compatible with stdlib discovery:
 
