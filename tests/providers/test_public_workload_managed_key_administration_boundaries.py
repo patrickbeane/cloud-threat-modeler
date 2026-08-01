@@ -369,9 +369,71 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
             {"encryption_context_equals": {"service": "orders"}},
         )
 
-        # Administrative and recovery operations stay out of the existing
+        data_authorizations = {
+            authorization["operation"]: authorization for authorization in data_facts.kms_operation_authorizations
+        }
+        self.assertEqual(set(data_authorizations), set(all_data_actions))
+
+        create_grant = data_authorizations["kms:CreateGrant"]
+        self.assertEqual(create_grant["authorization_state"], "allowed")
+        self.assertEqual(
+            create_grant["authorization_bases"],
+            ["direct_key_policy", "kms_grant"],
+        )
+        self.assertEqual(
+            create_grant["supported_authorization_bases"],
+            [
+                "direct_key_policy",
+                "iam_via_account_principal",
+                "kms_grant",
+            ],
+        )
+        self.assertEqual(create_grant["constraint_state"], "encryption_context")
+
+        schedule_deletion = data_authorizations["kms:ScheduleKeyDeletion"]
+        self.assertEqual(
+            schedule_deletion["operation_class"],
+            "destructive_administration",
+        )
+        self.assertEqual(schedule_deletion["authorization_state"], "denied")
+        self.assertTrue(schedule_deletion["explicit_deny"])
+
+        self.assertEqual(
+            data_authorizations["kms:PutKeyPolicy"]["operation_class"],
+            "authorization_administration",
+        )
+        self.assertEqual(
+            {operation: data_authorizations[operation]["operation_class"] for operation in _AWS_QUIET_ADMIN_ACTIONS},
+            {
+                "kms:CancelKeyDeletion": "recovery",
+                "kms:EnableKey": "recovery",
+                "kms:GetKeyPolicy": "metadata_read",
+                "kms:RotateKeyOnDemand": "lifecycle_administration",
+            },
+        )
+
+        imported_authorizations = imported_facts.kms_operation_authorizations
+        self.assertEqual(len(imported_authorizations), 1)
+        imported_material = imported_authorizations[0]
+        self.assertEqual(
+            imported_material["operation"],
+            "kms:DeleteImportedKeyMaterial",
+        )
+        self.assertEqual(imported_material["authorization_state"], "allowed")
+        self.assertEqual(imported_material["key_origin"], "EXTERNAL")
+        self.assertEqual(
+            imported_material["required_key_origins"],
+            ["EXTERNAL"],
+        )
+        self.assertEqual(
+            imported_material["key_origin_compatibility_state"],
+            "compatible",
+        )
+        self.assertTrue(imported_material["conditional_policy_evidence_present"])
+        self.assertFalse(imported_material["authorization_requires_condition_evaluation"])
+
+        # Administrative and recovery authority stays out of the existing
         # cryptographic-operation path family.
-        self.assertEqual(aws_facts(data_key).kms_operation_authorizations, [])
         self.assertEqual(aws_facts(task_definition).ecs_kms_operation_paths, [])
         self.assertEqual(workload_facts.ecs_kms_operation_paths, [])
 
@@ -737,6 +799,17 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
         aws_inventory = AwsNormalizer().normalize(
             [
                 aws_role,
+                _aws_admin_key(
+                    "data",
+                    key_id=_AWS_KEY_IDS["data"],
+                    key_arn=_AWS_KEY_ARNS["data"],
+                    origin="AWS_KMS",
+                    policy_actions=[
+                        *_AWS_DISRUPTIVE_ACTIONS,
+                        *_AWS_DELEGATION_ACTIONS,
+                        *_AWS_QUIET_ADMIN_ACTIONS,
+                    ],
+                ),
                 _resource(
                     "aws",
                     "aws_iam_role_policy_attachment",
@@ -749,7 +822,9 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
             ]
         )
         normalized_aws_role = aws_inventory.get_by_address("aws_iam_role.orders_task")
+        incomplete_aws_key = aws_inventory.get_by_address("aws_kms_key.data")
         assert normalized_aws_role is not None
+        assert incomplete_aws_key is not None
         self.assertEqual(
             aws_facts(normalized_aws_role).iam_policy_completeness_state,
             "unknown",
@@ -757,6 +832,21 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
         self.assertEqual(
             aws_facts(normalized_aws_role).unresolved_attached_policy_arns,
             [_AWS_EXTERNAL_POLICY_ARN],
+        )
+        incomplete_authorizations = {
+            authorization["operation"]: authorization
+            for authorization in aws_facts(incomplete_aws_key).kms_operation_authorizations
+        }
+        self.assertEqual(
+            incomplete_authorizations["kms:ScheduleKeyDeletion"]["authorization_state"],
+            "denied",
+        )
+        self.assertTrue(
+            all(
+                authorization["authorization_state"] == "unknown"
+                for operation, authorization in incomplete_authorizations.items()
+                if operation != "kms:ScheduleKeyDeletion"
+            )
         )
 
         gcp_inventory = GcpNormalizer().normalize(

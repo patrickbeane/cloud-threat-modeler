@@ -14,6 +14,21 @@ AwsKmsCandidateAuthorizationBasis = Literal[
     "wildcard_key_policy",
 ]
 AwsKmsAuthorizationState = Literal["allowed", "denied", "unknown", "not_allowed"]
+AwsKmsOperationClass = Literal[
+    "cryptographic_use",
+    "authorization_administration",
+    "disruptive_administration",
+    "destructive_administration",
+    "recovery",
+    "lifecycle_administration",
+    "metadata_read",
+]
+AwsKmsKeyOriginCompatibilityState = Literal[
+    "compatible",
+    "incompatible",
+    "unknown",
+    "not_applicable",
+]
 AwsEcsKmsAuthorizationBasis = Literal["key_policy_direct", "iam_via_key_policy", "grant"]
 
 
@@ -104,6 +119,8 @@ class AwsKmsOperationAuthorization(TypedDict):
     principal_arn: str | None
     principal_kind: Literal["iam_role"]
     operation: str
+    operation_class: AwsKmsOperationClass
+    supported_authorization_bases: list[AwsKmsAuthorizationBasis]
     authorization_state: AwsKmsAuthorizationState
     authorization_bases: list[AwsKmsAuthorizationBasis]
     candidate_authorization_bases: list[AwsKmsCandidateAuthorizationBasis]
@@ -115,6 +132,9 @@ class AwsKmsOperationAuthorization(TypedDict):
     key_policy_uncertainties: list[str]
     identity_policy_uncertainties: list[str]
     same_account: bool
+    key_origin: str | None
+    required_key_origins: list[str]
+    key_origin_compatibility_state: AwsKmsKeyOriginCompatibilityState
     explicit_deny: bool
     conditional_policy_evidence_present: bool
     authorization_requires_condition_evaluation: bool

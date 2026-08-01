@@ -5,6 +5,7 @@ import unittest
 from typing import Any
 
 from tfstride.models import TerraformResource
+from tfstride.providers.aws.kms_evidence import AwsKmsOperationAuthorization
 from tfstride.providers.aws.normalizer import AwsNormalizer
 from tfstride.providers.aws.resource_facts import aws_facts
 
@@ -213,7 +214,9 @@ def _standalone_key_policy(policy: str) -> TerraformResource:
     )
 
 
-def _authorizations(*resources: TerraformResource) -> list[dict[str, Any]]:
+def _authorizations(
+    *resources: TerraformResource,
+) -> list[AwsKmsOperationAuthorization]:
     inventory = AwsNormalizer().normalize(list(resources))
     key = inventory.get_by_address("aws_kms_key.data")
     assert key is not None
@@ -223,7 +226,7 @@ def _authorizations(*resources: TerraformResource) -> list[dict[str, Any]]:
 def _authorization(
     resources: list[TerraformResource],
     operation: str,
-) -> dict[str, Any]:
+) -> AwsKmsOperationAuthorization:
     matches = [
         authorization for authorization in _authorizations(*resources) if authorization["operation"] == operation
     ]
@@ -647,6 +650,324 @@ class AwsKmsOperationAuthorizationTests(unittest.TestCase):
                 )
                 self.assertEqual(authorization["authorization_state"], "unknown")
                 self.assertFalse(authorization["identity_policy_complete"])
+
+    def test_on_demand_rotation_preserves_origin_compatibility(
+        self,
+    ) -> None:
+        cases = {
+            "aws_kms": (
+                "AWS_KMS",
+                None,
+                "compatible",
+            ),
+            "external": (
+                "EXTERNAL",
+                None,
+                "compatible",
+            ),
+            "cloudhsm": (
+                "AWS_CLOUDHSM",
+                None,
+                "incompatible",
+            ),
+            "external_key_store": (
+                "EXTERNAL_KEY_STORE",
+                None,
+                "incompatible",
+            ),
+            "unknown": (
+                "AWS_KMS",
+                {"origin": True},
+                "unknown",
+            ),
+        }
+
+        for label, (origin, unknown_values, expected_state) in cases.items():
+            with self.subTest(label=label):
+                key = _key(
+                    _policy(_direct_statement("kms:RotateKeyOnDemand")),
+                    unknown_values=unknown_values,
+                )
+                key.values["origin"] = origin
+
+                authorization = _authorization(
+                    [key, _role()],
+                    "kms:RotateKeyOnDemand",
+                )
+
+                self.assertEqual(
+                    authorization["authorization_state"],
+                    "allowed",
+                )
+                self.assertEqual(
+                    authorization["operation_class"],
+                    "lifecycle_administration",
+                )
+                self.assertEqual(
+                    authorization["required_key_origins"],
+                    ["AWS_KMS", "EXTERNAL"],
+                )
+                self.assertEqual(
+                    authorization["key_origin_compatibility_state"],
+                    expected_state,
+                )
+                self.assertEqual(
+                    authorization["key_origin"],
+                    None if unknown_values else origin,
+                )
+
+    def test_management_operations_preserve_catalog_and_policy_authorization_bases(
+        self,
+    ) -> None:
+        operations = [
+            "kms:CreateGrant",
+            "kms:PutKeyPolicy",
+            "kms:DisableKey",
+            "kms:ScheduleKeyDeletion",
+            "kms:CancelKeyDeletion",
+            "kms:EnableKey",
+            "kms:RotateKeyOnDemand",
+            "kms:GetKeyPolicy",
+        ]
+        key = _key(
+            _policy(
+                _delegation_statement(),
+                _direct_statement(operations),
+            )
+        )
+        key.values["origin"] = "AWS_KMS"
+        authorizations = {
+            authorization["operation"]: authorization
+            for authorization in _authorizations(
+                key,
+                _role(_statement("Allow", operations, _KEY_ARN)),
+            )
+        }
+
+        self.assertEqual(set(authorizations), set(operations))
+        expected_classes = {
+            "kms:CreateGrant": "authorization_administration",
+            "kms:PutKeyPolicy": "authorization_administration",
+            "kms:DisableKey": "disruptive_administration",
+            "kms:ScheduleKeyDeletion": "destructive_administration",
+            "kms:CancelKeyDeletion": "recovery",
+            "kms:EnableKey": "recovery",
+            "kms:RotateKeyOnDemand": "lifecycle_administration",
+            "kms:GetKeyPolicy": "metadata_read",
+        }
+        expected_origin_requirements = {
+            "kms:RotateKeyOnDemand": (
+                ["AWS_KMS", "EXTERNAL"],
+                "compatible",
+            ),
+        }
+
+        for operation, operation_class in expected_classes.items():
+            with self.subTest(operation=operation):
+                authorization = authorizations[operation]
+
+                self.assertEqual(
+                    authorization["authorization_state"],
+                    "allowed",
+                )
+                self.assertEqual(
+                    authorization["operation_class"],
+                    operation_class,
+                )
+                self.assertEqual(
+                    authorization["authorization_bases"],
+                    [
+                        "direct_key_policy",
+                        "iam_via_account_principal",
+                    ],
+                )
+                self.assertEqual(
+                    authorization["key_origin"],
+                    "AWS_KMS",
+                )
+
+                required_origins, compatibility_state = expected_origin_requirements.get(
+                    operation,
+                    ([], "not_applicable"),
+                )
+                self.assertEqual(
+                    authorization["required_key_origins"],
+                    required_origins,
+                )
+                self.assertEqual(
+                    authorization["key_origin_compatibility_state"],
+                    compatibility_state,
+                )
+
+        self.assertEqual(
+            authorizations["kms:CreateGrant"]["supported_authorization_bases"],
+            [
+                "direct_key_policy",
+                "iam_via_account_principal",
+                "kms_grant",
+            ],
+        )
+        self.assertEqual(
+            authorizations["kms:PutKeyPolicy"]["supported_authorization_bases"],
+            [
+                "direct_key_policy",
+                "iam_via_account_principal",
+            ],
+        )
+
+    def test_create_grant_can_be_authorized_by_constrained_kms_grant(
+        self,
+    ) -> None:
+        authorization = _authorization(
+            [
+                _key(_policy(_admin_key_statement())),
+                _role(),
+                _grant(
+                    operations=["CreateGrant"],
+                    constraints=[
+                        {
+                            "encryption_context_equals": {
+                                "service": "orders",
+                            }
+                        }
+                    ],
+                ),
+            ],
+            "kms:CreateGrant",
+        )
+
+        self.assertEqual(authorization["authorization_state"], "allowed")
+        self.assertEqual(authorization["operation_class"], "authorization_administration")
+        self.assertEqual(authorization["authorization_bases"], ["kms_grant"])
+        self.assertEqual(
+            authorization["supported_authorization_bases"],
+            [
+                "direct_key_policy",
+                "iam_via_account_principal",
+                "kms_grant",
+            ],
+        )
+        self.assertEqual(authorization["constraint_state"], "encryption_context")
+        self.assertEqual(
+            authorization["kms_grants"][0]["constraints"],
+            {"encryption_context_equals": {"service": "orders"}},
+        )
+
+    def test_management_denies_conditions_and_incomplete_evidence_fail_closed(
+        self,
+    ) -> None:
+        denied = _authorization(
+            [
+                _key(
+                    _policy(
+                        _delegation_statement(),
+                        _direct_statement("kms:ScheduleKeyDeletion"),
+                    )
+                ),
+                _role(
+                    _statement(
+                        "Allow",
+                        "kms:ScheduleKeyDeletion",
+                        _KEY_ARN,
+                    ),
+                    _statement(
+                        "Deny",
+                        "kms:ScheduleKeyDeletion",
+                        _KEY_ARN,
+                    ),
+                ),
+            ],
+            "kms:ScheduleKeyDeletion",
+        )
+        self.assertEqual(denied["authorization_state"], "denied")
+        self.assertTrue(denied["explicit_deny"])
+
+        conditional = _authorization(
+            [
+                _key(_policy(_delegation_statement("kms:PutKeyPolicy"))),
+                _role(
+                    _statement(
+                        "Allow",
+                        "kms:PutKeyPolicy",
+                        _KEY_ARN,
+                        condition={
+                            "StringEquals": {
+                                "aws:PrincipalTag/environment": "production",
+                            }
+                        },
+                    )
+                ),
+            ],
+            "kms:PutKeyPolicy",
+        )
+        self.assertEqual(conditional["authorization_state"], "unknown")
+        self.assertTrue(conditional["conditional_policy_evidence_present"])
+        self.assertTrue(conditional["authorization_requires_condition_evaluation"])
+
+        incomplete = _authorization(
+            [
+                _key(
+                    _policy(
+                        _admin_key_statement(),
+                        _direct_statement("kms:DisableKey"),
+                    )
+                ),
+                _role(),
+                _unresolved_attachment(),
+            ],
+            "kms:DisableKey",
+        )
+        self.assertEqual(incomplete["authorization_state"], "unknown")
+        self.assertFalse(incomplete["identity_policy_complete"])
+        self.assertEqual(
+            incomplete["unresolved_attached_policy_arns"],
+            ["arn:aws:iam::aws:policy/ExternalKmsAccess"],
+        )
+
+    def test_imported_material_deletion_preserves_origin_compatibility(
+        self,
+    ) -> None:
+        cases = {
+            "compatible": ("EXTERNAL", None, "compatible"),
+            "incompatible": ("AWS_KMS", None, "incompatible"),
+            "unknown": (
+                "AWS_KMS",
+                {"origin": True},
+                "unknown",
+            ),
+        }
+        for label, (origin, unknown_values, expected_state) in cases.items():
+            with self.subTest(label=label):
+                key = _key(
+                    _policy(_direct_statement("kms:DeleteImportedKeyMaterial")),
+                    unknown_values=unknown_values,
+                )
+                key.values["origin"] = origin
+                authorization = _authorization(
+                    [key, _role()],
+                    "kms:DeleteImportedKeyMaterial",
+                )
+
+                self.assertEqual(
+                    authorization["authorization_state"],
+                    "allowed",
+                )
+                self.assertEqual(
+                    authorization["operation_class"],
+                    "destructive_administration",
+                )
+                self.assertEqual(
+                    authorization["required_key_origins"],
+                    ["EXTERNAL"],
+                )
+                self.assertEqual(
+                    authorization["key_origin_compatibility_state"],
+                    expected_state,
+                )
+                self.assertEqual(
+                    authorization["key_origin"],
+                    None if unknown_values else origin,
+                )
 
     def test_only_key_arn_resources_match_iam_cryptographic_operations(self) -> None:
         authorizations = _authorizations(

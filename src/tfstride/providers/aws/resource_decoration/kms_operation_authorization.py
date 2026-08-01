@@ -10,7 +10,9 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsAuthorizationBasis,
     AwsKmsCandidateAuthorizationBasis,
     AwsKmsGrantAuthorizationEvidence,
+    AwsKmsKeyOriginCompatibilityState,
     AwsKmsOperationAuthorization,
+    AwsKmsOperationClass,
     AwsKmsPolicyConditionEvidence,
     AwsKmsPolicyStatementEvidence,
 )
@@ -23,6 +25,24 @@ _KMS_KEY = "aws_kms_key"
 _IAM_ROLE = "aws_iam_role"
 _KMS_GRANT = "aws_kms_grant"
 _COMPLETE = "complete"
+
+
+@dataclass(frozen=True, slots=True)
+class _KmsOperationDefinition:
+    action: str
+    operation_class: AwsKmsOperationClass
+    supported_authorization_bases: tuple[AwsKmsAuthorizationBasis, ...]
+    required_key_origins: tuple[str, ...] = ()
+
+
+_POLICY_AUTHORIZATION_BASES: tuple[AwsKmsAuthorizationBasis, ...] = (
+    "direct_key_policy",
+    "iam_via_account_principal",
+)
+_POLICY_AND_GRANT_AUTHORIZATION_BASES: tuple[AwsKmsAuthorizationBasis, ...] = (
+    *_POLICY_AUTHORIZATION_BASES,
+    "kms_grant",
+)
 
 KMS_CRYPTOGRAPHIC_OPERATIONS = (
     "kms:Decrypt",
@@ -40,9 +60,69 @@ KMS_CRYPTOGRAPHIC_OPERATIONS = (
     "kms:GetPublicKey",
     "kms:DeriveSharedSecret",
 )
-_OPERATION_ORDER = {operation.casefold(): index for index, operation in enumerate(KMS_CRYPTOGRAPHIC_OPERATIONS)}
+_KMS_OPERATION_CATALOG = (
+    *(
+        _KmsOperationDefinition(
+            operation,
+            "cryptographic_use",
+            _POLICY_AND_GRANT_AUTHORIZATION_BASES,
+        )
+        for operation in KMS_CRYPTOGRAPHIC_OPERATIONS
+    ),
+    _KmsOperationDefinition(
+        "kms:CreateGrant",
+        "authorization_administration",
+        _POLICY_AND_GRANT_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:PutKeyPolicy",
+        "authorization_administration",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:DisableKey",
+        "disruptive_administration",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:ScheduleKeyDeletion",
+        "destructive_administration",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:DeleteImportedKeyMaterial",
+        "destructive_administration",
+        _POLICY_AUTHORIZATION_BASES,
+        ("EXTERNAL",),
+    ),
+    _KmsOperationDefinition(
+        "kms:CancelKeyDeletion",
+        "recovery",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:EnableKey",
+        "recovery",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+    _KmsOperationDefinition(
+        "kms:RotateKeyOnDemand",
+        "lifecycle_administration",
+        _POLICY_AUTHORIZATION_BASES,
+        ("AWS_KMS", "EXTERNAL"),
+    ),
+    _KmsOperationDefinition(
+        "kms:GetKeyPolicy",
+        "metadata_read",
+        _POLICY_AUTHORIZATION_BASES,
+    ),
+)
+_OPERATION_DEFINITIONS_BY_NAME = {definition.action: definition for definition in _KMS_OPERATION_CATALOG}
+_OPERATION_ORDER = {definition.action.casefold(): index for index, definition in enumerate(_KMS_OPERATION_CATALOG)}
 _GRANT_OPERATION_NAMES = {
-    operation.removeprefix("kms:").casefold(): operation for operation in KMS_CRYPTOGRAPHIC_OPERATIONS
+    definition.action.removeprefix("kms:").casefold(): definition.action
+    for definition in _KMS_OPERATION_CATALOG
+    if "kms_grant" in definition.supported_authorization_bases
 }
 
 
@@ -311,6 +391,8 @@ def _authorization_record(
 
     key_facts = aws_facts(key)
     role_facts = aws_facts(role)
+    operation_definition = _OPERATION_DEFINITIONS_BY_NAME[operation]
+    key_origin = key_facts.kms_key_origin
     identity_policy_sources = [
         role.address,
         *role_facts.inline_policy_resource_addresses,
@@ -328,6 +410,8 @@ def _authorization_record(
         "principal_arn": role.arn,
         "principal_kind": "iam_role",
         "operation": operation,
+        "operation_class": operation_definition.operation_class,
+        "supported_authorization_bases": list(operation_definition.supported_authorization_bases),
         "authorization_state": state,
         "authorization_bases": list(allowed_bases),
         "candidate_authorization_bases": list(candidate_bases),
@@ -339,6 +423,12 @@ def _authorization_record(
         "key_policy_uncertainties": list(key_facts.kms_policy_posture_uncertainties),
         "identity_policy_uncertainties": list(role_facts.iam_policy_posture_uncertainties),
         "same_account": same_account,
+        "key_origin": key_origin,
+        "required_key_origins": list(operation_definition.required_key_origins),
+        "key_origin_compatibility_state": _key_origin_compatibility_state(
+            operation_definition,
+            key_origin,
+        ),
         "explicit_deny": unconditional_identity_deny or unconditional_key_deny,
         "conditional_policy_evidence_present": conditional_evidence_present,
         "authorization_requires_condition_evaluation": authorization_requires_condition_evaluation,
@@ -368,11 +458,14 @@ def _identity_policy_matches(
         )
         if not matching_resources:
             continue
-        for operation, patterns in _matching_operations(statement.actions):
+        for definition, patterns in _matching_operations(
+            statement.actions,
+            required_basis="iam_via_account_principal",
+        ):
             matches.append(
                 _StatementMatch(
                     statement,
-                    operation,
+                    definition.action,
                     "identity_policy",
                     patterns,
                     matching_resources,
@@ -414,7 +507,8 @@ def _key_policy_matches(
         if not (direct_principal or account_principal or wildcard_principal):
             continue
 
-        for operation, patterns in _matching_operations(statement.actions):
+        for definition, patterns in _matching_operations(statement.actions):
+            operation = definition.action
             if effect == "deny" and (direct_principal or account_principal or wildcard_principal):
                 denies.append(
                     _StatementMatch(
@@ -427,7 +521,7 @@ def _key_policy_matches(
                     )
                 )
                 continue
-            if direct_principal:
+            if direct_principal and "direct_key_policy" in definition.supported_authorization_bases:
                 direct.append(
                     _StatementMatch(
                         statement,
@@ -438,7 +532,7 @@ def _key_policy_matches(
                         "role",
                     )
                 )
-            if account_principal:
+            if account_principal and "iam_via_account_principal" in definition.supported_authorization_bases:
                 delegation.append(
                     _StatementMatch(
                         statement,
@@ -449,7 +543,7 @@ def _key_policy_matches(
                         "account",
                     )
                 )
-            if wildcard_principal:
+            if wildcard_principal and "direct_key_policy" in definition.supported_authorization_bases:
                 wildcard_allows.append(
                     _StatementMatch(
                         statement,
@@ -556,14 +650,18 @@ def _grant_constraint_state(
 
 def _matching_operations(
     action_patterns: list[str],
-) -> list[tuple[str, tuple[str, ...]]]:
-    matches: list[tuple[str, tuple[str, ...]]] = []
-    for operation in KMS_CRYPTOGRAPHIC_OPERATIONS:
+    *,
+    required_basis: AwsKmsAuthorizationBasis | None = None,
+) -> list[tuple[_KmsOperationDefinition, tuple[str, ...]]]:
+    matches: list[tuple[_KmsOperationDefinition, tuple[str, ...]]] = []
+    for definition in _KMS_OPERATION_CATALOG:
+        if required_basis is not None and required_basis not in definition.supported_authorization_bases:
+            continue
         patterns = tuple(
-            pattern for pattern in action_patterns if fnmatchcase(operation.casefold(), pattern.casefold())
+            pattern for pattern in action_patterns if fnmatchcase(definition.action.casefold(), pattern.casefold())
         )
         if patterns:
-            matches.append((operation, patterns))
+            matches.append((definition, patterns))
     return matches
 
 
@@ -709,6 +807,18 @@ def _for_operation(
     operation: str,
 ) -> list[_OperationMatch]:
     return [match for match in matches if match.operation == operation]
+
+
+def _key_origin_compatibility_state(
+    definition: _KmsOperationDefinition,
+    key_origin: str | None,
+) -> AwsKmsKeyOriginCompatibilityState:
+    if not definition.required_key_origins:
+        return "not_applicable"
+    if key_origin is None:
+        return "unknown"
+    normalized_origin = key_origin.strip().upper()
+    return "compatible" if normalized_origin in definition.required_key_origins else "incompatible"
 
 
 def _operation_sort_key(operation: str) -> tuple[int, str]:
