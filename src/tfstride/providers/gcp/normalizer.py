@@ -22,8 +22,6 @@ from tfstride.providers.gcp.container_normalizers import (
 from tfstride.providers.gcp.data_normalizers import (
     normalize_bigquery_dataset,
     normalize_bigquery_table,
-    normalize_kms_crypto_key,
-    normalize_kms_crypto_key_version,
     normalize_pubsub_subscription,
     normalize_pubsub_topic,
     normalize_secret_manager_secret,
@@ -79,6 +77,7 @@ from tfstride.providers.gcp.iam_normalizers import (
     normalize_workload_identity_pool_provider,
 )
 from tfstride.providers.gcp.identity_normalizers import normalize_kms_key_ring, normalize_project
+from tfstride.providers.gcp.kms_normalizers import normalize_kms_crypto_key, normalize_kms_crypto_key_version
 from tfstride.providers.gcp.network_normalizers import (
     GCP_PROVIDER,
     normalize_compute_backend_bucket,
