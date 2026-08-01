@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 from tfstride.models import (
     TerraformExpressionPath,
@@ -12,6 +12,29 @@ from tfstride.models import (
     TerraformReferenceTarget,
     TerraformResource,
 )
+
+_ObjectMapping = Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class _ResourceConfiguration:
+    address: str
+    resource_type: str
+    name: str
+    mode: str
+    expressions: _ObjectMapping
+
+
+@dataclass(frozen=True, slots=True)
+class _ModuleCallConfiguration:
+    module: _ModuleConfiguration
+    expressions: _ObjectMapping
+
+
+@dataclass(frozen=True, slots=True)
+class _ModuleConfiguration:
+    resources: tuple[_ResourceConfiguration, ...]
+    module_calls: Mapping[str, _ModuleCallConfiguration]
 
 
 @dataclass(slots=True)
@@ -24,16 +47,15 @@ class _PlannedModule:
 @dataclass(slots=True)
 class _ResourceBinding:
     configuration_address: str
-    configuration: Mapping[str, Any]
+    configuration: _ResourceConfiguration
     instances: tuple[TerraformResource, ...]
 
 
 @dataclass(slots=True)
 class _ModuleContext:
-    configuration: Mapping[str, Any]
     planned: _PlannedModule
     parent: _ModuleContext | None
-    input_expressions: Mapping[str, Any]
+    input_expressions: _ObjectMapping
     bindings: dict[str, _ResourceBinding]
 
 
@@ -41,19 +63,21 @@ _MISSING = object()
 
 
 def attach_configuration_reference_resolutions(
-    configuration: Any,
-    planned_root_module: Mapping[str, Any],
+    configuration: object,
+    planned_root_module: object,
     resources: Sequence[TerraformResource],
 ) -> None:
     """Attach conservative configuration-reference resolutions to planned resources."""
-    if not isinstance(configuration, Mapping):
+    configuration_object = _object_mapping(configuration)
+    planned_root_object = _object_mapping(planned_root_module)
+    if configuration_object is None or planned_root_object is None:
         return
-    root_configuration = configuration.get("root_module")
-    if not isinstance(root_configuration, Mapping):
+    root_configuration = _module_configuration(configuration_object.get("root_module"))
+    if root_configuration is None:
         return
 
     resources_by_address = {resource.address: resource for resource in resources}
-    planned_root = _build_planned_module(planned_root_module, resources_by_address)
+    planned_root = _build_planned_module(planned_root_object, resources_by_address)
     _process_module(
         root_configuration,
         planned_root,
@@ -63,7 +87,7 @@ def attach_configuration_reference_resolutions(
 
 
 def _build_planned_module(
-    raw_module: Mapping[str, Any],
+    raw_module: _ObjectMapping,
     resources_by_address: Mapping[str, TerraformResource],
 ) -> _PlannedModule:
     address = raw_module.get("address")
@@ -74,9 +98,10 @@ def _build_planned_module(
     raw_resources = raw_module.get("resources", [])
     if isinstance(raw_resources, list):
         for raw_resource in raw_resources:
-            if not isinstance(raw_resource, Mapping):
+            resource_object = _object_mapping(raw_resource)
+            if resource_object is None:
                 continue
-            resource_address = raw_resource.get("address")
+            resource_address = resource_object.get("address")
             if not isinstance(resource_address, str):
                 continue
             resource = resources_by_address.get(resource_address)
@@ -87,8 +112,9 @@ def _build_planned_module(
     raw_children = raw_module.get("child_modules", [])
     if isinstance(raw_children, list):
         for raw_child in raw_children:
-            if isinstance(raw_child, Mapping):
-                child_modules.append(_build_planned_module(raw_child, resources_by_address))
+            child_object = _object_mapping(raw_child)
+            if child_object is not None:
+                child_modules.append(_build_planned_module(child_object, resources_by_address))
 
     return _PlannedModule(
         address=address,
@@ -98,14 +124,13 @@ def _build_planned_module(
 
 
 def _process_module(
-    configuration: Mapping[str, Any],
+    configuration: _ModuleConfiguration,
     planned: _PlannedModule,
     *,
     parent: _ModuleContext | None,
-    input_expressions: Mapping[str, Any],
+    input_expressions: _ObjectMapping,
 ) -> None:
     context = _ModuleContext(
-        configuration=configuration,
         planned=planned,
         parent=parent,
         input_expressions=input_expressions,
@@ -116,58 +141,36 @@ def _process_module(
         for resource in binding.instances:
             _attach_resource_resolutions(resource, binding, context)
 
-    raw_module_calls = configuration.get("module_calls", {})
-    if not isinstance(raw_module_calls, Mapping):
-        return
-    for call_name, raw_call in raw_module_calls.items():
-        if not isinstance(call_name, str) or not isinstance(raw_call, Mapping):
-            continue
-        child_configuration = raw_call.get("module")
-        if not isinstance(child_configuration, Mapping):
-            continue
+    for call_name, raw_call in configuration.module_calls.items():
         child_modules = _planned_children_for_call(planned, call_name)
         if not child_modules:
             continue
 
-        child_inputs = raw_call.get("expressions", {})
-        if not isinstance(child_inputs, Mapping):
-            child_inputs = {}
         for child_module in child_modules:
             _process_module(
-                child_configuration,
+                raw_call.module,
                 child_module,
                 parent=context,
-                input_expressions=child_inputs,
+                input_expressions=raw_call.expressions,
             )
 
 
 def _resource_bindings(
-    configuration: Mapping[str, Any],
+    configuration: _ModuleConfiguration,
     planned: _PlannedModule,
 ) -> dict[str, _ResourceBinding]:
     bindings: dict[str, _ResourceBinding] = {}
-    raw_resources = configuration.get("resources", [])
-    if not isinstance(raw_resources, list):
-        return bindings
-
-    for raw_resource in raw_resources:
-        if not isinstance(raw_resource, Mapping):
-            continue
-        address = raw_resource.get("address")
-        resource_type = raw_resource.get("type")
-        name = raw_resource.get("name")
-        mode = raw_resource.get("mode", "managed")
-        if not all(isinstance(value, str) and value for value in (address, resource_type, name, mode)):
-            continue
-
+    for resource_configuration in configuration.resources:
         instances = tuple(
             resource
             for resource in planned.resources
-            if resource.resource_type == resource_type and resource.name == name and resource.mode == mode
+            if resource.resource_type == resource_configuration.resource_type
+            and resource.name == resource_configuration.name
+            and resource.mode == resource_configuration.mode
         )
-        bindings[address] = _ResourceBinding(
-            configuration_address=address,
-            configuration=raw_resource,
+        bindings[resource_configuration.address] = _ResourceBinding(
+            configuration_address=resource_configuration.address,
+            configuration=resource_configuration,
             instances=instances,
         )
     return bindings
@@ -192,9 +195,7 @@ def _attach_resource_resolutions(
     binding: _ResourceBinding,
     context: _ModuleContext,
 ) -> None:
-    expressions = binding.configuration.get("expressions", {})
-    if not isinstance(expressions, Mapping):
-        return
+    expressions = binding.configuration.expressions
 
     # Source expansion alone does not determine relationship confidence;
     # target cardinality and unresolved expression evidence do.
@@ -236,39 +237,37 @@ def _attach_resource_resolutions(
 
 
 def _reference_expressions(
-    expressions: Mapping[str, Any],
-) -> tuple[tuple[TerraformExpressionPath, Mapping[str, Any]], ...]:
-    found: list[tuple[TerraformExpressionPath, Mapping[str, Any]]] = []
+    expressions: _ObjectMapping,
+) -> tuple[tuple[TerraformExpressionPath, _ObjectMapping], ...]:
+    found: list[tuple[TerraformExpressionPath, _ObjectMapping]] = []
 
-    def visit(value: Any, path: TerraformExpressionPath) -> None:
-        if isinstance(value, Mapping):
-            if "references" in value:
-                found.append((path, value))
+    def visit(value: object, path: TerraformExpressionPath) -> None:
+        mapping = _object_mapping(value)
+        if mapping is not None:
+            if "references" in mapping:
+                found.append((path, mapping))
                 return
-            for key, child in value.items():
-                if isinstance(key, str):
-                    visit(child, (*path, key))
+            for key, child in mapping.items():
+                visit(child, (*path, key))
             return
-        if isinstance(value, list):
-            for index, child in enumerate(value):
+        sequence = _object_sequence(value)
+        if sequence is not None:
+            for index, child in enumerate(sequence):
                 visit(child, (*path, index))
 
     for key, expression in expressions.items():
-        if isinstance(key, str):
-            visit(expression, (key,))
+        visit(expression, (key,))
     return tuple(found)
 
 
 def _resolve_configuration_expression(
-    expression: Mapping[str, Any],
+    expression: _ObjectMapping,
     context: _ModuleContext,
     *,
     seen: frozenset[tuple[int, str]],
 ) -> TerraformReferenceResolution:
-    raw_references = expression.get("references")
-    if not isinstance(raw_references, list) or any(
-        not isinstance(reference, str) or not reference for reference in raw_references
-    ):
+    raw_references = _non_empty_strings(expression.get("references"))
+    if raw_references is None:
         return _configuration_result(
             TerraformReferenceResolutionState.UNSUPPORTED,
             reason="configuration references have an unsupported value shape",
@@ -380,8 +379,8 @@ def _resolve_module_input(
             references=(reference,),
             reason="module input pass-through contains a cycle",
         )
-    expression = context.input_expressions.get(input_name)
-    if not isinstance(expression, Mapping) or "references" not in expression:
+    expression = _object_mapping(context.input_expressions.get(input_name))
+    if expression is None or "references" not in expression:
         return _configuration_result(
             TerraformReferenceResolutionState.UNRESOLVED,
             references=(reference,),
@@ -447,64 +446,132 @@ def _configuration_result(
     )
 
 
-def _value_at_path(value: Any, path: TerraformExpressionPath) -> Any:
+def _value_at_path(value: object, path: TerraformExpressionPath) -> object:
     current = value
     for segment in path:
-        if isinstance(segment, str) and isinstance(current, Mapping):
-            if segment not in current:
+        mapping = _object_mapping(current)
+        if isinstance(segment, str) and mapping is not None:
+            if segment not in mapping:
                 return _MISSING
-            current = current[segment]
+            current = mapping[segment]
             continue
-        if (
-            isinstance(segment, int)
-            and isinstance(current, Sequence)
-            and not isinstance(
-                current,
-                str | bytes | bytearray,
-            )
-        ):
-            if segment < 0 or segment >= len(current):
+        sequence = _object_sequence(current)
+        if isinstance(segment, int) and sequence is not None:
+            if segment < 0 or segment >= len(sequence):
                 return _MISSING
-            current = current[segment]
+            current = sequence[segment]
             continue
         return _MISSING
     return current
 
 
-def _path_is_unknown(value: Any, path: TerraformExpressionPath) -> bool:
+def _path_is_unknown(value: object, path: TerraformExpressionPath) -> bool:
     current = value
     for segment in path:
         if current is True:
             return True
-        if isinstance(segment, str) and isinstance(current, Mapping):
-            if segment not in current:
+        mapping = _object_mapping(current)
+        if isinstance(segment, str) and mapping is not None:
+            if segment not in mapping:
                 return False
-            current = current[segment]
+            current = mapping[segment]
             continue
-        if (
-            isinstance(segment, int)
-            and isinstance(current, Sequence)
-            and not isinstance(
-                current,
-                str | bytes | bytearray,
-            )
-        ):
-            if segment < 0 or segment >= len(current):
+        sequence = _object_sequence(current)
+        if isinstance(segment, int) and sequence is not None:
+            if segment < 0 or segment >= len(sequence):
                 return False
-            current = current[segment]
+            current = sequence[segment]
             continue
         return False
     return _contains_unknown(current)
 
 
-def _contains_unknown(value: Any) -> bool:
+def _contains_unknown(value: object) -> bool:
     if value is True:
         return True
-    if isinstance(value, Mapping):
-        return any(_contains_unknown(item) for item in value.values())
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        return any(_contains_unknown(item) for item in value)
+    mapping = _object_mapping(value)
+    if mapping is not None:
+        return any(_contains_unknown(item) for item in mapping.values())
+    sequence = _object_sequence(value)
+    if sequence is not None:
+        return any(_contains_unknown(item) for item in sequence)
     return False
+
+
+def _module_configuration(value: object) -> _ModuleConfiguration | None:
+    raw_module = _object_mapping(value)
+    if raw_module is None:
+        return None
+
+    resources: list[_ResourceConfiguration] = []
+    raw_resources = _object_sequence(raw_module.get("resources", []))
+    if raw_resources is not None:
+        for raw_resource in raw_resources:
+            resource = _resource_configuration(raw_resource)
+            if resource is not None:
+                resources.append(resource)
+
+    module_calls: dict[str, _ModuleCallConfiguration] = {}
+    raw_module_calls = _object_mapping(raw_module.get("module_calls", {}))
+    if raw_module_calls is not None:
+        for call_name, raw_call in raw_module_calls.items():
+            call_object = _object_mapping(raw_call)
+            if call_object is None:
+                continue
+            child_module = _module_configuration(call_object.get("module"))
+            if child_module is None:
+                continue
+            module_calls[call_name] = _ModuleCallConfiguration(
+                module=child_module,
+                expressions=_object_mapping(call_object.get("expressions", {})) or {},
+            )
+
+    return _ModuleConfiguration(
+        resources=tuple(resources),
+        module_calls=module_calls,
+    )
+
+
+def _resource_configuration(value: object) -> _ResourceConfiguration | None:
+    raw_resource = _object_mapping(value)
+    if raw_resource is None:
+        return None
+    address = raw_resource.get("address")
+    resource_type = raw_resource.get("type")
+    name = raw_resource.get("name")
+    mode = raw_resource.get("mode", "managed")
+    if not all(isinstance(item, str) and item for item in (address, resource_type, name, mode)):
+        return None
+    assert isinstance(address, str)
+    assert isinstance(resource_type, str)
+    assert isinstance(name, str)
+    assert isinstance(mode, str)
+    return _ResourceConfiguration(
+        address=address,
+        resource_type=resource_type,
+        name=name,
+        mode=mode,
+        expressions=_object_mapping(raw_resource.get("expressions", {})) or {},
+    )
+
+
+def _object_mapping(value: object) -> _ObjectMapping | None:
+    if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
+        return None
+    return cast(_ObjectMapping, value)
+
+
+def _object_sequence(value: object) -> Sequence[object] | None:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        return None
+    return cast(Sequence[object], value)
+
+
+def _non_empty_strings(value: object) -> tuple[str, ...] | None:
+    sequence = _object_sequence(value)
+    if sequence is None or any(not isinstance(item, str) or not item for item in sequence):
+        return None
+    return tuple(cast(str, item) for item in sequence)
 
 
 def _path_sort_key(path: TerraformExpressionPath) -> tuple[str, ...]:

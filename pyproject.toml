@@ -46,6 +46,9 @@ include = [
   "src/tfstride/analysis/boundaries/types.py",
   "src/tfstride/analysis/rule_definitions.py",
 
+  # Terraform plan configuration-reference resolution.
+  "src/tfstride/input/configuration_references.py",
+
   # Provider entry points.
   "src/tfstride/providers/aws/plugin.py",
   "src/tfstride/providers/gcp/plugin.py",
