@@ -9,6 +9,9 @@ from tfstride.providers.azure.resource_decoration.app_service_cosmosdb_access_pa
 from tfstride.providers.azure.resource_decoration.app_service_key_vault_access_paths import (
     ModelAppServiceKeyVaultAccessPathsStage,
 )
+from tfstride.providers.azure.resource_decoration.app_service_key_vault_management_paths import (
+    ModelAppServiceKeyVaultManagementPathsStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_key_vault_operation_paths import (
     ModelAppServiceKeyVaultOperationPathsStage,
 )
@@ -78,6 +81,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         DecorateManagedIdentityRoleAssignmentsStage(),
         NormalizeKeyVaultKeyAuthorizationPostureStage(),
         ModelAppServiceKeyVaultOperationPathsStage(),
+        ModelAppServiceKeyVaultManagementPathsStage(),
         ModelAppServiceCosmosDbAccessPathsStage(),
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),

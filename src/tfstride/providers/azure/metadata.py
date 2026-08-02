@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tfstride.providers.azure.key_vault_evidence import (
+    AzureAppServiceKeyVaultManagementPath,
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
 )
@@ -359,6 +360,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_key_vault_operation_path_uncertainties"
     )
+    APP_SERVICE_KEY_VAULT_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_key_vault_management_path_uncertainties"
+    )
     APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_access_path_uncertainties"
     )
@@ -374,6 +378,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_ACCESS_PATHS = DictListMetadataField("app_service_key_vault_access_paths")
     APP_SERVICE_KEY_VAULT_OPERATION_PATHS = RecordListMetadataField[AzureAppServiceKeyVaultOperationPath](
         "app_service_key_vault_operation_paths"
+    )
+    APP_SERVICE_KEY_VAULT_MANAGEMENT_PATHS = RecordListMetadataField[AzureAppServiceKeyVaultManagementPath](
+        "app_service_key_vault_management_paths"
     )
     APP_SERVICE_STORAGE_ACCESS_PATHS = DictListMetadataField("app_service_storage_access_paths")
     APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = DictListMetadataField("app_service_service_bus_access_paths")

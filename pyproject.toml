@@ -104,6 +104,8 @@ include = [
   "src/tfstride/providers/azure/resource_decoration/key_vault.py",
   "src/tfstride/providers/azure/resource_decoration/key_vault_key_authorization.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_key_vault_operation_paths.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_key_vault_management_paths.py",
+  "src/tfstride/providers/azure/resource_decoration_stages.py",
   "src/tfstride/providers/azure/key_vault_rules.py",
   "src/tfstride/providers/azure/app_service_key_vault_operation_rules.py",
 ]

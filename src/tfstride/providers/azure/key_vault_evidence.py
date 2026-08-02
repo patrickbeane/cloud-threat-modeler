@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
+from tfstride.providers.azure.arm_control_plane_evidence import AzureArmControlPlaneGrant
+
 AzureKeyVaultOperation = Literal["decrypt", "unwrap", "sign"]
 AzureKeyVaultOperationClass = Literal["plaintext_recovery", "authenticator_generation"]
 AzureKeyVaultGrantKind = Literal["access_policy", "rbac"]
@@ -12,6 +14,37 @@ AzureKeyVaultAuthorizationState = Literal["granted", "conditional", "ambiguous",
 AzureKeyVaultGrantScopeType = Literal["management_group", "subscription", "resource_group", "vault", "key"]
 AzureKeyVaultPathScopeType = Literal["subscription", "resource_group", "vault", "key"]
 AzureKeyVaultRuntimeIdentityKind = Literal["system_assigned", "user_assigned"]
+AzureKeyVaultManagementOperation = Literal[
+    "update",
+    "delete",
+    "delete_plus_purge",
+    "rbac_role_assignment_management",
+    "legacy_access_policy_mutation",
+    "authorization_model_mutation",
+]
+AzureKeyVaultManagementOperationClass = Literal[
+    "configuration_administration",
+    "destructive_administration",
+    "authorization_administration",
+]
+AzureKeyVaultManagementEffect = Literal["disruption", "delegation"]
+AzureKeyVaultManagementTargetType = Literal["key", "vault"]
+AzureKeyVaultManagementAuthorizationBasis = Literal[
+    "key_vault_data_plane_grant",
+    "azure_control_plane_role_assignment",
+]
+AzureKeyVaultDelegationMechanism = Literal[
+    "not_applicable",
+    "azure_rbac_role_assignment",
+    "legacy_access_policy",
+    "authorization_model_transition",
+]
+AzureKeyVaultLifecycleCompatibilityState = Literal[
+    "compatible",
+    "incompatible",
+    "unknown",
+    "not_applicable",
+]
 
 
 class _AzureKeyVaultAuthorizationGrantRequired(TypedDict):
@@ -107,3 +140,48 @@ class AzureAppServiceKeyVaultOperationPath(TypedDict):
     condition_applicability_state: str
     evaluation_basis: Literal["modeled_key_vault_key_authorization"]
     authorization_grant_record: AzureKeyVaultAuthorizationGrant
+
+
+class AzureAppServiceKeyVaultManagementPath(TypedDict):
+    workload_address: str
+    workload_type: str
+    identity_address: str
+    identity_kind: AzureKeyVaultRuntimeIdentityKind
+    principal_id: str
+    credential_context: Literal["workload_runtime"]
+    key_vault_address: str
+    key_vault_id: str
+    key_address: str | None
+    key_resource_type: str | None
+    key_name: str | None
+    key_uri: str | None
+    key_versionless_uri: str | None
+    key_resource_id: str | None
+    key_versionless_resource_id: str | None
+    key_version: str | None
+    operation: AzureKeyVaultManagementOperation
+    step_operations: list[str]
+    operation_class: AzureKeyVaultManagementOperationClass
+    management_effect: AzureKeyVaultManagementEffect
+    target_type: AzureKeyVaultManagementTargetType
+    target_address: str
+    target_resource_id: str
+    authorization_basis: AzureKeyVaultManagementAuthorizationBasis
+    authorization_model: AzureKeyVaultAuthorizationModel
+    authorization_model_state: AzureKeyVaultAuthorizationModelState
+    authorization_state: Literal["granted"]
+    delegation_mechanism: AzureKeyVaultDelegationMechanism
+    grant_source_addresses: list[str]
+    scope_types: list[AzureKeyVaultPathScopeType]
+    scopes: list[str]
+    scope_arm_ids: list[str]
+    data_plane_grants: list[AzureKeyVaultAuthorizationGrant]
+    control_plane_grants: list[AzureArmControlPlaneGrant]
+    purge_protection_enabled: bool | None
+    recovery_uncertainties: list[str]
+    lifecycle_compatibility_state: AzureKeyVaultLifecycleCompatibilityState
+    authorization_model_transition: Literal["azure_rbac_to_access_policy"] | None
+    evaluation_basis: Literal[
+        "modeled_key_vault_key_authorization",
+        "modeled_arm_control_plane_authority",
+    ]

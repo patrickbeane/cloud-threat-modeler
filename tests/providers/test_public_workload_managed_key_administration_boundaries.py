@@ -797,6 +797,40 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
             workload_facts.app_service_key_vault_operation_paths,
             [],
         )
+        management_paths = workload_facts.app_service_key_vault_management_paths
+        self.assertEqual(
+            [
+                (
+                    path["operation"],
+                    path["target_address"],
+                    path["management_effect"],
+                )
+                for path in management_paths
+            ],
+            [
+                (
+                    "rbac_role_assignment_management",
+                    normalized_vault.address,
+                    "delegation",
+                ),
+                ("delete", normalized_key.address, "disruption"),
+                ("delete_plus_purge", normalized_key.address, "disruption"),
+                ("update", normalized_key.address, "disruption"),
+            ],
+        )
+        delegation_path = management_paths[0]
+        self.assertEqual(
+            delegation_path["evaluation_basis"],
+            "modeled_arm_control_plane_authority",
+        )
+        self.assertEqual(delegation_path["data_plane_grants"], [])
+        self.assertEqual(
+            delegation_path["control_plane_grants"][0]["matched_actions"],
+            ["Microsoft.Authorization/roleAssignments/write"],
+        )
+        delete_sequence = next(path for path in management_paths if path["operation"] == "delete_plus_purge")
+        self.assertEqual(delete_sequence["step_operations"], ["delete", "purge"])
+        self.assertFalse(delete_sequence["purge_protection_enabled"])
 
     def test_azure_legacy_policy_preserves_admin_and_recovery_operations(
         self,
@@ -862,9 +896,26 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
             ],
         )
         self.assertTrue(azure_facts(normalized_vault).purge_protection_enabled)
+        workload_facts = azure_facts(workload)
         self.assertEqual(
-            azure_facts(workload).app_service_key_vault_operation_paths,
+            workload_facts.app_service_key_vault_operation_paths,
             [],
+        )
+        self.assertEqual(
+            [path["operation"] for path in workload_facts.app_service_key_vault_management_paths],
+            ["delete", "update"],
+        )
+        self.assertTrue(
+            all(
+                path["authorization_model"] == "access_policy"
+                for path in workload_facts.app_service_key_vault_management_paths
+            )
+        )
+        self.assertTrue(
+            all(
+                path["purge_protection_enabled"] is True
+                for path in workload_facts.app_service_key_vault_management_paths
+            )
         )
 
     def test_incomplete_admin_authorization_remains_non_authoritative(
@@ -995,9 +1046,17 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
         self.assertEqual(azure_grant.get("role_resolution_state"), "unknown")
         self.assertEqual(azure_grant["matched_operations"], [])
         self.assertEqual(azure_grant["authorization_state"], "unknown")
+        azure_workload_facts = azure_facts(azure_workload)
         self.assertEqual(
-            azure_facts(azure_workload).app_service_key_vault_operation_paths,
+            azure_workload_facts.app_service_key_vault_operation_paths,
             [],
+        )
+        self.assertEqual(
+            azure_workload_facts.app_service_key_vault_management_paths,
+            [],
+        )
+        self.assertTrue(
+            azure_workload_facts.app_service_key_vault_management_path_uncertainties,
         )
 
 
