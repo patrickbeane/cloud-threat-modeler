@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, TypedDict
@@ -9,6 +10,7 @@ from tfstride.providers.coercion import dedupe
 from tfstride.providers.gcp.kms_evidence import (
     GcpKmsGrantBasis,
     GcpKmsIamGrant,
+    GcpKmsKeyRingIamGrant,
     GcpKmsScopeType,
 )
 from tfstride.providers.gcp.resource_decoration.iam import iam_bindings
@@ -140,6 +142,7 @@ class _ManagementSource(TypedDict):
 
 
 _ApplicableScopeType = GcpKmsScopeType | Literal["unrelated"]
+_KEY_RING_PATH_PATTERN = re.compile(r"^projects/[^/]+/locations/[^/]+/keyRings/[^/]+$")
 
 
 _GRANT_BASIS_BY_SCOPE: dict[GcpKmsScopeType, GcpKmsGrantBasis] = {
@@ -150,7 +153,7 @@ _GRANT_BASIS_BY_SCOPE: dict[GcpKmsScopeType, GcpKmsGrantBasis] = {
 
 
 class NormalizeKmsIamPostureStage:
-    """Project exact project, key-ring, and key IAM grants onto Cloud KMS keys."""
+    """Project exact Cloud KMS IAM grants onto key rings and keys."""
 
     name = "normalize_kms_iam_posture"
 
@@ -170,6 +173,20 @@ class NormalizeKmsIamPostureStage:
             )
         )
         custom_roles = _custom_roles_by_reference(resources)
+        for key_ring in resources:
+            if key_ring.resource_type != GcpResourceType.KMS_KEY_RING:
+                continue
+            grants, uncertainties = _kms_key_ring_iam_posture(
+                key_ring,
+                iam_resources,
+                custom_roles,
+                context,
+            )
+            gcp_mutations(key_ring).set_kms_key_ring_iam_posture(
+                grants=grants,
+                uncertainties=uncertainties,
+            )
+
         for key in resources:
             if key.resource_type != GcpResourceType.KMS_CRYPTO_KEY:
                 continue
@@ -183,6 +200,153 @@ class NormalizeKmsIamPostureStage:
                 grants=grants,
                 uncertainties=uncertainties,
             )
+
+
+def _kms_key_ring_iam_posture(
+    key_ring_resource: NormalizedResource,
+    iam_resources: tuple[NormalizedResource, ...],
+    custom_roles: Mapping[str, _CustomRole],
+    context: GcpDecorationContext,
+) -> tuple[list[GcpKmsKeyRingIamGrant], list[str]]:
+    key_ring = _key_ring_resource_path(key_ring_resource)
+    project = _project_from_path(key_ring)
+    if key_ring is None or project is None:
+        return [], [f"{key_ring_resource.address}: exact Cloud KMS key-ring ancestry is unresolved"]
+
+    grants: list[GcpKmsKeyRingIamGrant] = []
+    management_sources: list[_ManagementSource] = []
+    uncertainties: list[str] = []
+    for iam_resource in iam_resources:
+        scope_type, scope = _applicable_key_ring_scope(
+            iam_resource,
+            key_ring_resource,
+            key_ring,
+            project,
+            context,
+        )
+        if scope_type == "unrelated":
+            continue
+        if scope_type is None or scope is None:
+            uncertainties.append(f"{iam_resource.address}: IAM scope is unresolved for {key_ring}")
+            continue
+
+        iam_facts = gcp_facts(iam_resource)
+        source_bindings = iam_bindings(iam_resource)
+        management_mode = _management_mode(iam_resource)
+        management_sources.append(
+            {
+                "source": iam_resource.address,
+                "scope_type": scope_type,
+                "scope": scope,
+                "management_mode": management_mode,
+                "roles": sorted(
+                    {role for binding in source_bindings if (role := _known_string(binding.get("role"))) is not None}
+                ),
+            }
+        )
+        policy_state = iam_facts.iam_policy_data_state
+        if iam_resource.resource_type.endswith("_iam_policy") and policy_state != "configured":
+            uncertainties.append(
+                f"{iam_resource.address}: IAM policy_data is {policy_state or 'unresolved'} for {key_ring}"
+            )
+            continue
+
+        for binding in source_bindings:
+            if binding.get("role_state") == "unknown":
+                uncertainties.append(f"{iam_resource.address}: IAM role is unresolved for {key_ring}")
+                continue
+            if binding.get("members_state") == "unknown":
+                uncertainties.append(f"{iam_resource.address}: IAM members are unresolved for {key_ring}")
+                continue
+
+            role = _known_string(binding.get("role"))
+            members = binding_members(binding)
+            if role is None or not members:
+                uncertainties.append(f"{iam_resource.address}: IAM role or members are unresolved for {key_ring}")
+                continue
+
+            role_resolution = _resolve_role(role, custom_roles)
+            if not _role_may_affect_kms(role_resolution):
+                continue
+            if role_resolution.state not in {
+                "resolved",
+                "modeled_subset",
+            }:
+                uncertainties.append(
+                    f"{iam_resource.address}: permissions for IAM role "
+                    f"{role} are {role_resolution.state} for {key_ring}"
+                )
+
+            scope_effective_permissions = _scope_effective_permissions(
+                role_resolution.modeled_kms_permissions,
+                scope_type,
+            )
+            condition_state = _condition_state(binding)
+            if condition_state == "unknown":
+                uncertainties.append(
+                    f"{iam_resource.address}: IAM condition applicability to {key_ring} is unknown after planning"
+                )
+
+            permissions_are_deterministic = role_resolution.state in {"resolved", "modeled_subset"} and bool(
+                scope_effective_permissions
+            )
+            authorization_state = (
+                "unknown"
+                if (not permissions_are_deterministic or condition_state == "unknown")
+                else "conditional"
+                if condition_state == "configured"
+                else "granted"
+            )
+            grant: GcpKmsKeyRingIamGrant = {
+                "role": role,
+                "role_kind": role_resolution.role_kind,
+                "role_resolution_state": role_resolution.state,
+                "modeled_kms_permissions": list(role_resolution.modeled_kms_permissions),
+                "scope_effective_permissions": list(scope_effective_permissions),
+                "members": members,
+                "source": iam_resource.address,
+                "source_type": iam_resource.resource_type,
+                "scope_type": scope_type,
+                "scope": scope,
+                "source_scope_reference": (
+                    iam_facts.project if scope_type == "project" else iam_facts.target_reference
+                ),
+                "project": project,
+                "key_ring": key_ring,
+                "condition_state": condition_state,
+                "authorization_state": authorization_state,
+                "management_mode": management_mode,
+                "management_state": "unambiguous",
+                "grant_basis": _GRANT_BASIS_BY_SCOPE[scope_type],
+            }
+            if role_resolution.custom_role_permissions:
+                grant["custom_role_permissions"] = list(role_resolution.custom_role_permissions)
+            if role_resolution.role_definition_address:
+                grant["role_definition_address"] = role_resolution.role_definition_address
+            condition = binding.get("condition")
+            if isinstance(condition, Mapping) and condition:
+                grant["condition"] = dict(condition)
+            if policy_state:
+                grant["policy_data_state"] = policy_state
+            grants.append(grant)
+
+    grants = _dedupe_key_ring_grants(grants)
+    _apply_key_ring_management_ambiguity(
+        grants,
+        management_sources,
+        uncertainties,
+        key_ring,
+    )
+    grants.sort(
+        key=lambda grant: (
+            str(grant["scope_type"]),
+            str(grant["scope"]),
+            str(grant["source"]),
+            str(grant["role"]),
+            tuple(str(member) for member in grant["members"]),
+        )
+    )
+    return grants, dedupe(uncertainties)
 
 
 def _kms_iam_posture(
@@ -381,6 +545,60 @@ def _applicable_scope(
     )
 
 
+def _applicable_key_ring_scope(
+    iam_resource: NormalizedResource,
+    key_ring_resource: NormalizedResource,
+    key_ring: str,
+    project: str,
+    context: GcpDecorationContext,
+) -> tuple[_ApplicableScopeType | None, str | None]:
+    facts = gcp_facts(iam_resource)
+    if iam_resource.resource_type in GCP_PROJECT_IAM_RESOURCE_TYPES:
+        if facts.iam_scope_reference_state in {
+            "unknown",
+            "not_configured",
+        }:
+            return None, None
+        iam_project = _normalize_project(facts.project)
+        if iam_project is None:
+            return None, None
+        return ("project", project) if iam_project == project else ("unrelated", None)
+
+    if iam_resource.resource_type not in GCP_KMS_KEY_RING_IAM_RESOURCE_TYPES:
+        return "unrelated", None
+    if facts.iam_scope_reference_state in {
+        "unknown",
+        "not_configured",
+    }:
+        return None, None
+    target_reference = facts.target_reference
+    if target_reference is None:
+        return None, None
+    target_key = gcp_reference_key(
+        target_reference,
+        GCP_NETWORK_REFERENCE_SUFFIXES,
+    )
+    resolved = context.index.resources_by_reference.get(target_key)
+    if resolved is not None:
+        return (
+            ("key_ring", key_ring)
+            if resolved.address == key_ring_resource.address and resolved.resource_type == GcpResourceType.KMS_KEY_RING
+            else ("unrelated", None)
+        )
+
+    references = {
+        gcp_reference_key(reference, GCP_NETWORK_REFERENCE_SUFFIXES)
+        for reference in (
+            key_ring,
+            gcp_facts(key_ring_resource).kms_key_ring,
+            key_ring_resource.identifier,
+            key_ring_resource.address,
+        )
+        if reference
+    }
+    return ("key_ring", key_ring) if target_key in references else ("unrelated", None)
+
+
 def _resolve_role(
     role: str,
     custom_roles: Mapping[str, _CustomRole],
@@ -520,6 +738,79 @@ def _mark_ambiguous(
             grant["authorization_state"] = "ambiguous"
 
 
+def _apply_key_ring_management_ambiguity(
+    grants: list[GcpKmsKeyRingIamGrant],
+    management_sources: list[_ManagementSource],
+    uncertainties: list[str],
+    key_ring: str,
+) -> None:
+    scopes: set[tuple[GcpKmsScopeType, str]] = {
+        (source["scope_type"], source["scope"]) for source in management_sources
+    }
+    for scope_type, scope in sorted(scopes):
+        sources = [
+            source for source in management_sources if source["scope_type"] == scope_type and source["scope"] == scope
+        ]
+        policy_sources = {source["source"] for source in sources if source["management_mode"] == "authoritative_policy"}
+        other_sources = {source["source"] for source in sources if source["management_mode"] != "authoritative_policy"}
+        if len(policy_sources) > 1 or (policy_sources and other_sources):
+            _mark_key_ring_ambiguous(
+                grants,
+                scope_type=scope_type,
+                scope=scope,
+            )
+            uncertainties.append(
+                f"effective IAM at {scope_type} scope {scope} for "
+                f"{key_ring} is ambiguous because authoritative policy and "
+                "other Terraform IAM managers overlap"
+            )
+            continue
+
+        roles = sorted({role for source in sources for role in source["roles"]})
+        for role in roles:
+            binding_sources = {
+                source["source"]
+                for source in sources
+                if source["management_mode"] == "authoritative_role_binding" and role in source["roles"]
+            }
+            member_sources = {
+                source["source"]
+                for source in sources
+                if source["management_mode"] == "additive_member" and role in source["roles"]
+            }
+            if len(binding_sources) <= 1 and not (binding_sources and member_sources):
+                continue
+            _mark_key_ring_ambiguous(
+                grants,
+                scope_type=scope_type,
+                scope=scope,
+                role=role,
+            )
+            uncertainties.append(
+                f"effective IAM membership for role {role} at "
+                f"{scope_type} scope {scope} for {key_ring} is ambiguous "
+                "because authoritative role bindings overlap with another "
+                "Terraform IAM manager"
+            )
+
+
+def _mark_key_ring_ambiguous(
+    grants: list[GcpKmsKeyRingIamGrant],
+    *,
+    scope_type: GcpKmsScopeType,
+    scope: str,
+    role: str | None = None,
+) -> None:
+    for grant in grants:
+        if grant["scope_type"] != scope_type or grant["scope"] != scope:
+            continue
+        if role is not None and grant["role"] != role:
+            continue
+        grant["management_state"] = "ambiguous"
+        if grant["authorization_state"] != "unknown":
+            grant["authorization_state"] = "ambiguous"
+
+
 def _custom_roles_by_reference(
     resources: list[NormalizedResource],
 ) -> Mapping[str, _CustomRole]:
@@ -564,6 +855,17 @@ def _condition_state(binding: Mapping[str, Any]) -> str:
         return "unknown"
     condition = binding.get("condition")
     return "configured" if isinstance(condition, Mapping) and condition else "not_configured"
+
+
+def _key_ring_resource_path(
+    key_ring_resource: NormalizedResource,
+) -> str | None:
+    facts = gcp_facts(key_ring_resource)
+    for value in (facts.kms_key_ring, key_ring_resource.identifier):
+        text = _known_string(value)
+        if text and _KEY_RING_PATH_PATTERN.fullmatch(text.rstrip("/")) is not None:
+            return text.rstrip("/")
+    return None
 
 
 def _key_path(key: NormalizedResource) -> str | None:
@@ -616,6 +918,16 @@ def _known_string(value: object) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def _dedupe_key_ring_grants(
+    grants: list[GcpKmsKeyRingIamGrant],
+) -> list[GcpKmsKeyRingIamGrant]:
+    deduped: list[GcpKmsKeyRingIamGrant] = []
+    for grant in grants:
+        if grant not in deduped:
+            deduped.append(grant)
+    return deduped
 
 
 def _dedupe_grants(grants: list[GcpKmsIamGrant]) -> list[GcpKmsIamGrant]:

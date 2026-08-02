@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from tfstride.providers.gcp.kms_evidence import GcpCloudRunKmsOperationPath, GcpKmsIamGrant
+from tfstride.providers.gcp.kms_evidence import (
+    GcpCloudRunKmsManagementPath,
+    GcpCloudRunKmsOperationPath,
+    GcpKmsIamGrant,
+    GcpKmsKeyRingIamGrant,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -83,6 +88,7 @@ class GcpResourceMetadata:
         "cloud_run_firestore_access_path_uncertainties"
     )
     CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_operation_path_uncertainties")
+    CLOUD_RUN_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_management_path_uncertainties")
     ARTIFACT_REGISTRY_REPOSITORY_PATH = OptionalStringMetadataField("artifact_registry_repository_path")
     ARTIFACT_REGISTRY_WRITE_PATHS = DictListMetadataField("artifact_registry_write_paths")
     CLOUD_FUNCTION_REFERENCE = OptionalStringMetadataField("cloud_function_reference")
@@ -348,6 +354,7 @@ class GcpResourceMetadata:
     SECRET_MANAGER_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_posture_uncertainties")
     KMS_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_posture_uncertainties")
     KMS_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_iam_posture_uncertainties")
+    KMS_KEY_RING_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_key_ring_iam_posture_uncertainties")
     KMS_CRYPTO_KEY_VERSION_POSTURE_UNCERTAINTIES = StringListMetadataField(
         "kms_crypto_key_version_posture_uncertainties"
     )
@@ -403,6 +410,7 @@ class GcpResourceMetadata:
     FIREWALL_POLICY_MATCH = DictMetadataField("firewall_policy_match")
     IAM_BINDINGS = DictListMetadataField("iam_bindings")
     KMS_IAM_GRANTS = RecordListMetadataField[GcpKmsIamGrant]("kms_iam_grants")
+    KMS_KEY_RING_IAM_GRANTS = RecordListMetadataField[GcpKmsKeyRingIamGrant]("kms_key_ring_iam_grants")
     FIRESTORE_IAM_GRANTS = DictListMetadataField("firestore_iam_grants")
     PRIVILEGED_ACCESS_GRANTS = DictListMetadataField("privileged_access_grants")
     WORKLOAD_IDENTITY_FEDERATION_TRUST_PATHS = DictListMetadataField("workload_identity_federation_trust_paths")
@@ -463,6 +471,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
     CLOUD_RUN_KMS_OPERATION_PATHS = RecordListMetadataField[GcpCloudRunKmsOperationPath](
         "cloud_run_kms_operation_paths"
+    )
+    CLOUD_RUN_KMS_MANAGEMENT_PATHS = RecordListMetadataField[GcpCloudRunKmsManagementPath](
+        "cloud_run_kms_management_paths"
     )
     NAT_SUBNETWORKS = DictListMetadataField("nat_subnetworks")
     LABELS = DictMetadataField("labels")

@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from tfstride.models import NormalizedResource
-from tfstride.providers.gcp.kms_evidence import GcpKmsIamGrant
+from tfstride.providers.gcp.kms_evidence import (
+    GcpKmsIamGrant,
+    GcpKmsKeyRingIamGrant,
+)
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts import gcp_facts
 
@@ -145,6 +148,22 @@ class GcpResourceMutations:
         )
         facts.set(
             GcpResourceMetadata.FIRESTORE_IAM_POSTURE_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
+    def set_kms_key_ring_iam_posture(
+        self,
+        *,
+        grants: Sequence[GcpKmsKeyRingIamGrant],
+        uncertainties: Sequence[str],
+    ) -> None:
+        facts = gcp_facts(self.resource)
+        facts.set(
+            GcpResourceMetadata.KMS_KEY_RING_IAM_GRANTS,
+            [grant.copy() for grant in grants],
+        )
+        facts.set(
+            GcpResourceMetadata.KMS_KEY_RING_IAM_POSTURE_UNCERTAINTIES,
             list(uncertainties),
         )
 

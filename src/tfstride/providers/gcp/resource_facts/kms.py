@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from tfstride.providers.gcp.kms_evidence import GcpKmsIamGrant
+from tfstride.providers.gcp.kms_evidence import (
+    GcpKmsIamGrant,
+    GcpKmsKeyRingIamGrant,
+)
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
 
@@ -39,6 +42,14 @@ class GcpKmsFacts(GcpBaseFacts):
     @property
     def kms_iam_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.KMS_IAM_POSTURE_UNCERTAINTIES)
+
+    @property
+    def kms_key_ring_iam_grants(self) -> list[GcpKmsKeyRingIamGrant]:
+        return self.get(GcpResourceMetadata.KMS_KEY_RING_IAM_GRANTS)
+
+    @property
+    def kms_key_ring_iam_posture_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.KMS_KEY_RING_IAM_POSTURE_UNCERTAINTIES)
 
     @property
     def kms_crypto_key_version_reference(self) -> str | None:

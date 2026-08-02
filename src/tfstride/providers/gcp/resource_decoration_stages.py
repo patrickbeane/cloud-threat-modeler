@@ -13,6 +13,7 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_access_paths impor
     ModelCloudRunGcsAccessPathsStage,
 )
 from tfstride.providers.gcp.resource_decoration.cloud_run_kms_operation_paths import (
+    ModelCloudRunKmsManagementPathsStage,
     ModelCloudRunKmsOperationPathsStage,
 )
 from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_access_paths import (
@@ -54,6 +55,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         NormalizeKmsIamPostureStage(),
         NormalizeKmsCryptoKeyVersionPostureStage(),
         ModelCloudRunKmsOperationPathsStage(),
+        ModelCloudRunKmsManagementPathsStage(),
         NormalizeFirestoreIamPostureStage(),
         ModelCloudRunFirestoreAccessPathsStage(),
         ModelCloudRunGcsAccessPathsStage(),

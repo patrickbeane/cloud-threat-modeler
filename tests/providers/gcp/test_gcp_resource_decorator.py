@@ -266,6 +266,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "normalize_kms_iam_posture",
                 "normalize_kms_crypto_key_version_posture",
                 "model_cloud_run_kms_operation_paths",
+                "model_cloud_run_kms_management_paths",
                 "normalize_firestore_iam_posture",
                 "model_cloud_run_firestore_access_paths",
                 "model_cloud_run_gcs_access_paths",

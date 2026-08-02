@@ -580,6 +580,52 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
             version_facts.kms_crypto_key_version_deletion_policy_state,
             "abandon",
         )
+
+        management_paths = workload_facts.cloud_run_kms_management_paths
+        by_source: dict[str, list[dict[str, Any]]] = {}
+        for path in management_paths:
+            by_source.setdefault(path["iam_resource_address"], []).append(path)
+        project_paths = by_source["google_project_iam_member.runtime_project_admin"]
+        self.assertEqual(
+            {path["operation"] for path in project_paths},
+            {
+                "cloudkms.cryptoKeys.setIamPolicy",
+                "cloudkms.keyRings.setIamPolicy",
+            },
+        )
+        key_paths = by_source["google_kms_crypto_key_iam_member.runtime_key_admin"]
+        self.assertEqual(
+            {path["operation"] for path in key_paths},
+            {
+                "cloudkms.cryptoKeys.setIamPolicy",
+            },
+        )
+        self.assertNotIn(
+            "google_kms_key_ring_iam_member.runtime_ring_admin",
+            by_source,
+        )
+        self.assertTrue(
+            any(
+                "authorization_state=conditional" in uncertainty
+                for uncertainty in (workload_facts.cloud_run_kms_management_path_uncertainties)
+            )
+        )
+
+        version_paths = [path for path in management_paths if path["target_type"] == "crypto_key_version"]
+        self.assertEqual(version_paths, [])
+
+        ring_policy_path = next(
+            path for path in management_paths if path["operation"] == "cloudkms.keyRings.setIamPolicy"
+        )
+        self.assertEqual(ring_policy_path["target_type"], "key_ring")
+        self.assertEqual(ring_policy_path["target_resource_name"], _GCP_KEY_RING)
+        self.assertEqual(ring_policy_path["scope_type"], "project")
+        self.assertIsNone(ring_policy_path["target_address"])
+        self.assertEqual(
+            ring_policy_path["target_model_evidence_addresses"],
+            [normalized_key.address],
+        )
+        self.assertFalse(any(path["target_type"] == "project" for path in management_paths))
         self.assertEqual(workload_facts.cloud_run_kms_operation_paths, [])
 
     def test_azure_public_app_preserves_admin_scopes_exclusions_and_recovery(
@@ -916,6 +962,11 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
         self.assertEqual(gcp_grant["authorization_state"], "unknown")
         self.assertEqual(gcp_facts(gcp_workload).cloud_run_kms_operation_paths, [])
         self.assertTrue(gcp_facts(gcp_workload).cloud_run_kms_operation_path_uncertainties)
+        self.assertEqual(
+            gcp_facts(gcp_workload).cloud_run_kms_management_paths,
+            [],
+        )
+        self.assertTrue(gcp_facts(gcp_workload).cloud_run_kms_management_path_uncertainties)
 
         azure_inventory = AzureNormalizer().normalize(
             [

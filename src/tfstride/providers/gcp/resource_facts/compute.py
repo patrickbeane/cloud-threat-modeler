@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from tfstride.providers.gcp.kms_evidence import GcpCloudRunKmsOperationPath
+from tfstride.providers.gcp.kms_evidence import (
+    GcpCloudRunKmsManagementPath,
+    GcpCloudRunKmsOperationPath,
+)
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
 
@@ -95,6 +98,14 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_kms_management_paths(self) -> list[GcpCloudRunKmsManagementPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_KMS_MANAGEMENT_PATHS)
+
+    @property
+    def cloud_run_kms_management_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_KMS_MANAGEMENT_PATH_UNCERTAINTIES)
+
+    @property
     def artifact_registry_write_paths(self) -> list[dict[str, Any]]:
         return self.get(GcpResourceMetadata.ARTIFACT_REGISTRY_WRITE_PATHS)
 
@@ -131,6 +142,12 @@ class GcpComputeFacts(GcpBaseFacts):
 
     def extend_cloud_run_kms_operation_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_kms_management_paths(self, values: list[GcpCloudRunKmsManagementPath]) -> None:
+        self.set(GcpResourceMetadata.CLOUD_RUN_KMS_MANAGEMENT_PATHS, values)
+
+    def extend_cloud_run_kms_management_path_uncertainties(self, values: list[str]) -> None:
+        self.extend(GcpResourceMetadata.CLOUD_RUN_KMS_MANAGEMENT_PATH_UNCERTAINTIES, values)
 
     def set_artifact_registry_write_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(GcpResourceMetadata.ARTIFACT_REGISTRY_WRITE_PATHS, values)
