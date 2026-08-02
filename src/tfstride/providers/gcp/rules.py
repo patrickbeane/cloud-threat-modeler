@@ -87,6 +87,8 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-firestore-read-access",
         "gcp-public-cloud-run-kms-decrypt-access",
         "gcp-public-cloud-run-kms-signing-access",
+        "gcp-public-cloud-run-kms-key-disruption",
+        "gcp-public-cloud-run-kms-authorization-delegation",
         "gcp-public-cloud-run-gcs-mutation-access",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
@@ -250,6 +252,10 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-kms-decrypt-access": (cloud_run_kms_detectors.detect_public_cloud_run_kms_decrypt_access),
         "gcp-public-cloud-run-kms-signing-access": (cloud_run_kms_detectors.detect_public_cloud_run_kms_signing_access),
+        "gcp-public-cloud-run-kms-key-disruption": (cloud_run_kms_detectors.detect_public_cloud_run_kms_key_disruption),
+        "gcp-public-cloud-run-kms-authorization-delegation": (
+            cloud_run_kms_detectors.detect_public_cloud_run_kms_authorization_delegation
+        ),
         "gcp-public-cloud-run-gcs-mutation-access": (
             cloud_run_gcs_detectors.detect_public_cloud_run_gcs_mutation_access
         ),

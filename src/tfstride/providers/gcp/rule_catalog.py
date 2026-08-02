@@ -812,6 +812,42 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-kms-key-disruption",
+        title="Public Cloud Run identity has Cloud KMS key disruption authority",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Cloud KMS version update and destroy permissions and project, key-ring, or CryptoKey "
+            "scope required. Keep key lifecycle administration on separate identities where possible."
+        ),
+        tags=("gcp", "cloud-run", "cloud-kms", "iam", "public-access", "cryptography", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="gcp-public-cloud-run-kms-authorization-delegation",
+        title="Public Cloud Run identity has Cloud KMS authorization delegation authority",
+        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Cloud KMS CryptoKey or key-ring IAM policy permissions and scope required. Keep IAM "
+            "policy administration on separate identities where possible."
+        ),
+        tags=("gcp", "cloud-run", "cloud-kms", "iam", "public-access", "cryptography", "elevation-of-privilege"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-gcs-mutation-access",
         title="Public Cloud Run service can modify GCS object storage",
         category=StrideCategory.TAMPERING,

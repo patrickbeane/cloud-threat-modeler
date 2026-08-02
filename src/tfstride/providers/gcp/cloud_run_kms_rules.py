@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from typing import Literal, TypedDict
+from collections.abc import Mapping, Sequence
+from typing import Literal, TypedDict, cast
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -15,8 +15,12 @@ from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
 from tfstride.providers.gcp.kms_evidence import (
+    GcpCloudRunKmsManagementPath,
     GcpCloudRunKmsOperationPath,
     GcpKmsKeyVersionEvidence,
+    GcpKmsManagementEffect,
+    GcpKmsManagementOperationClass,
+    GcpKmsManagementPermission,
     GcpKmsOperationClass,
     GcpKmsOperationPermission,
     GcpKmsScopeType,
@@ -63,6 +67,19 @@ _KMS_KEY_PATH_PATTERN = re.compile(
 _PROJECT_IAM_TYPES = GCP_PROJECT_IAM_RESOURCE_TYPES
 _KEY_RING_IAM_TYPES = GCP_KMS_KEY_RING_IAM_RESOURCE_TYPES
 _CRYPTO_KEY_IAM_TYPES = GCP_KMS_CRYPTO_KEY_IAM_RESOURCE_TYPES
+_MANAGEMENT_OPERATION_DEFINITIONS: dict[
+    GcpKmsManagementPermission,
+    tuple[GcpKmsManagementOperationClass, GcpKmsManagementEffect],
+] = {
+    "cloudkms.cryptoKeyVersions.update": ("disruptive_administration", "disruption"),
+    "cloudkms.cryptoKeyVersions.destroy": ("destructive_administration", "disruption"),
+    "cloudkms.cryptoKeys.setIamPolicy": ("authorization_administration", "delegation"),
+    "cloudkms.keyRings.setIamPolicy": ("authorization_administration", "delegation"),
+}
+_MANAGEMENT_OPERATION_ORDER = tuple(_MANAGEMENT_OPERATION_DEFINITIONS)
+_KMS_KEY_RING_PATH_PATTERN = re.compile(
+    r"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/keyRings/(?P<key_ring>[^/]+)$"
+)
 
 
 class GcpCloudRunKmsOperationRuleDetectors:
@@ -92,6 +109,109 @@ class GcpCloudRunKmsOperationRuleDetectors:
             _SIGNING_OPERATIONS,
             disclosure=False,
         )
+
+    def detect_public_cloud_run_kms_key_disruption(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_public_management_access(context, rule_id, "disruption")
+
+    def detect_public_cloud_run_kms_authorization_delegation(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+    ) -> list[Finding]:
+        return self._detect_public_management_access(context, rule_id, "delegation")
+
+    def _detect_public_management_access(
+        self,
+        context: RuleEvaluationContext,
+        rule_id: str,
+        management_effect: GcpKmsManagementEffect,
+    ) -> list[Finding]:
+        if context.inventory.provider != "gcp":
+            return []
+
+        findings: list[Finding] = []
+        for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
+            public_invokers = _unconditional_public_invokers(workload)
+            invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
+            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+                continue
+
+            paths: list[GcpCloudRunKmsManagementPath] = [
+                path
+                for path in gcp_facts(workload).cloud_run_kms_management_paths
+                if path["management_effect"] == management_effect
+                and _is_deterministic_management_path(path, workload, context, management_effect)
+            ]
+            if not paths:
+                continue
+
+            target_addresses = _management_target_addresses(paths)
+            iam_resource_addresses = _management_iam_resource_addresses(paths)
+            public_source_addresses = sorted({binding["source"] for binding in public_invokers})
+            project_scope = any(path.get("scope_type") == "project" for path in paths)
+            key_ring_scope = any(path.get("scope_type") == "key_ring" for path in paths)
+            operations = _management_operations(paths)
+            target_count = _management_target_count(paths)
+            severity_reasoning = build_severity_reasoning(
+                internet_exposure=True,
+                privilege_breadth=2,
+                data_sensitivity=1,
+                lateral_movement=1,
+                blast_radius=2 if project_scope or key_ring_scope else 1,
+            )
+            boundary = context.boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", workload.address))
+            findings.append(
+                self._finding_factory.build(
+                    rule_id=rule_id,
+                    severity=severity_reasoning.severity,
+                    affected_resources=dedupe_addresses(
+                        [
+                            workload.address,
+                            *public_source_addresses,
+                            *target_addresses,
+                            *iam_resource_addresses,
+                        ]
+                    ),
+                    trust_boundary_id=boundary.identifier if boundary else None,
+                    rationale=_management_rationale(
+                        workload,
+                        operations,
+                        target_count,
+                        management_effect,
+                        project_scope=project_scope,
+                        key_ring_scope=key_ring_scope,
+                    ),
+                    evidence=collect_evidence(
+                        evidence_item("public_invoker_bindings", _public_invoker_evidence(public_invokers)),
+                        evidence_item("public_exposure_reasons", workload.public_exposure_reasons),
+                        evidence_item(
+                            "public_exposure_configuration",
+                            _public_exposure_configuration(workload),
+                        ),
+                        evidence_item("runtime_identity", _management_runtime_identity_evidence(paths)),
+                        evidence_item("kms_management_paths", _management_path_evidence(paths)),
+                        evidence_item(
+                            "scope_breadth",
+                            _management_scope_breadth_evidence(paths),
+                        ),
+                        evidence_item(
+                            "authorization_scope",
+                            _management_authorization_scope(
+                                operations,
+                                management_effect,
+                                project_scope=project_scope,
+                                key_ring_scope=key_ring_scope,
+                            ),
+                        ),
+                    ),
+                    severity_reasoning=severity_reasoning,
+                )
+            )
+        return findings
 
     def _detect_public_operation_access(
         self,
@@ -182,6 +302,256 @@ class GcpCloudRunKmsOperationRuleDetectors:
         return findings
 
 
+def _management_operations(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[GcpKmsManagementPermission]:
+    return [
+        operation
+        for operation in _MANAGEMENT_OPERATION_ORDER
+        if any(path.get("operation") == operation for path in paths)
+    ]
+
+
+def _management_target_count(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> int:
+    return len(
+        {
+            (path.get("target_type"), path.get("target_resource_name"))
+            for path in paths
+            if _known_string(path.get("target_resource_name")) is not None
+        }
+    )
+
+
+def _management_target_addresses(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[str]:
+    addresses: set[str] = set()
+    for path in paths:
+        addresses.update(_string_values(path.get("target_model_evidence_addresses")))
+        for key in ("target_address", "crypto_key_address"):
+            value = _known_string(path.get(key))
+            if value is not None:
+                addresses.add(value)
+    return sorted(addresses)
+
+
+def _management_iam_resource_addresses(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[str]:
+    return sorted({value for path in paths if (value := _known_string(path.get("iam_resource_address"))) is not None})
+
+
+def _management_scope_breadth_evidence(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[str]:
+    grants_by_scope: dict[GcpKmsScopeType, set[tuple[str, ...]]] = {
+        scope_type: set() for scope_type in ("project", "key_ring", "crypto_key")
+    }
+    target_paths = len(paths)
+    modeled_targets = {
+        (path.get("target_type"), path.get("target_resource_name"))
+        for path in paths
+        if _known_string(path.get("target_resource_name")) is not None
+    }
+    modeled_keys = {value for path in paths if (value := _known_string(path.get("crypto_key_address"))) is not None}
+    modeled_versions = {
+        value
+        for path in paths
+        if path.get("target_type") == "crypto_key_version"
+        and (value := _known_string(path.get("target_address"))) is not None
+    }
+    for path in paths:
+        scope_type = path.get("scope_type")
+        if scope_type not in grants_by_scope:
+            continue
+        grants_by_scope[scope_type].add(
+            (
+                path["iam_resource_address"],
+                path["iam_resource_type"],
+                path["role"],
+                path["scope"],
+                path["grant_basis"],
+                path.get("role_definition_address") or "",
+            )
+        )
+    blast_radius_basis = (
+        "project_applicable_grant"
+        if grants_by_scope["project"]
+        else "key_ring_applicable_grant"
+        if grants_by_scope["key_ring"]
+        else "exact_key_grant"
+    )
+    return [
+        (
+            f"project_grants={len(grants_by_scope['project'])}; "
+            f"key_ring_grants={len(grants_by_scope['key_ring'])}; "
+            f"exact_key_grants={len(grants_by_scope['crypto_key'])}; "
+            f"target_paths={target_paths}; "
+            f"modeled_targets={len(modeled_targets)}; "
+            f"modeled_keys={len(modeled_keys)}; "
+            f"modeled_versions={len(modeled_versions)}; "
+            f"blast_radius_basis={blast_radius_basis}"
+        )
+    ]
+
+
+def _management_runtime_identity_evidence(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"service_account={path['service_account_email']}",
+                    f"member={path['service_account_member']}",
+                    "identity_kind=cloud_run_service_account",
+                    "credential_context=workload_runtime",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _management_path_evidence(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+) -> list[str]:
+    return sorted(
+        {
+            "; ".join(
+                (
+                    f"operation={path['operation']}",
+                    f"operation_class={path['operation_class']}",
+                    f"management_effect={path['management_effect']}",
+                    f"target_type={path['target_type']}",
+                    f"target_address={path.get('target_address') or 'implicit'}",
+                    f"target_resource_name={path['target_resource_name']}",
+                    f"target_model_evidence={','.join(path['target_model_evidence_addresses'])}",
+                    f"crypto_key_address={path.get('crypto_key_address') or 'none'}",
+                    f"iam_resource={path['iam_resource_address']}",
+                    f"iam_resource_type={path['iam_resource_type']}",
+                    f"role={path['role']}",
+                    f"role_kind={path['role_kind']}",
+                    f"role_resolution_state={path['role_resolution_state']}",
+                    f"matched_permissions={','.join(path['matched_permissions'])}",
+                    f"scope_effective_permissions={','.join(path['scope_effective_permissions'])}",
+                    f"grant_members={','.join(path['grant_members'])}",
+                    f"grant_basis={path['grant_basis']}",
+                    f"scope_type={path['scope_type']}",
+                    f"scope={path['scope']}",
+                    f"management_mode={path['management_mode']}",
+                    f"management_state={path['management_state']}",
+                    f"condition_state={path['condition_state']}",
+                    f"authorization_state={path['authorization_state']}",
+                    f"lifecycle_compatibility={path['lifecycle_compatibility_state']}",
+                    f"iam_scope_is_key_version={str(path['iam_scope_is_key_version']).lower()}",
+                    f"key_version={_management_version_evidence(path.get('key_version')) or 'none'}",
+                )
+            )
+            for path in paths
+        }
+    )
+
+
+def _management_version_evidence(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    version = cast(Mapping[str, object], value)
+    return ";".join(
+        (
+            f"address={version.get('version_address') or 'unknown'}",
+            f"name={version.get('version_resource_name') or 'unknown'}",
+            f"state={version.get('state') or 'unknown'}",
+            f"algorithm={version.get('algorithm') or 'unknown'}",
+            f"protection_level={version.get('protection_level') or 'unknown'}",
+            f"import_posture={version.get('import_posture') or 'unknown'}",
+        )
+    )
+
+
+def _management_rationale(
+    workload: NormalizedResource,
+    operations: Sequence[GcpKmsManagementPermission],
+    target_count: int,
+    management_effect: GcpKmsManagementEffect,
+    *,
+    project_scope: bool,
+    key_ring_scope: bool,
+) -> str:
+    operation_text = _management_operation_text(operations)
+    if management_effect == "disruption":
+        capability = "deterministic Cloud KMS disruption authority"
+        consequence = "could disrupt key or key-version management"
+    else:
+        capability = "deterministic Cloud KMS authorization-delegation authority"
+        consequence = "could change Cloud KMS authorization or delegate further key authority"
+    if project_scope:
+        scope_text = "Project-applicable IAM grants have broader blast radius than key-ring or exact-key grants."
+    elif key_ring_scope:
+        scope_text = "Key-ring IAM grants have broader blast radius than exact-key grants."
+    else:
+        scope_text = "The modeled IAM grants are limited to exact CryptoKey scope."
+    return (
+        f"{workload.display_name} is publicly invokable and its Cloud Run runtime service account has "
+        f"{capability} ({operation_text}) on {target_count} exact modeled Cloud KMS management target(s). "
+        f"A compromise of the public workload {consequence}. {scope_text} This establishes Cloud KMS management "
+        "authority, not proof of successful operation completion, authority over out-of-plan keys or versions, or "
+        "runtime impact beyond the modeled IAM, lifecycle, and scope evidence."
+    )
+
+
+def _management_authorization_scope(
+    operations: Sequence[GcpKmsManagementPermission],
+    management_effect: GcpKmsManagementEffect,
+    *,
+    project_scope: bool,
+    key_ring_scope: bool,
+) -> list[str]:
+    effect_text = "key disruption" if management_effect == "disruption" else "authorization delegation"
+    values = [
+        (
+            f"establishes=deterministic {_management_operation_text(operations)} authority with "
+            f"{effect_text} effect for the Cloud Run runtime service account"
+        ),
+        "iam_scopes=project,key_ring,crypto_key; iam_scope_is_key_version=false",
+        "target_granularity=crypto_key_version,crypto_key,key_ring",
+        (
+            "does_not_establish=successful operation completion, authority over keys or versions outside the "
+            "modeled plan, or runtime impact beyond modeled IAM and lifecycle evidence"
+        ),
+    ]
+    if project_scope:
+        values.append("blast_radius=project-applicable grants are broader than key-ring or exact-key grants")
+    elif key_ring_scope:
+        values.append("blast_radius=key-ring grants are broader than exact-key grants")
+    return values
+
+
+def _management_operation_text(
+    operations: Sequence[GcpKmsManagementPermission],
+) -> str:
+    labels = {
+        "cloudkms.cryptoKeyVersions.update": "CryptoKeyVersion update",
+        "cloudkms.cryptoKeyVersions.destroy": "CryptoKeyVersion destroy",
+        "cloudkms.cryptoKeys.setIamPolicy": "CryptoKey IAM policy update",
+        "cloudkms.keyRings.setIamPolicy": "key-ring IAM policy update",
+    }
+    values = [labels[operation] for operation in operations]
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return f"{values[0]} and {values[1]}"
+    return ", ".join(values[:-1]) + f", and {values[-1]}"
+
+
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
+
+
 def _unconditional_public_invokers(
     resource: NormalizedResource,
 ) -> list[_PublicInvokerBinding]:
@@ -200,6 +570,170 @@ def _unconditional_public_invokers(
             if member in PUBLIC_GCP_IAM_MEMBERS:
                 invokers.append({"source": source, "role": role, "member": member})
     return invokers
+
+
+def _is_deterministic_management_path(
+    path: GcpCloudRunKmsManagementPath,
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+    management_effect: GcpKmsManagementEffect,
+) -> bool:
+    operation = _known_string(path.get("operation"))
+    if operation is None or operation not in _MANAGEMENT_OPERATION_DEFINITIONS:
+        return False
+    management_permission = cast(GcpKmsManagementPermission, operation)
+    operation_definition = _MANAGEMENT_OPERATION_DEFINITIONS[management_permission]
+    if (
+        path.get("workload_address") != workload.address
+        or path.get("workload_type") != workload.resource_type
+        or path.get("identity_kind") != "cloud_run_service_account"
+        or path.get("credential_context") != "workload_runtime"
+        or path.get("authorization_model") != "cloud_kms_iam"
+        or path.get("authorization_state") != "granted"
+        or path.get("management_state") != "unambiguous"
+        or path.get("condition_state") != "not_configured"
+        or path.get("iam_scope_is_key_version") is not False
+        or operation_definition is None
+        or operation_definition != (path.get("operation_class"), path.get("management_effect"))
+        or path.get("management_effect") != management_effect
+        or path.get("lifecycle_compatibility_state") not in {"compatible", "not_applicable"}
+    ):
+        return False
+
+    workload_member = gcp_facts(workload).service_account_member
+    service_account_member = _known_string(path.get("service_account_member"))
+    grant_members = _string_values(path.get("grant_members"))
+    if (
+        workload_member is None
+        or service_account_member is None
+        or service_account_member != workload_member
+        or service_account_member not in grant_members
+    ):
+        return False
+
+    iam_resource_address = _known_string(path.get("iam_resource_address"))
+    iam_resource_type = _known_string(path.get("iam_resource_type"))
+    if iam_resource_address is None or iam_resource_type is None:
+        return False
+    iam_resource = context.inventory.get_by_address(iam_resource_address)
+    if iam_resource is None or iam_resource.resource_type != iam_resource_type:
+        return False
+
+    key_project = _known_string(path.get("key_project"))
+    key_ring = _known_string(path.get("key_ring"))
+    scope_type = _known_string(path.get("scope_type"))
+    scope = _known_string(path.get("scope"))
+    if key_project is None or key_ring is None or scope_type is None or scope is None:
+        return False
+    if scope_type == "project":
+        if iam_resource_type not in _PROJECT_IAM_TYPES or scope != key_project:
+            return False
+    elif scope_type == "key_ring":
+        if iam_resource_type not in _KEY_RING_IAM_TYPES or scope != key_ring:
+            return False
+    elif scope_type == "crypto_key":
+        crypto_key_resource_name = _known_string(path.get("crypto_key_resource_name"))
+        if (
+            iam_resource_type not in _CRYPTO_KEY_IAM_TYPES
+            or crypto_key_resource_name is None
+            or scope != crypto_key_resource_name
+        ):
+            return False
+    else:
+        return False
+
+    if path.get("grant_basis") not in {"project_iam", "key_ring_iam", "crypto_key_iam"}:
+        return False
+    if not _is_exact_management_target(path, context, key_project, key_ring):
+        return False
+    return True
+
+
+def _is_exact_management_target(
+    path: GcpCloudRunKmsManagementPath,
+    context: RuleEvaluationContext,
+    key_project: str,
+    key_ring: str,
+) -> bool:
+    target_type = path.get("target_type")
+    target_resource_name = _known_string(path.get("target_resource_name"))
+    evidence_addresses = _string_values(path.get("target_model_evidence_addresses"))
+    if target_resource_name is None or not evidence_addresses:
+        return False
+
+    evidence_resources = [context.inventory.get_by_address(address) for address in evidence_addresses]
+    if any(resource is None for resource in evidence_resources):
+        return False
+
+    if target_type == "crypto_key":
+        target_address = _known_string(path.get("target_address"))
+        if target_address is None:
+            return False
+        target = context.inventory.get_by_address(target_address)
+        target_identity = _key_identity(target) if target is not None else None
+        return bool(
+            target is not None
+            and target.resource_type == GcpResourceType.KMS_CRYPTO_KEY
+            and target_identity == target_resource_name
+            and target_address in evidence_addresses
+            and target_identity is not None
+            and target_identity.startswith(f"projects/{key_project}/")
+            and _key_ring(target_identity) == key_ring
+        )
+
+    if target_type == "crypto_key_version":
+        target_address = _known_string(path.get("target_address"))
+        if target_address is None:
+            return False
+        target = context.inventory.get_by_address(target_address)
+        if target is None or target.resource_type != GcpResourceType.KMS_CRYPTO_KEY_VERSION:
+            return False
+        crypto_key_address = _known_string(path.get("crypto_key_address"))
+        crypto_key_resource_name = _known_string(path.get("crypto_key_resource_name"))
+        if crypto_key_address is None or crypto_key_resource_name is None:
+            return False
+        key = context.inventory.get_by_address(crypto_key_address)
+        if key is None or key.resource_type != GcpResourceType.KMS_CRYPTO_KEY:
+            return False
+        key_version = path.get("key_version")
+        version_facts = gcp_facts(target)
+        version_identity = _known_string(version_facts.kms_crypto_key_version_reference or target.identifier)
+        return bool(
+            target_address in evidence_addresses
+            and version_identity == target_resource_name
+            and isinstance(key_version, Mapping)
+            and key_version.get("version_identity_state") == "resolved"
+            and key_version.get("version_address") == target_address
+            and key_version.get("version_resource_name") == target_resource_name
+            and _key_identity(key) == crypto_key_resource_name
+            and crypto_key_resource_name.startswith(f"projects/{key_project}/")
+            and _key_ring(crypto_key_resource_name) == key_ring
+        )
+
+    if target_type == "key_ring":
+        if _KMS_KEY_RING_PATH_PATTERN.fullmatch(target_resource_name) is None:
+            return False
+        if not target_resource_name.startswith(f"projects/{key_project}/"):
+            return False
+        target_address = _known_string(path.get("target_address"))
+        if target_address is not None:
+            target = context.inventory.get_by_address(target_address)
+            target_identity = _key_ring_identity(target) if target is not None else None
+            return bool(
+                target is not None
+                and target.resource_type == GcpResourceType.KMS_KEY_RING
+                and target_identity == target_resource_name
+                and target_address in evidence_addresses
+            )
+        return any(
+            resource is not None
+            and resource.resource_type == GcpResourceType.KMS_CRYPTO_KEY
+            and (identity := _key_identity(resource)) is not None
+            and _key_ring(identity) == target_resource_name
+            for resource in evidence_resources
+        )
+
+    return False
 
 
 def _is_deterministic_operation_path(
@@ -310,6 +844,15 @@ def _key_identity(resource: NormalizedResource) -> str | None:
 
 def _key_ring(key_identity: str) -> str:
     return key_identity.rsplit("/cryptoKeys/", 1)[0]
+
+
+def _key_ring_identity(resource: NormalizedResource) -> str | None:
+    facts = gcp_facts(resource)
+    for value in (facts.kms_key_ring, resource.identifier):
+        text = _known_string(value)
+        if text is not None and _KMS_KEY_RING_PATH_PATTERN.fullmatch(text.rstrip("/")) is not None:
+            return text.rstrip("/")
+    return None
 
 
 def _rationale(
