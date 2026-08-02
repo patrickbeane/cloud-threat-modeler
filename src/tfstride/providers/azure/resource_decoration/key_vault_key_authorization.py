@@ -6,6 +6,7 @@ from fnmatch import fnmatchcase
 from typing import Literal
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.arm_control_plane_authorization import azure_arm_scope_contains
 from tfstride.providers.azure.key_vault_evidence import (
     AzureKeyVaultAuthorizationGrant,
     AzureKeyVaultAuthorizationModel,
@@ -808,21 +809,9 @@ def _assignable_scope_state(
         return "unknown"
     return (
         "resolved"
-        if any(_arm_scope_contains(scope, assignment_arm_scope) for scope in scopes)
+        if any(azure_arm_scope_contains(scope, assignment_arm_scope) for scope in scopes)
         else "outside_assignable_scope"
     )
-
-
-def _arm_scope_contains(parent: str, child: str) -> bool:
-    normalized_parent = parent.strip().casefold().rstrip("/")
-    normalized_child = child.strip().casefold().rstrip("/")
-    if normalized_parent == "":
-        normalized_parent = "/"
-    if normalized_parent == "/":
-        return True
-    if not normalized_parent.startswith("/") or not normalized_child.startswith("/"):
-        return False
-    return normalized_child == normalized_parent or normalized_child.startswith(f"{normalized_parent}/")
 
 
 def _condition_state(assignment: NormalizedResource) -> str:

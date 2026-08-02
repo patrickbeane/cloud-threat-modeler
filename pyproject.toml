@@ -91,6 +91,10 @@ include = [
   "src/tfstride/providers/gcp/kms_rules.py",
   "src/tfstride/providers/gcp/cloud_run_kms_rules.py",
 
+  # Azure ARM control-plane authorization.
+  "src/tfstride/providers/azure/arm_control_plane_evidence.py",
+  "src/tfstride/providers/azure/arm_control_plane_authorization.py",
+
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_evidence.py",
   "src/tfstride/providers/azure/metadata.py",
