@@ -902,6 +902,61 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-key-vault-key-disruption",
+        title="Public Azure App Service identity has Key Vault key-disruption authority",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public App Service ingress and grant its runtime identity only the exact Key Vault key-update, "
+            "deletion, or purge operations and scopes required. Enable purge protection where permanent key removal "
+            "is not an intended workload capability."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "key-vault",
+            "managed-identity",
+            "public-access",
+            "key-management",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="azure-public-app-service-key-vault-authorization-delegation",
+        title="Public Azure App Service identity has Key Vault authorization-delegation authority",
+        category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+        recommended_mitigation=(
+            "Restrict public App Service ingress and grant its runtime identity only the exact Azure RBAC role-assignment "
+            "or legacy Key Vault access-policy management authority required. Keep authorization-model transition "
+            "authority separate from routine data-plane key access."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "key-vault",
+            "managed-identity",
+            "public-access",
+            "rbac",
+            "key-management",
+            "elevation-of-privilege",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-diagnostic-settings-missing",
         title="Azure resource lacks diagnostic settings",
         category=StrideCategory.REPUDIATION,
