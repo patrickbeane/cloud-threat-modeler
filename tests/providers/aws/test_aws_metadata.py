@@ -118,6 +118,8 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "KMS_POLICY_COMPLETENESS_STATE": "kms_policy_completeness_state",
             "KMS_POLICY_SOURCE_ADDRESSES": "kms_policy_source_addresses",
             "KMS_POLICY_POSTURE_UNCERTAINTIES": "kms_policy_posture_uncertainties",
+            "KMS_ENCRYPTION_DEPENDENCIES": "kms_encryption_dependencies",
+            "KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES": "kms_encryption_dependency_uncertainties",
             "KMS_ALIASES": "kms_aliases",
             "KMS_GRANTS": "kms_grants",
             "KMS_KEY_POLICIES": "kms_key_policies",

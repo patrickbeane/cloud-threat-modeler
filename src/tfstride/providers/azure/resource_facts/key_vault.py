@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.azure.key_vault_dependency_evidence import AzureKeyVaultEncryptionDependency
 from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultAuthorizationGrant
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
@@ -138,6 +139,14 @@ class AzureKeyVaultFacts(AzureBaseFacts):
     @property
     def key_vault_key_posture_uncertainties(self) -> list[str]:
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_POSTURE_UNCERTAINTIES)
+
+    @property
+    def key_vault_encryption_dependencies(self) -> list[AzureKeyVaultEncryptionDependency]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_ENCRYPTION_DEPENDENCIES)
+
+    @property
+    def key_vault_encryption_dependency_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_ENCRYPTION_DEPENDENCY_UNCERTAINTIES)
 
     @property
     def purge_protection_enabled(self) -> bool | None:
@@ -293,6 +302,18 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         self.set(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS, list(grants))
         self.set(
             AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
+    def set_key_vault_encryption_dependency_posture(
+        self,
+        *,
+        dependencies: Sequence[AzureKeyVaultEncryptionDependency],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(AzureResourceMetadata.KEY_VAULT_ENCRYPTION_DEPENDENCIES, list(dependencies))
+        self.set(
+            AzureResourceMetadata.KEY_VAULT_ENCRYPTION_DEPENDENCY_UNCERTAINTIES,
             list(uncertainties),
         )
 

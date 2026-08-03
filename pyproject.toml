@@ -39,6 +39,7 @@ include = [
   "src/tfstride/providers/plugin.py",
   "src/tfstride/providers/contracts.py",
   "src/tfstride/providers/metadata_ownership.py",
+  "src/tfstride/providers/resource_reference_index.py",
   "src/tfstride/resource_metadata.py",
 
   # Shared analysis contracts.
@@ -61,6 +62,7 @@ include = [
   "src/tfstride/providers/azure/plugin.py",
 
   # AWS managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/aws/kms_dependency_evidence.py",
   "src/tfstride/providers/aws/kms_evidence.py",
   "src/tfstride/providers/aws/metadata.py",
   "src/tfstride/providers/aws/resource_facts/data.py",
@@ -76,6 +78,7 @@ include = [
   "src/tfstride/providers/aws/ecs_kms_rules.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/gcp/kms_dependency_evidence.py",
   "src/tfstride/providers/gcp/kms_evidence.py",
   "src/tfstride/providers/gcp/metadata.py",
   "src/tfstride/providers/gcp/kms_normalizers.py",
@@ -96,6 +99,7 @@ include = [
   "src/tfstride/providers/azure/arm_control_plane_authorization.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
+  "src/tfstride/providers/azure/key_vault_dependency_evidence.py",
   "src/tfstride/providers/azure/key_vault_evidence.py",
   "src/tfstride/providers/azure/metadata.py",
   "src/tfstride/providers/azure/key_vault_normalizers.py",

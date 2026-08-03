@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+from tfstride.providers.gcp.kms_dependency_evidence import GcpKmsEncryptionDependency
 from tfstride.providers.gcp.kms_evidence import (
     GcpKmsIamGrant,
     GcpKmsKeyRingIamGrant,
@@ -34,6 +37,14 @@ class GcpKmsFacts(GcpBaseFacts):
     @property
     def kms_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.KMS_POSTURE_UNCERTAINTIES)
+
+    @property
+    def kms_encryption_dependencies(self) -> list[GcpKmsEncryptionDependency]:
+        return self.get(GcpResourceMetadata.KMS_ENCRYPTION_DEPENDENCIES)
+
+    @property
+    def kms_encryption_dependency_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES)
 
     @property
     def kms_iam_grants(self) -> list[GcpKmsIamGrant]:
@@ -134,3 +145,15 @@ class GcpKmsFacts(GcpBaseFacts):
     @property
     def kms_crypto_key_version_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.KMS_CRYPTO_KEY_VERSION_POSTURE_UNCERTAINTIES)
+
+    def set_kms_encryption_dependency_posture(
+        self,
+        *,
+        dependencies: Sequence[GcpKmsEncryptionDependency],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(GcpResourceMetadata.KMS_ENCRYPTION_DEPENDENCIES, list(dependencies))
+        self.set(
+            GcpResourceMetadata.KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES,
+            list(uncertainties),
+        )

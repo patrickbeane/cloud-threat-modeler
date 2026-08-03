@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.aws.kms_dependency_evidence import AwsKmsEncryptionDependency
 from tfstride.providers.aws.kms_evidence import (
     AwsKmsAliasRelationship,
     AwsKmsGrantRelationship,
@@ -197,6 +198,14 @@ class AwsDataFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.KMS_POLICY_POSTURE_UNCERTAINTIES)
 
     @property
+    def kms_encryption_dependencies(self) -> list[AwsKmsEncryptionDependency]:
+        return self.get(AwsResourceMetadata.KMS_ENCRYPTION_DEPENDENCIES)
+
+    @property
+    def kms_encryption_dependency_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES)
+
+    @property
     def kms_aliases(self) -> list[AwsKmsAliasRelationship]:
         return self.get(AwsResourceMetadata.KMS_ALIASES)
 
@@ -333,6 +342,18 @@ class AwsDataFacts(AwsBaseFacts):
         )
         self.set(
             AwsResourceMetadata.KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
+    def set_kms_encryption_dependency_posture(
+        self,
+        *,
+        dependencies: Sequence[AwsKmsEncryptionDependency],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(AwsResourceMetadata.KMS_ENCRYPTION_DEPENDENCIES, list(dependencies))
+        self.set(
+            AwsResourceMetadata.KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES,
             list(uncertainties),
         )
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.providers.gcp.kms_dependency_evidence import GcpKmsEncryptionDependency
 from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsManagementPath,
     GcpCloudRunKmsOperationPath,
@@ -353,6 +354,7 @@ class GcpResourceMetadata:
     SECRET_MANAGER_KMS_KEY_NAMES = StringListMetadataField("secret_manager_kms_key_names")
     SECRET_MANAGER_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_posture_uncertainties")
     KMS_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_posture_uncertainties")
+    KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES = StringListMetadataField("kms_encryption_dependency_uncertainties")
     KMS_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_iam_posture_uncertainties")
     KMS_KEY_RING_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_key_ring_iam_posture_uncertainties")
     KMS_CRYPTO_KEY_VERSION_POSTURE_UNCERTAINTIES = StringListMetadataField(
@@ -409,6 +411,7 @@ class GcpResourceMetadata:
     FIREWALL_DENY = DictListMetadataField("deny")
     FIREWALL_POLICY_MATCH = DictMetadataField("firewall_policy_match")
     IAM_BINDINGS = DictListMetadataField("iam_bindings")
+    KMS_ENCRYPTION_DEPENDENCIES = RecordListMetadataField[GcpKmsEncryptionDependency]("kms_encryption_dependencies")
     KMS_IAM_GRANTS = RecordListMetadataField[GcpKmsIamGrant]("kms_iam_grants")
     KMS_KEY_RING_IAM_GRANTS = RecordListMetadataField[GcpKmsKeyRingIamGrant]("kms_key_ring_iam_grants")
     FIRESTORE_IAM_GRANTS = DictListMetadataField("firestore_iam_grants")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.providers.aws.kms_dependency_evidence import AwsKmsEncryptionDependency
 from tfstride.providers.aws.kms_evidence import (
     AwsEcsKmsManagementPath,
     AwsEcsKmsOperationPath,
@@ -369,6 +370,8 @@ class AwsResourceMetadata:
     KMS_POLICY_COMPLETENESS_STATE = OptionalStringMetadataField("kms_policy_completeness_state")
     KMS_POLICY_SOURCE_ADDRESSES = StringListMetadataField("kms_policy_source_addresses")
     KMS_POLICY_POSTURE_UNCERTAINTIES = StringListMetadataField("kms_policy_posture_uncertainties")
+    KMS_ENCRYPTION_DEPENDENCIES = RecordListMetadataField[AwsKmsEncryptionDependency]("kms_encryption_dependencies")
+    KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES = StringListMetadataField("kms_encryption_dependency_uncertainties")
     KMS_ALIASES = RecordListMetadataField[AwsKmsAliasRelationship]("kms_aliases")
     KMS_GRANTS = RecordListMetadataField[AwsKmsGrantRelationship]("kms_grants")
     KMS_KEY_POLICIES = RecordListMetadataField[AwsKmsKeyPolicyEvidence]("kms_key_policies")

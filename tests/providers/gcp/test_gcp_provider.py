@@ -348,6 +348,8 @@ class GcpProviderTests(unittest.TestCase):
                 "KMS_ROTATION_PERIOD",
                 "KMS_DESTROY_SCHEDULED_DURATION",
                 "KMS_POSTURE_UNCERTAINTIES",
+                "KMS_ENCRYPTION_DEPENDENCIES",
+                "KMS_ENCRYPTION_DEPENDENCY_UNCERTAINTIES",
                 "RESOURCE_POLICY_SOURCE_ADDRESSES",
                 "SERVICE_ACCOUNT_ACCOUNT_ID",
                 "SERVICE_ACCOUNT_EMAIL",

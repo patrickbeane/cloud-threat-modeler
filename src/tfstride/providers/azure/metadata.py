@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tfstride.providers.azure.key_vault_dependency_evidence import AzureKeyVaultEncryptionDependency
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultManagementPath,
     AzureAppServiceKeyVaultOperationPath,
@@ -411,6 +412,12 @@ class AzureResourceMetadata:
     KEY_VAULT_KEY_SIZE = OptionalIntMetadataField("key_vault_key_size")
     KEY_VAULT_KEY_OPS = StringListMetadataField("key_vault_key_ops")
     KEY_VAULT_KEY_POSTURE_UNCERTAINTIES = StringListMetadataField("key_vault_key_posture_uncertainties")
+    KEY_VAULT_ENCRYPTION_DEPENDENCY_UNCERTAINTIES = StringListMetadataField(
+        "key_vault_encryption_dependency_uncertainties"
+    )
+    KEY_VAULT_ENCRYPTION_DEPENDENCIES = RecordListMetadataField[AzureKeyVaultEncryptionDependency](
+        "key_vault_encryption_dependencies"
+    )
     ATTACHED_IDENTITY_REFERENCES = StringListMetadataField("attached_identity_references")
     IAM_ASSIGNMENT_POSTURE_UNCERTAINTIES = StringListMetadataField("iam_assignment_posture_uncertainties")
     MANAGED_IDENTITY_UNCERTAINTIES = StringListMetadataField("managed_identity_uncertainties")
