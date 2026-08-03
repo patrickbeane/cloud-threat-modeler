@@ -46,6 +46,14 @@ class AzureStorageFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_ID)
 
     @property
+    def storage_customer_managed_key_id_reference(self) -> str | None:
+        return self.get(AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_ID_REFERENCE)
+
+    @property
+    def storage_customer_managed_key_uri_reference(self) -> str | None:
+        return self.get(AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_URI_REFERENCE)
+
+    @property
     def storage_customer_managed_key_identity_id(self) -> str | None:
         return self.get(AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_IDENTITY_ID)
 

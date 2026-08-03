@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
 from tfstride.providers.azure.metadata import AzureResourceMetadata
@@ -14,6 +14,7 @@ from tfstride.providers.azure.resource_utils import (
     first_non_empty,
     known_block_bool,
     known_block_int,
+    known_block_string,
     known_bool,
     unknown_block_at,
 )
@@ -173,27 +174,55 @@ def _set_storage_encryption_posture(
     if infrastructure_encryption_enabled is not None:
         metadata[AzureResourceMetadata.STORAGE_INFRASTRUCTURE_ENCRYPTION_ENABLED] = infrastructure_encryption_enabled
 
-    customer_managed_key_unknown = attribute_unknown(resource.unknown_values, "customer_managed_key")
-    if customer_managed_key_unknown:
+    raw_unknown = resource.unknown_values.get("customer_managed_key")
+    if raw_unknown is True:
         uncertainties.append("customer_managed_key is unknown after planning")
         return
 
     customer_managed_key = first_mapping(values.get("customer_managed_key"))
     if customer_managed_key is None:
         return
+    unknown_block = unknown_block_at(raw_unknown, 0)
 
-    key_id = first_non_empty(
-        customer_managed_key.get("key_vault_key_id"),
-        customer_managed_key.get("key_vault_key_uri"),
+    key_id_reference = known_block_string(
+        customer_managed_key,
+        unknown_block,
+        "key_vault_key_id",
+        uncertainties,
+        path="customer_managed_key",
     )
-    if key_id:
-        metadata[AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_ID] = key_id
+    key_uri_reference = known_block_string(
+        customer_managed_key,
+        unknown_block,
+        "key_vault_key_uri",
+        uncertainties,
+        path="customer_managed_key",
+    )
+    if key_id_reference is not None:
+        metadata[AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_ID_REFERENCE] = key_id_reference
+    if key_uri_reference is not None:
+        metadata[AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_URI_REFERENCE] = key_uri_reference
+    key_reference = first_non_empty(key_id_reference, key_uri_reference)
+    if key_reference is not None:
+        metadata[AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_ID] = key_reference
 
     identity_id = first_non_empty(
-        customer_managed_key.get("user_assigned_identity_id"),
-        customer_managed_key.get("user_assigned_identity_resource_id"),
+        known_block_string(
+            customer_managed_key,
+            unknown_block,
+            "user_assigned_identity_id",
+            uncertainties,
+            path="customer_managed_key",
+        ),
+        known_block_string(
+            customer_managed_key,
+            unknown_block,
+            "user_assigned_identity_resource_id",
+            uncertainties,
+            path="customer_managed_key",
+        ),
     )
-    if identity_id:
+    if identity_id is not None:
         metadata[AzureResourceMetadata.STORAGE_CUSTOMER_MANAGED_KEY_IDENTITY_ID] = identity_id
 
 
@@ -273,7 +302,7 @@ def _unknown_child_block(unknown_block: Any, key: str) -> Any:
     if unknown_block is True:
         return True
     if isinstance(unknown_block, Mapping):
-        return unknown_block.get(key)
+        return cast(Mapping[str, object], unknown_block).get(key)
     return None
 
 

@@ -179,7 +179,8 @@ class AzureStorageNormalizerTests(unittest.TestCase):
             facts.storage_posture_uncertainties,
             [
                 "infrastructure_encryption_enabled is unknown after planning",
-                "customer_managed_key is unknown after planning",
+                "customer_managed_key.key_vault_key_id is unknown after planning",
+                "customer_managed_key.user_assigned_identity_id is unknown after planning",
                 "blob_properties.versioning_enabled is unknown after planning",
                 "blob_properties.delete_retention_policy.days is unknown after planning",
                 "blob_properties.container_delete_retention_policy.days is unknown after planning",

@@ -85,6 +85,14 @@ class AzureServiceBusFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID)
 
     @property
+    def service_bus_key_vault_key_id_reference(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID_REFERENCE)
+
+    @property
+    def service_bus_key_vault_key_uri_reference(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_URI_REFERENCE)
+
+    @property
     def service_bus_network_rule_source_address(self) -> str | None:
         return self.get(AzureResourceMetadata.SERVICE_BUS_NETWORK_RULE_SOURCE_ADDRESS)
 

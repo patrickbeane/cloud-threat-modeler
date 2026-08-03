@@ -10,8 +10,10 @@ from tfstride.providers.azure.resource_utils import (
     first_block_attribute_unknown,
     first_mapping,
     first_non_empty,
+    known_block_string,
     known_bool,
     known_string,
+    unknown_block_at,
 )
 from tfstride.providers.coercion import (
     STATE_CONFIGURED,
@@ -56,7 +58,13 @@ def normalize_servicebus_namespace(resource: TerraformResource) -> NormalizedRes
         values,
         uncertainties,
     )
-    cmk_state, key_vault_key_id, cmk_source_address = _inline_cmk_posture(resource, values, uncertainties)
+    (
+        cmk_state,
+        key_vault_key_id,
+        key_vault_key_id_reference,
+        key_vault_key_uri_reference,
+        cmk_source_address,
+    ) = _inline_cmk_posture(resource, values, uncertainties)
 
     metadata: dict[Any, Any] = {
         AzureResourceMetadata.NAME: name,
@@ -72,6 +80,8 @@ def normalize_servicebus_namespace(resource: TerraformResource) -> NormalizedRes
         AzureResourceMetadata.NETWORK_RULE_SOURCE_ADDRESS: network_rule_source_address,
         AzureResourceMetadata.SERVICE_BUS_CUSTOMER_MANAGED_KEY_STATE: cmk_state,
         AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID: key_vault_key_id,
+        AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID_REFERENCE: key_vault_key_id_reference,
+        AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_URI_REFERENCE: key_vault_key_uri_reference,
         AzureResourceMetadata.SERVICE_BUS_CUSTOMER_MANAGED_KEY_SOURCE_ADDRESS: cmk_source_address,
     }
     if public_network_access_enabled is not None:
@@ -166,6 +176,7 @@ def normalize_servicebus_namespace_customer_managed_key(resource: TerraformResou
         AzureResourceMetadata.SERVICE_BUS_NAMESPACE_REFERENCE: namespace_reference,
         AzureResourceMetadata.SERVICE_BUS_CUSTOMER_MANAGED_KEY_STATE: cmk_state,
         AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID: key_vault_key_id,
+        AzureResourceMetadata.SERVICE_BUS_KEY_VAULT_KEY_ID_REFERENCE: key_vault_key_id,
         AzureResourceMetadata.SERVICE_BUS_CUSTOMER_MANAGED_KEY_SOURCE_ADDRESS: resource.address,
     }
     if uncertainties:
@@ -205,19 +216,38 @@ def _inline_cmk_posture(
     resource: TerraformResource,
     values: Mapping[str, Any],
     uncertainties: list[str],
-) -> tuple[str, str | None, str | None]:
+) -> tuple[str, str | None, str | None, str | None, str | None]:
+    raw_unknown = resource.unknown_values.get("customer_managed_key")
+    if raw_unknown is True:
+        uncertainties.append("customer_managed_key is unknown after planning")
+        return STATE_UNKNOWN, None, None, None, resource.address
+
     customer_managed_key = first_mapping(values.get("customer_managed_key"))
     if customer_managed_key is None:
-        return STATE_NOT_CONFIGURED, None, None
-    if first_block_attribute_unknown(resource.unknown_values, "customer_managed_key", "key_vault_key_id"):
-        uncertainties.append("customer_managed_key.key_vault_key_id is unknown after planning")
-        return STATE_UNKNOWN, None, resource.address
+        return STATE_NOT_CONFIGURED, None, None, None, None
+    unknown_block = unknown_block_at(raw_unknown, 0)
 
-    key_vault_key_id = first_non_empty(
-        customer_managed_key.get("key_vault_key_id"),
-        customer_managed_key.get("key_vault_key_uri"),
+    key_id_reference = known_block_string(
+        customer_managed_key,
+        unknown_block,
+        "key_vault_key_id",
+        uncertainties,
+        path="customer_managed_key",
     )
-    if key_vault_key_id is None:
-        uncertainties.append("customer_managed_key.key_vault_key_id is not represented in planned values")
-        return STATE_UNKNOWN, None, resource.address
-    return STATE_CONFIGURED, key_vault_key_id, resource.address
+    key_uri_reference = known_block_string(
+        customer_managed_key,
+        unknown_block,
+        "key_vault_key_uri",
+        uncertainties,
+        path="customer_managed_key",
+    )
+    key_reference = first_non_empty(key_id_reference, key_uri_reference)
+    if key_reference is None and not any("customer_managed_key" in uncertainty for uncertainty in uncertainties):
+        uncertainties.append("customer_managed_key key reference is not represented in planned values")
+    return (
+        STATE_CONFIGURED if key_reference is not None else STATE_UNKNOWN,
+        key_reference,
+        key_id_reference,
+        key_uri_reference,
+        resource.address,
+    )

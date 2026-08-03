@@ -35,6 +35,8 @@ class AzureResourceMetadata:
     SERVICE_BUS_LOCAL_AUTH_STATE = OptionalStringMetadataField("service_bus_local_auth_state")
     SERVICE_BUS_CUSTOMER_MANAGED_KEY_STATE = OptionalStringMetadataField("service_bus_customer_managed_key_state")
     SERVICE_BUS_KEY_VAULT_KEY_ID = OptionalStringMetadataField("service_bus_key_vault_key_id")
+    SERVICE_BUS_KEY_VAULT_KEY_ID_REFERENCE = OptionalStringMetadataField("service_bus_key_vault_key_id_reference")
+    SERVICE_BUS_KEY_VAULT_KEY_URI_REFERENCE = OptionalStringMetadataField("service_bus_key_vault_key_uri_reference")
     SERVICE_BUS_NETWORK_RULE_SOURCE_ADDRESS = OptionalStringMetadataField("service_bus_network_rule_source_address")
     SERVICE_BUS_CUSTOMER_MANAGED_KEY_SOURCE_ADDRESS = OptionalStringMetadataField(
         "service_bus_customer_managed_key_source_address"
@@ -215,6 +217,10 @@ class AzureResourceMetadata:
     )
     CONTAINER_ACCESS_TYPE = OptionalStringMetadataField("container_access_type")
     STORAGE_CUSTOMER_MANAGED_KEY_ID = OptionalStringMetadataField("storage_customer_managed_key_id")
+    STORAGE_CUSTOMER_MANAGED_KEY_ID_REFERENCE = OptionalStringMetadataField("storage_customer_managed_key_id_reference")
+    STORAGE_CUSTOMER_MANAGED_KEY_URI_REFERENCE = OptionalStringMetadataField(
+        "storage_customer_managed_key_uri_reference"
+    )
     STORAGE_CUSTOMER_MANAGED_KEY_IDENTITY_ID = OptionalStringMetadataField("storage_customer_managed_key_identity_id")
     MIN_TLS_VERSION = OptionalStringMetadataField("min_tls_version")
     FTPS_STATE = OptionalStringMetadataField("ftps_state")
