@@ -12,6 +12,9 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource, SeverityReasoning
+from tfstride.providers.azure.key_vault_dependency_evidence import (
+    AzureKeyVaultEncryptionDependency,
+)
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultManagementPath,
     AzureKeyVaultManagementEffect,
@@ -105,6 +108,11 @@ class AzureAppServiceKeyVaultManagementRuleDetectors:
             identity_addresses = _path_addresses(paths, "identity_address")
             grant_addresses = _grant_source_addresses(paths)
             role_definition_addresses = _role_definition_addresses(paths)
+            downstream_dependencies = (
+                _resolved_downstream_dependencies(paths, context) if management_effect == "disruption" else []
+            )
+            downstream_dependent_addresses = _downstream_dependent_addresses(downstream_dependencies)
+            recovery_evidence = _recovery_evidence(paths, context) if management_effect == "disruption" else []
             parent_scope = any(
                 scope_type in _ParentScopeTypes
                 for path in paths
@@ -115,6 +123,7 @@ class AzureAppServiceKeyVaultManagementRuleDetectors:
                 management_effect,
                 parent_scope=parent_scope,
                 target_count=len(target_addresses),
+                downstream_dependent_count=len(downstream_dependent_addresses),
             )
             findings.append(
                 self._finding_factory.build(
@@ -129,6 +138,7 @@ class AzureAppServiceKeyVaultManagementRuleDetectors:
                             *target_addresses,
                             *grant_addresses,
                             *role_definition_addresses,
+                            *downstream_dependent_addresses,
                         ]
                     ),
                     trust_boundary_id=None,
@@ -138,6 +148,9 @@ class AzureAppServiceKeyVaultManagementRuleDetectors:
                         len(target_addresses),
                         management_effect,
                         parent_scope=parent_scope,
+                        downstream_dependent_count=len(downstream_dependent_addresses),
+                        downstream_dependency_count=len(downstream_dependencies),
+                        recovery_evidence=recovery_evidence,
                     ),
                     evidence=collect_evidence(
                         evidence_item("public_endpoint", _public_endpoint_evidence(app)),
@@ -152,6 +165,20 @@ class AzureAppServiceKeyVaultManagementRuleDetectors:
                                 paths,
                                 parent_scope=parent_scope,
                             ),
+                        ),
+                        *(
+                            [
+                                evidence_item(
+                                    "downstream_dependencies",
+                                    _downstream_dependency_evidence(downstream_dependencies),
+                                ),
+                                evidence_item(
+                                    "recovery_posture",
+                                    recovery_evidence,
+                                ),
+                            ]
+                            if management_effect == "disruption"
+                            else []
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -328,7 +355,16 @@ def _is_deterministic_disruption_path(
         or path.get("control_plane_grants") != []
     ):
         return False
-    if operation == "delete_plus_purge" and path.get("purge_protection_enabled") is not False:
+    vault_address = _known_string(path.get("key_vault_address"))
+    vault = context.inventory.get_by_address(vault_address) if vault_address is not None else None
+    current_purge_protection = (
+        azure_facts(vault).purge_protection_enabled
+        if vault is not None and vault.resource_type == AzureResourceType.KEY_VAULT
+        else None
+    )
+    if path.get("purge_protection_enabled") is not current_purge_protection:
+        return False
+    if operation == "delete_plus_purge" and current_purge_protection is not False:
         return False
     grants = path.get("data_plane_grants")
     if not isinstance(grants, list) or not grants or not all(isinstance(grant, Mapping) for grant in grants):
@@ -477,13 +513,14 @@ def _management_severity(
     *,
     parent_scope: bool,
     target_count: int,
+    downstream_dependent_count: int = 0,
 ) -> SeverityReasoning:
     return build_severity_reasoning(
         internet_exposure=True,
         privilege_breadth=2,
         data_sensitivity=1,
         lateral_movement=1,
-        blast_radius=2 if parent_scope or target_count > 1 else 1,
+        blast_radius=(2 if parent_scope or target_count > 1 or downstream_dependent_count > 1 else 1),
     )
 
 
@@ -494,6 +531,9 @@ def _management_rationale(
     management_effect: _ManagementRuleEffect,
     *,
     parent_scope: bool,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
+    recovery_evidence: Sequence[str] = (),
 ) -> str:
     operation_text = _operation_text(operations)
     if management_effect == "disruption":
@@ -509,12 +549,26 @@ def _management_rationale(
         )
     else:
         scope_text = "The modeled grant targets are limited to exact Key Vault key or vault scope."
+    downstream_text = ""
+    recovery_text = ""
+    if management_effect == "disruption":
+        downstream_text = (
+            f" The modeled keys have {downstream_dependent_count} unique downstream encrypted "
+            f"dependent resource(s) across {downstream_dependency_count} unique dependency relationship(s)."
+            if downstream_dependent_count
+            else " No resolved downstream encrypted dependent resources are modeled for these keys."
+        )
+        recovery_text = (
+            f" Recovery evidence: {', '.join(recovery_evidence)}."
+            if recovery_evidence
+            else " Recovery evidence is unavailable or not applicable to these operations."
+        )
     return (
         f"{app.display_name} has public network access enabled and its runtime managed identity has {capability} "
         f"({operation_text}) on {target_count} exact modeled Key Vault management target(s). A compromise of the "
-        f"public workload {consequence}. {scope_text} This establishes modeled management authority, not proof "
-        "that an operation will succeed outside the preserved Azure scope, role, grant, lifecycle, and condition "
-        "evidence, and not that the Key Vault or key is itself public."
+        f"public workload {consequence}. {scope_text}{downstream_text}{recovery_text} This establishes modeled "
+        "management authority, not proof that an operation will succeed outside the preserved Azure scope, role, "
+        "grant, lifecycle, and condition evidence, and not that the Key Vault or key is itself public."
     )
 
 
@@ -639,6 +693,268 @@ def _deletion_impact(path: AzureAppServiceKeyVaultManagementPath) -> str:
     if operation == "delete_plus_purge":
         return "permanent_delete_sequence"
     return "not_applicable"
+
+
+def _resolved_downstream_dependencies(
+    paths: Sequence[AzureAppServiceKeyVaultManagementPath],
+    context: RuleEvaluationContext,
+) -> list[AzureKeyVaultEncryptionDependency]:
+    dependencies: list[AzureKeyVaultEncryptionDependency] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    destructive_key_addresses = {
+        key_address
+        for path in paths
+        if path.get("operation") in {"delete", "delete_plus_purge"}
+        if (key_address := _known_string(path.get("key_address"))) is not None
+    }
+    update_paths_by_key: dict[str, list[AzureAppServiceKeyVaultManagementPath]] = {}
+    for path in paths:
+        if path.get("operation") != "update":
+            continue
+        key_address = _known_string(path.get("key_address"))
+        if key_address is not None:
+            update_paths_by_key.setdefault(key_address, []).append(path)
+
+    for key_address in destructive_key_addresses | set(update_paths_by_key):
+        key = context.inventory.get_by_address(key_address)
+        if key is None or key.resource_type != AzureResourceType.KEY_VAULT_KEY:
+            continue
+        key_facts = azure_facts(key)
+        for dependency in key_facts.key_vault_encryption_dependencies:
+            if (
+                dependency.get("resolution_state") != "resolved"
+                or dependency.get("key_address") != key_address
+                or not _dependency_reference_contract_is_coherent(dependency)
+                or not _dependency_matches_key_identity(dependency, key, context)
+            ):
+                continue
+
+            target_kind = dependency.get("target_kind")
+            applicable = key_address in destructive_key_addresses and target_kind in {"key", "key_version"}
+            if not applicable and key_address in update_paths_by_key:
+                applicable = any(
+                    target_kind == "key_version" and _dependency_matches_update_version(dependency, update_path)
+                    for update_path in update_paths_by_key[key_address]
+                )
+            if not applicable:
+                continue
+
+            dependent_address = dependency.get("dependent_address")
+            source_address = dependency.get("dependency_source_address")
+            configuration_path = repr(dependency.get("configuration_path"))
+            if not isinstance(dependent_address, str) or not isinstance(source_address, str):
+                continue
+            dependent = context.inventory.get_by_address(dependent_address)
+            source = context.inventory.get_by_address(source_address)
+            if (
+                dependent is None
+                or source is None
+                or dependent.provider != "azure"
+                or source.provider != "azure"
+                or dependency.get("dependent_resource_type") != dependent.resource_type
+                or dependency.get("dependency_source_type") != source.resource_type
+            ):
+                continue
+
+            fingerprint = (key_address, dependent_address, source_address, configuration_path)
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            dependencies.append(dependency)
+
+    return sorted(
+        dependencies,
+        key=lambda dependency: (
+            str(dependency.get("dependent_address")),
+            str(dependency.get("dependency_source_address")),
+            repr(dependency.get("configuration_path")),
+            str(dependency.get("key_address")),
+        ),
+    )
+
+
+def _dependency_matches_update_version(
+    dependency: AzureKeyVaultEncryptionDependency,
+    path: AzureAppServiceKeyVaultManagementPath,
+) -> bool:
+    if dependency.get("target_kind") != "key_version":
+        return False
+    return all(
+        (expected := _known_string(path.get(field))) is not None and _same_identifier(dependency.get(field), expected)
+        for field in ("key_uri", "key_resource_id", "key_version")
+    )
+
+
+def _dependency_reference_contract_is_coherent(
+    dependency: AzureKeyVaultEncryptionDependency,
+) -> bool:
+    provenance = dependency.get("reference_provenance")
+    reference_kind = dependency.get("reference_kind")
+    configured = _known_string(dependency.get("configured_key_reference"))
+    target_kind = dependency.get("target_kind")
+
+    if provenance == "planned_value":
+        if target_kind == "key":
+            if reference_kind == "versionless_uri":
+                return _same_identifier(configured, dependency.get("key_versionless_uri"))
+            if reference_kind == "versionless_resource_id":
+                return _same_identifier(
+                    configured,
+                    dependency.get("key_versionless_resource_id"),
+                )
+            return False
+        if target_kind == "key_version":
+            if reference_kind == "versioned_uri":
+                return _same_identifier(configured, dependency.get("key_uri"))
+            if reference_kind == "versioned_resource_id":
+                return _same_identifier(configured, dependency.get("key_resource_id"))
+            return False
+        return False
+
+    if provenance != "configuration_reference" or reference_kind != "terraform_reference" or configured is None:
+        return False
+    normalized = configured.casefold()
+    if target_kind == "key":
+        return normalized.endswith(".versionless_id") or normalized.endswith(".resource_versionless_id")
+    if target_kind == "key_version":
+        return (normalized.endswith(".id") or normalized.endswith(".resource_id")) and not (
+            normalized.endswith(".versionless_id") or normalized.endswith(".resource_versionless_id")
+        )
+    return False
+
+
+def _dependency_matches_key_identity(
+    dependency: AzureKeyVaultEncryptionDependency,
+    key: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    key_facts = azure_facts(key)
+    if dependency.get("candidate_key_addresses") != [key.address]:
+        return False
+    target_kind = dependency.get("target_kind")
+    if target_kind == "key":
+        if not any(
+            dependency.get(field) is not None for field in ("key_versionless_uri", "key_versionless_resource_id")
+        ):
+            return False
+    elif target_kind == "key_version":
+        if not any(dependency.get(field) is not None for field in ("key_uri", "key_resource_id", "key_version")):
+            return False
+    else:
+        return False
+    recorded_vault_address = dependency.get("key_vault_address")
+    if recorded_vault_address is not None and recorded_vault_address != key_facts.resolved_key_vault_address:
+        return False
+
+    identity_pairs = (
+        ("key_name", key_facts.key_vault_key_name),
+        ("key_version", key_facts.key_vault_key_version),
+        ("key_uri", key_facts.key_vault_key_uri),
+        ("key_versionless_uri", key_facts.key_vault_key_versionless_uri),
+        ("key_resource_id", key_facts.key_vault_key_resource_id),
+        ("key_versionless_resource_id", key_facts.key_vault_key_versionless_resource_id),
+    )
+    if any(
+        recorded is not None and not _same_identifier(recorded, expected)
+        for field, expected in identity_pairs
+        if (recorded := dependency.get(field)) is not None
+    ):
+        return False
+
+    vault_address = key_facts.resolved_key_vault_address
+    if vault_address is None:
+        return True
+    vault = context.inventory.get_by_address(vault_address)
+    if vault is None or vault.resource_type != AzureResourceType.KEY_VAULT:
+        return False
+    vault_facts = azure_facts(vault)
+    vault_pairs = (
+        ("key_vault_id", vault_facts.key_vault_id),
+        ("key_vault_uri", vault_facts.key_vault_uri),
+    )
+    return all(
+        recorded is None or _same_identifier(recorded, expected)
+        for field, expected in vault_pairs
+        if (recorded := dependency.get(field)) is not None
+    )
+
+
+def _downstream_dependent_addresses(
+    dependencies: Sequence[AzureKeyVaultEncryptionDependency],
+) -> list[str]:
+    return sorted(
+        {
+            value
+            for dependency in dependencies
+            if isinstance(value := dependency.get("dependent_address"), str) and value
+        }
+    )
+
+
+def _downstream_dependency_evidence(
+    dependencies: Sequence[AzureKeyVaultEncryptionDependency],
+) -> list[str]:
+    dependent_addresses = _downstream_dependent_addresses(dependencies)
+    values = [
+        (
+            f"unique_dependency_count={len(dependencies)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            "blast_radius_basis="
+            f"{'downstream_encrypted_dependents' if dependent_addresses else 'no_resolved_downstream_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                f"key_address={dependency.get('key_address') or 'unknown'}",
+                f"dependent_address={dependency.get('dependent_address') or 'unknown'}",
+                f"dependency_source={dependency.get('dependency_source_address') or 'unknown'}",
+                f"configuration_path={dependency.get('configuration_path') or 'unknown'}",
+                f"reference_kind={dependency.get('reference_kind') or 'unknown'}",
+                f"target_kind={dependency.get('target_kind') or 'unknown'}",
+                f"key_uri={dependency.get('key_uri') or 'none'}",
+                f"key_versionless_uri={dependency.get('key_versionless_uri') or 'none'}",
+            )
+        )
+        for dependency in dependencies
+    )
+    return values
+
+
+def _recovery_evidence(
+    paths: Sequence[AzureAppServiceKeyVaultManagementPath],
+    context: RuleEvaluationContext,
+) -> list[str]:
+    values: list[str] = []
+    for path in paths:
+        operation = path.get("operation")
+        if operation not in {"delete", "delete_plus_purge"}:
+            continue
+        vault_address = _known_string(path.get("key_vault_address"))
+        vault = context.inventory.get_by_address(vault_address) if vault_address is not None else None
+        if vault is None or vault.resource_type != AzureResourceType.KEY_VAULT:
+            continue
+        current_purge_protection = azure_facts(vault).purge_protection_enabled
+        if path.get("purge_protection_enabled") is not current_purge_protection:
+            continue
+        if operation == "delete_plus_purge" and current_purge_protection is not False:
+            continue
+        values.append(
+            "; ".join(
+                (
+                    f"key_address={path.get('key_address') or 'unknown'}",
+                    f"key_vault_address={path.get('key_vault_address') or 'unknown'}",
+                    f"operation={operation}",
+                    f"purge_protection_enabled={path.get('purge_protection_enabled')}",
+                    (
+                        "recovery_state=recoverable_soft_delete"
+                        if operation == "delete"
+                        else "recovery_state=permanent_delete_sequence"
+                    ),
+                )
+            )
+        )
+    return sorted(set(values))
 
 
 def _scope_breadth_evidence(
