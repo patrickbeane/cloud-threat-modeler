@@ -25,6 +25,9 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_secret_access_paths im
 from tfstride.providers.gcp.resource_decoration.firestore_iam import NormalizeFirestoreIamPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_assignment import NormalizeIamAssignmentPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_bindings import DecorateSensitiveIamBindingsStage
+from tfstride.providers.gcp.resource_decoration.kms_encryption_dependencies import (
+    ResolveGcpKmsEncryptionDependenciesStage,
+)
 from tfstride.providers.gcp.resource_decoration.kms_iam import NormalizeKmsIamPostureStage
 from tfstride.providers.gcp.resource_decoration.kms_versions import NormalizeKmsCryptoKeyVersionPostureStage
 from tfstride.providers.gcp.resource_decoration.load_balancer import DeriveLoadBalancerReachabilityStage
@@ -54,6 +57,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         DecorateSensitiveIamBindingsStage(),
         NormalizeKmsIamPostureStage(),
         NormalizeKmsCryptoKeyVersionPostureStage(),
+        ResolveGcpKmsEncryptionDependenciesStage(),
         ModelCloudRunKmsOperationPathsStage(),
         ModelCloudRunKmsManagementPathsStage(),
         NormalizeFirestoreIamPostureStage(),
