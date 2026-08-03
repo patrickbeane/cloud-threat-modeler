@@ -30,7 +30,7 @@ class GcpKmsEncryptionDependency(TypedDict):
     dependent_resource_type: str
     dependency_source_address: str
     dependency_source_type: str
-    configuration_path: tuple[str | int, ...]
+    configuration_path: list[str | int]
     configured_key_reference: str | None
     reference_provenance: GcpKmsDependencyReferenceProvenance | None
     reference_kind: GcpKmsDependencyReferenceKind | None

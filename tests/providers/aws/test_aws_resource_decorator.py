@@ -180,6 +180,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "apply_s3_posture_resources",
                 "apply_secrets_manager_posture_resources",
                 "apply_sqs_redrive_policy_resources",
+                "resolve_aws_kms_encryption_dependencies",
                 "derive_subnet_posture",
                 "infer_vpc_ids",
                 "derive_public_exposure",

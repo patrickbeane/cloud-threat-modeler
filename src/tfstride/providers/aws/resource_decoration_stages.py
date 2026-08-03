@@ -37,6 +37,9 @@ from tfstride.providers.aws.resource_decoration.iam import (
     ResolveInstanceProfileRolesStage,
 )
 from tfstride.providers.aws.resource_decoration.kms import DecorateKmsRelationshipsStage
+from tfstride.providers.aws.resource_decoration.kms_encryption_dependencies import (
+    ResolveAwsKmsEncryptionDependenciesStage,
+)
 from tfstride.providers.aws.resource_decoration.kms_operation_authorization import (
     ModelKmsOperationAuthorizationStage,
 )
@@ -96,6 +99,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ApplyS3PostureResourcesStage(),
         ApplySecretsManagerPostureResourcesStage(),
         ApplySqsRedrivePolicyResourcesStage(),
+        ResolveAwsKmsEncryptionDependenciesStage(),
         DeriveSubnetPostureStage(),
         InferVpcIdsStage(),
         DerivePublicExposureStage(),

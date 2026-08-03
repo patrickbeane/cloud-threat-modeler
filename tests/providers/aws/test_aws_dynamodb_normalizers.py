@@ -183,6 +183,19 @@ class AwsDynamoDbNormalizerTests(unittest.TestCase):
             ({"server_side_encryption": [{"enabled": False}]}, "aws_owned", "disabled", None),
             ({"server_side_encryption": [{"enabled": True}]}, "aws_managed_kms", "enabled", None),
             (
+                {
+                    "server_side_encryption": [
+                        {
+                            "enabled": True,
+                            "kms_key_arn": "alias/aws/dynamodb",
+                        }
+                    ]
+                },
+                "aws_managed_kms",
+                "enabled",
+                "alias/aws/dynamodb",
+            ),
+            (
                 {"server_side_encryption": [{"enabled": True, "kms_key_arn": _KMS_KEY_ARN}]},
                 "customer_managed",
                 "enabled",

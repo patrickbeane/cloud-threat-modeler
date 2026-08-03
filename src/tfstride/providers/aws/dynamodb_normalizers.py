@@ -155,7 +155,7 @@ def _server_side_encryption_posture(
             "encryption_configuration_state": STATE_DISABLED,
         }
     if kms_key_arn:
-        ownership_state = "customer_managed"
+        ownership_state = "aws_managed_kms" if _is_aws_managed_kms_reference(kms_key_arn) else "customer_managed"
     elif attribute_unknown(unknown_block, "kms_key_arn"):
         ownership_state = STATE_UNKNOWN
     else:
@@ -165,6 +165,11 @@ def _server_side_encryption_posture(
         "ownership_state": ownership_state,
         "encryption_configuration_state": STATE_ENABLED,
     }
+
+
+def _is_aws_managed_kms_reference(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized.startswith("alias/aws/") or normalized.startswith("aws/") or ":alias/aws/" in normalized
 
 
 def _point_in_time_recovery_posture(
