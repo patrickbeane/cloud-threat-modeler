@@ -14,6 +14,7 @@ from tfstride.analysis.finding_helpers import (
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
+from tfstride.providers.gcp.kms_dependency_evidence import GcpKmsEncryptionDependency
 from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsManagementPath,
     GcpCloudRunKmsOperationPath,
@@ -40,6 +41,14 @@ class _PublicInvokerBinding(TypedDict):
     source: str
     role: str
     member: str
+
+
+class _GcpDownstreamDependency(TypedDict):
+    version_address: str
+    version_resource_name: str
+    key_address: str
+    key_resource_name: str
+    dependency: GcpKmsEncryptionDependency
 
 
 _PathAddressKey = Literal["key_address", "iam_resource_address"]
@@ -77,6 +86,7 @@ _MANAGEMENT_OPERATION_DEFINITIONS: dict[
     "cloudkms.keyRings.setIamPolicy": ("authorization_administration", "delegation"),
 }
 _MANAGEMENT_OPERATION_ORDER = tuple(_MANAGEMENT_OPERATION_DEFINITIONS)
+_VERSION_DESTROY_OPERATION: GcpKmsManagementPermission = "cloudkms.cryptoKeyVersions.destroy"
 _KMS_KEY_RING_PATH_PATTERN = re.compile(
     r"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/keyRings/(?P<key_ring>[^/]+)$"
 )
@@ -154,6 +164,15 @@ class GcpCloudRunKmsOperationRuleDetectors:
             public_source_addresses = sorted({binding["source"] for binding in public_invokers})
             project_scope = any(path.get("scope_type") == "project" for path in paths)
             key_ring_scope = any(path.get("scope_type") == "key_ring" for path in paths)
+            version_targets = (
+                _deterministic_version_destruction_targets(paths, workload, context)
+                if management_effect == "disruption"
+                else set()
+            )
+            downstream_dependencies = (
+                _resolved_downstream_dependencies(paths, workload, context) if management_effect == "disruption" else []
+            )
+            downstream_dependent_addresses = _downstream_dependent_addresses(downstream_dependencies)
             operations = _management_operations(paths)
             target_count = _management_target_count(paths)
             severity_reasoning = build_severity_reasoning(
@@ -161,7 +180,7 @@ class GcpCloudRunKmsOperationRuleDetectors:
                 privilege_breadth=2,
                 data_sensitivity=1,
                 lateral_movement=1,
-                blast_radius=2 if project_scope or key_ring_scope else 1,
+                blast_radius=(2 if project_scope or key_ring_scope or len(downstream_dependent_addresses) > 1 else 1),
             )
             boundary = context.boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", workload.address))
             findings.append(
@@ -174,6 +193,7 @@ class GcpCloudRunKmsOperationRuleDetectors:
                             *public_source_addresses,
                             *target_addresses,
                             *iam_resource_addresses,
+                            *downstream_dependent_addresses,
                         ]
                     ),
                     trust_boundary_id=boundary.identifier if boundary else None,
@@ -184,6 +204,9 @@ class GcpCloudRunKmsOperationRuleDetectors:
                         management_effect,
                         project_scope=project_scope,
                         key_ring_scope=key_ring_scope,
+                        downstream_dependent_count=len(downstream_dependent_addresses),
+                        downstream_dependency_count=len(downstream_dependencies),
+                        version_destruction_target_count=len(version_targets),
                     ),
                     evidence=collect_evidence(
                         evidence_item("public_invoker_bindings", _public_invoker_evidence(public_invokers)),
@@ -206,6 +229,19 @@ class GcpCloudRunKmsOperationRuleDetectors:
                                 project_scope=project_scope,
                                 key_ring_scope=key_ring_scope,
                             ),
+                        ),
+                        *(
+                            [
+                                evidence_item(
+                                    "downstream_dependencies",
+                                    _downstream_dependency_evidence(
+                                        downstream_dependencies,
+                                        version_target_count=len(version_targets),
+                                    ),
+                                )
+                            ]
+                            if management_effect == "disruption"
+                            else []
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -341,6 +377,208 @@ def _management_iam_resource_addresses(
     paths: Sequence[GcpCloudRunKmsManagementPath],
 ) -> list[str]:
     return sorted({value for path in paths if (value := _known_string(path.get("iam_resource_address"))) is not None})
+
+
+def _deterministic_version_destruction_targets(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> set[tuple[str, str]]:
+    return {
+        (target_address, target_resource_name)
+        for path in paths
+        if _is_deterministic_version_destruction_path(path, workload, context)
+        if (target_address := _known_string(path.get("target_address"))) is not None
+        if (target_resource_name := _known_string(path.get("target_resource_name"))) is not None
+    }
+
+
+def _is_deterministic_version_destruction_path(
+    path: GcpCloudRunKmsManagementPath,
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    if (
+        path.get("operation") != _VERSION_DESTROY_OPERATION
+        or path.get("target_type") != "crypto_key_version"
+        or path.get("lifecycle_compatibility_state") != "compatible"
+        or not _is_deterministic_management_path(path, workload, context, "disruption")
+    ):
+        return False
+
+    version_address = _known_string(path.get("target_address"))
+    version_resource_name = _known_string(path.get("target_resource_name"))
+    key_address = _known_string(path.get("crypto_key_address"))
+    key_resource_name = _known_string(path.get("crypto_key_resource_name"))
+    if version_address is None or version_resource_name is None or key_address is None or key_resource_name is None:
+        return False
+
+    version = context.inventory.get_by_address(version_address)
+    key = context.inventory.get_by_address(key_address)
+    if (
+        version is None
+        or version.provider != "gcp"
+        or version.resource_type != GcpResourceType.KMS_CRYPTO_KEY_VERSION
+        or key is None
+        or key.provider != "gcp"
+        or key.resource_type != GcpResourceType.KMS_CRYPTO_KEY
+        or _key_identity(key) != key_resource_name
+    ):
+        return False
+
+    version_facts = gcp_facts(version)
+    version_identity = _known_string(version_facts.kms_crypto_key_version_reference or version.identifier)
+    version_evidence = path.get("key_version")
+    return bool(
+        version_identity == version_resource_name
+        and version_facts.kms_crypto_key_version_resolved_key_address == key_address
+        and isinstance(version_evidence, Mapping)
+        and version_evidence.get("version_identity_state") == "resolved"
+        and version_evidence.get("version_address") == version_address
+        and version_evidence.get("version_resource_name") == version_resource_name
+    )
+
+
+def _resolved_downstream_dependencies(
+    paths: Sequence[GcpCloudRunKmsManagementPath],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> list[_GcpDownstreamDependency]:
+    dependencies: list[_GcpDownstreamDependency] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for path in paths:
+        if not _is_deterministic_version_destruction_path(path, workload, context):
+            continue
+
+        version_address = _known_string(path.get("target_address"))
+        version_resource_name = _known_string(path.get("target_resource_name"))
+        key_address = _known_string(path.get("crypto_key_address"))
+        key_resource_name = _known_string(path.get("crypto_key_resource_name"))
+        if version_address is None or version_resource_name is None or key_address is None or key_resource_name is None:
+            continue
+
+        key = context.inventory.get_by_address(key_address)
+        if key is None or key.provider != "gcp" or key.resource_type != GcpResourceType.KMS_CRYPTO_KEY:
+            continue
+
+        for dependency in gcp_facts(key).kms_encryption_dependencies:
+            if (
+                dependency.get("resolution_state") != "resolved"
+                or dependency.get("key_address") != key_address
+                or dependency.get("key_resource_name") != key_resource_name
+                or dependency.get("version_reference_is_explicit") is not True
+                or dependency.get("key_version_address") != version_address
+                or dependency.get("key_version_resource_name") != version_resource_name
+            ):
+                continue
+
+            if dependency.get("candidate_targets") != [
+                {
+                    "address": version_address,
+                    "target_kind": "crypto_key_version",
+                }
+            ]:
+                continue
+
+            provenance = dependency.get("reference_provenance")
+            reference_kind = dependency.get("reference_kind")
+            configured_reference = dependency.get("configured_key_reference")
+            if provenance == "planned_value":
+                if (
+                    reference_kind != "crypto_key_version_resource_name"
+                    or configured_reference != version_resource_name
+                ):
+                    continue
+            elif provenance == "configuration_reference":
+                if reference_kind != "terraform_reference" or not isinstance(configured_reference, str):
+                    continue
+            else:
+                continue
+
+            dependent_address = dependency.get("dependent_address")
+            source_address = dependency.get("dependency_source_address")
+            configuration_path = repr(dependency.get("configuration_path"))
+            if not isinstance(dependent_address, str) or not isinstance(source_address, str):
+                continue
+            dependent = context.inventory.get_by_address(dependent_address)
+            source = context.inventory.get_by_address(source_address)
+            if (
+                dependent is None
+                or source is None
+                or dependent.provider != "gcp"
+                or source.provider != "gcp"
+                or dependency.get("dependent_resource_type") != dependent.resource_type
+                or dependency.get("dependency_source_type") != source.resource_type
+            ):
+                continue
+
+            fingerprint = (version_address, dependent_address, source_address, configuration_path)
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            dependencies.append(
+                {
+                    "version_address": version_address,
+                    "version_resource_name": version_resource_name,
+                    "key_address": key_address,
+                    "key_resource_name": key_resource_name,
+                    "dependency": dependency,
+                }
+            )
+
+    return sorted(
+        dependencies,
+        key=lambda item: (
+            str(item["dependency"].get("dependent_address")),
+            str(item["dependency"].get("dependency_source_address")),
+            item["version_address"],
+            repr(item["dependency"].get("configuration_path")),
+        ),
+    )
+
+
+def _downstream_dependent_addresses(
+    dependencies: Sequence[_GcpDownstreamDependency],
+) -> list[str]:
+    return sorted(
+        {
+            value
+            for item in dependencies
+            if isinstance(value := item["dependency"].get("dependent_address"), str) and value
+        }
+    )
+
+
+def _downstream_dependency_evidence(
+    dependencies: Sequence[_GcpDownstreamDependency],
+    *,
+    version_target_count: int,
+) -> list[str]:
+    dependent_addresses = _downstream_dependent_addresses(dependencies)
+    values = [
+        (
+            f"unique_dependency_count={len(dependencies)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            f"unique_version_target_count={version_target_count}; "
+            "blast_radius_basis="
+            f"{'downstream_encrypted_dependents' if dependent_addresses else 'no_resolved_downstream_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                f"version_address={item['version_address']}",
+                f"version_resource_name={item['version_resource_name']}",
+                f"key_address={item['key_address']}",
+                f"dependent_address={item['dependency'].get('dependent_address') or 'unknown'}",
+                f"dependency_source={item['dependency'].get('dependency_source_address') or 'unknown'}",
+                f"configuration_path={item['dependency'].get('configuration_path') or 'unknown'}",
+                f"reference_kind={item['dependency'].get('reference_kind') or 'unknown'}",
+            )
+        )
+        for item in dependencies
+    )
+    return values
 
 
 def _management_scope_breadth_evidence(
@@ -479,6 +717,9 @@ def _management_rationale(
     *,
     project_scope: bool,
     key_ring_scope: bool,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
+    version_destruction_target_count: int = 0,
 ) -> str:
     operation_text = _management_operation_text(operations)
     if management_effect == "disruption":
@@ -493,12 +734,29 @@ def _management_rationale(
         scope_text = "Key-ring IAM grants have broader blast radius than exact-key grants."
     else:
         scope_text = "The modeled IAM grants are limited to exact CryptoKey scope."
+    downstream_text = (
+        f" {version_destruction_target_count} exact modeled CryptoKeyVersion destruction target(s) have "
+        f"{downstream_dependent_count} "
+        f"unique downstream encrypted dependent resource(s) across {downstream_dependency_count} unique "
+        "dependency relationship(s) through their parent CryptoKey dependencies."
+        if management_effect == "disruption" and version_destruction_target_count and downstream_dependent_count
+        else (
+            " No resolved downstream encrypted dependent resources are modeled for the exact version destruction "
+            "targets in these paths."
+            if management_effect == "disruption" and version_destruction_target_count
+            else (
+                " No deterministic CryptoKeyVersion destruction target is present in these management paths."
+                if management_effect == "disruption"
+                else ""
+            )
+        )
+    )
     return (
         f"{workload.display_name} is publicly invokable and its Cloud Run runtime service account has "
         f"{capability} ({operation_text}) on {target_count} exact modeled Cloud KMS management target(s). "
-        f"A compromise of the public workload {consequence}. {scope_text} This establishes Cloud KMS management "
-        "authority, not proof of successful operation completion, authority over out-of-plan keys or versions, or "
-        "runtime impact beyond the modeled IAM, lifecycle, and scope evidence."
+        f"A compromise of the public workload {consequence}. {scope_text}{downstream_text} This establishes "
+        "Cloud KMS management authority, not proof of successful operation completion, authority over out-of-plan "
+        "keys or versions, or runtime impact beyond the modeled IAM, lifecycle, and scope evidence."
     )
 
 

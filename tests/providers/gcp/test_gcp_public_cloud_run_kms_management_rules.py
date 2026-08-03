@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from tests.providers.gcp.normalizer_support import _terraform_resource
 from tests.providers.gcp.test_gcp_cloud_run_kms_operation_paths import (
     _key,
     _key_member,
@@ -18,13 +19,57 @@ from tests.providers.gcp.test_gcp_public_cloud_run_firestore_mutation_rules impo
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.analysis.trust_boundaries import detect_trust_boundaries
-from tfstride.models import StrideCategory, TerraformResource
+from tfstride.models import ResourceInventory, StrideCategory, TerraformResource
 from tfstride.providers.gcp.normalizer import GcpNormalizer
+from tfstride.providers.gcp.resource_facts import gcp_facts
+from tfstride.providers.gcp.resource_types import GcpResourceType
 from tfstride.providers.gcp.rules import GCP_RULE_GROUP_IDS
 
 _DISRUPTION_RULE = "gcp-public-cloud-run-kms-key-disruption"
 _DELEGATION_RULE = "gcp-public-cloud-run-kms-authorization-delegation"
 _WORKLOAD_ADDRESS = "google_cloud_run_v2_service.orders"
+_PROJECT = "tfstride-demo"
+_RING = f"projects/{_PROJECT}/locations/global/keyRings/application"
+
+
+def _topic_with_cmek(
+    name: str,
+    *,
+    key_name: str | None,
+    unknown_key: bool = False,
+) -> TerraformResource:
+    return _terraform_resource(
+        f"google_pubsub_topic.{name}",
+        GcpResourceType.PUBSUB_TOPIC,
+        {
+            "name": name,
+            "id": f"projects/{_PROJECT}/topics/{name}",
+            "project": _PROJECT,
+            "kms_key_name": key_name,
+        },
+        unknown_values={"kms_key_name": True} if unknown_key else None,
+    )
+
+
+def _version_for_key(
+    address_name: str,
+    key_name: str,
+    version_number: int,
+) -> TerraformResource:
+    version_path = f"{_RING}/cryptoKeys/{key_name}/cryptoKeyVersions/{version_number}"
+    return _terraform_resource(
+        f"google_kms_crypto_key_version.{address_name}",
+        GcpResourceType.KMS_CRYPTO_KEY_VERSION,
+        {
+            "crypto_key": f"google_kms_crypto_key.{key_name}.id",
+            "id": version_path,
+            "name": version_path,
+            "state": "ENABLED",
+            "algorithm": "GOOGLE_SYMMETRIC_ENCRYPTION",
+            "protection_level": "SOFTWARE",
+            "generate_time": "2026-07-19T00:00:00Z",
+        },
+    )
 
 
 def _evaluate(resources: list[TerraformResource], *rule_ids: str):
@@ -35,6 +80,48 @@ def _evaluate(resources: list[TerraformResource], *rule_ids: str):
         boundaries,
         rule_policy=RulePolicy(enabled_rule_ids=frozenset(rule_ids)),
     )
+
+
+def _inventory_with_version_dependency(*, coherent: bool) -> ResourceInventory:
+    inventory = GcpNormalizer().normalize(
+        [
+            _public_cloud_run(),
+            _public_invoker(),
+            _as_resource(_key("data", "ENCRYPT_DECRYPT")),
+            _as_resource(_version("data", "GOOGLE_SYMMETRIC_ENCRYPTION")),
+            _version_for_key("data_secondary", "data", 2),
+            _topic_with_cmek(
+                "orders",
+                key_name=f"{_RING}/cryptoKeys/data",
+            ),
+            _as_resource(_project_member("runtime_admin", "roles/cloudkms.admin")),
+        ]
+    )
+    key = inventory.get_by_address("google_kms_crypto_key.data")
+    assert key is not None
+    version_address = "google_kms_crypto_key_version.data"
+    version_resource_name = f"{_RING}/cryptoKeys/data/cryptoKeyVersions/1"
+    dependency = gcp_facts(key).kms_encryption_dependencies[0].copy()
+    dependency["version_reference_is_explicit"] = True
+    dependency["key_version_address"] = version_address
+    dependency["key_version_resource_name"] = version_resource_name
+    if coherent:
+        dependency["candidate_targets"] = [
+            {
+                "address": version_address,
+                "target_kind": "crypto_key_version",
+            }
+        ]
+        dependency["reference_provenance"] = "planned_value"
+        dependency["reference_kind"] = "crypto_key_version_resource_name"
+        dependency["configured_key_reference"] = version_resource_name
+    object.__setattr__(key, "_decoration_state_frozen", False)
+    gcp_facts(key).set_kms_encryption_dependency_posture(
+        dependencies=[dependency],
+        uncertainties=[],
+    )
+    object.__setattr__(key, "_decoration_state_frozen", True)
+    return inventory
 
 
 class GcpPublicCloudRunKmsManagementRuleTests(unittest.TestCase):
@@ -100,6 +187,153 @@ class GcpPublicCloudRunKmsManagementRuleTests(unittest.TestCase):
             all("management_effect=delegation" in value for value in delegation_evidence["kms_management_paths"])
         )
         self.assertIn("iam_scope_is_key_version=false", disruption_evidence["authorization_scope"][1])
+
+    def test_parent_key_dependencies_are_not_promoted_to_version_impact(self) -> None:
+        findings = _evaluate(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_key("data", "ENCRYPT_DECRYPT")),
+                _as_resource(_version("data", "GOOGLE_SYMMETRIC_ENCRYPTION")),
+                _topic_with_cmek(
+                    "orders",
+                    key_name=f"{_RING}/cryptoKeys/data",
+                ),
+                _topic_with_cmek(
+                    "archive",
+                    key_name=f"{_RING}/cryptoKeys/data",
+                ),
+                _as_resource(_project_member("runtime_admin", "roles/cloudkms.admin")),
+            ],
+            _DISRUPTION_RULE,
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertNotIn("google_pubsub_topic.orders", finding.affected_resources)
+        self.assertNotIn("google_pubsub_topic.archive", finding.affected_resources)
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.blast_radius, 2)
+        self.assertIn("No resolved downstream encrypted dependent resources", finding.rationale)
+        evidence = _evidence(finding)
+        self.assertEqual(
+            evidence["downstream_dependencies"][0],
+            "unique_dependency_count=0; unique_dependent_resource_count=0; "
+            "unique_version_target_count=1; blast_radius_basis=no_resolved_downstream_dependents",
+        )
+        self.assertEqual(len(evidence["downstream_dependencies"]), 1)
+        self.assertTrue(
+            any(
+                "operation=cloudkms.cryptoKeyVersions.destroy" in value and "target_type=crypto_key_version" in value
+                for value in evidence["kms_management_paths"]
+            )
+        )
+
+    def test_exact_version_dependency_projects_only_matching_version(self) -> None:
+        inventory = _inventory_with_version_dependency(coherent=True)
+        findings = StrideRuleEngine().evaluate(
+            inventory,
+            detect_trust_boundaries(inventory),
+            rule_policy=RulePolicy(enabled_rule_ids=frozenset({_DISRUPTION_RULE})),
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertIn("google_pubsub_topic.orders", finding.affected_resources)
+        evidence = _evidence(finding)["downstream_dependencies"]
+        self.assertEqual(
+            evidence[0],
+            "unique_dependency_count=1; unique_dependent_resource_count=1; "
+            "unique_version_target_count=2; blast_radius_basis=downstream_encrypted_dependents",
+        )
+        self.assertEqual(len(evidence), 2)
+        self.assertIn("cryptoKeyVersions/1", evidence[1])
+        self.assertNotIn("cryptoKeyVersions/2", evidence[1])
+
+    def test_inconsistent_version_dependency_is_not_projected(self) -> None:
+        inventory = _inventory_with_version_dependency(coherent=False)
+        findings = StrideRuleEngine().evaluate(
+            inventory,
+            detect_trust_boundaries(inventory),
+            rule_policy=RulePolicy(enabled_rule_ids=frozenset({_DISRUPTION_RULE})),
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertNotIn("google_pubsub_topic.orders", finding.affected_resources)
+        self.assertEqual(
+            _evidence(finding)["downstream_dependencies"][0],
+            "unique_dependency_count=0; unique_dependent_resource_count=0; "
+            "unique_version_target_count=2; blast_radius_basis=no_resolved_downstream_dependents",
+        )
+
+    def test_update_only_disruption_does_not_project_parent_key_dependents(self) -> None:
+        inventory = GcpNormalizer().normalize(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_key("data", "ENCRYPT_DECRYPT")),
+                _as_resource(_version("data", "GOOGLE_SYMMETRIC_ENCRYPTION")),
+                _topic_with_cmek(
+                    "orders",
+                    key_name=f"{_RING}/cryptoKeys/data",
+                ),
+                _as_resource(_project_member("runtime_admin", "roles/cloudkms.admin")),
+            ]
+        )
+        workload = inventory.get_by_address(_WORKLOAD_ADDRESS)
+        assert workload is not None
+        update_paths = [
+            path
+            for path in gcp_facts(workload).cloud_run_kms_management_paths
+            if path["operation"] == "cloudkms.cryptoKeyVersions.update"
+        ]
+        self.assertTrue(update_paths)
+        object.__setattr__(workload, "_decoration_state_frozen", False)
+        gcp_facts(workload).set_cloud_run_kms_management_paths(update_paths)
+        object.__setattr__(workload, "_decoration_state_frozen", True)
+
+        findings = StrideRuleEngine().evaluate(
+            inventory,
+            detect_trust_boundaries(inventory),
+            rule_policy=RulePolicy(enabled_rule_ids=frozenset({_DISRUPTION_RULE})),
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertNotIn("google_pubsub_topic.orders", finding.affected_resources)
+        self.assertIn("No deterministic CryptoKeyVersion destruction target", finding.rationale)
+        self.assertEqual(
+            _evidence(finding)["downstream_dependencies"],
+            [
+                "unique_dependency_count=0; unique_dependent_resource_count=0; "
+                "unique_version_target_count=0; blast_radius_basis=no_resolved_downstream_dependents"
+            ],
+        )
+
+    def test_unknown_cmek_dependency_does_not_enrich_disruption_blast_radius(self) -> None:
+        findings = _evaluate(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_key("data", "ENCRYPT_DECRYPT")),
+                _as_resource(_version("data", "GOOGLE_SYMMETRIC_ENCRYPTION")),
+                _topic_with_cmek("orders", key_name=None, unknown_key=True),
+                _as_resource(_project_member("runtime_admin", "roles/cloudkms.admin")),
+            ],
+            _DISRUPTION_RULE,
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertNotIn("google_pubsub_topic.orders", finding.affected_resources)
+        evidence = _evidence(finding)
+        self.assertEqual(
+            evidence["downstream_dependencies"][0],
+            "unique_dependency_count=0; unique_dependent_resource_count=0; "
+            "unique_version_target_count=1; blast_radius_basis=no_resolved_downstream_dependents",
+        )
+        self.assertIn("No resolved downstream encrypted dependent resources", finding.rationale)
 
     def test_public_key_ring_and_exact_key_scopes_have_distinct_breadth(self) -> None:
         ring_findings = _evaluate(
