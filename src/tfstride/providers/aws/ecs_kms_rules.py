@@ -199,16 +199,56 @@ class AwsEcsKmsOperationRuleDetectors:
             task_definition_addresses = path_string_values(paths, "task_definition_address")
             role_addresses = path_string_values(paths, "role_address")
             key_addresses = path_string_values(paths, "key_address")
+            downstream_dependencies = (
+                _resolved_downstream_dependencies(paths, context) if management_effect == "disruption" else []
+            )
+            downstream_dependent_addresses = _downstream_dependent_addresses(downstream_dependencies)
+            recovery_window_evidence = (
+                _recovery_window_evidence(paths, context) if management_effect == "disruption" else []
+            )
             authorization_bases = _authorization_bases(paths)
             operations = _management_operations(paths)
-            severity_reasoning = _management_severity(len(key_addresses))
+            severity_reasoning = _management_severity(
+                len(key_addresses),
+                len(downstream_dependent_addresses),
+            )
             affected_resources = [
                 *load_balancer_addresses,
                 service.address,
                 *task_definition_addresses,
                 *role_addresses,
                 *key_addresses,
+                *downstream_dependent_addresses,
             ]
+            management_evidence = [
+                evidence_item(
+                    "network_path",
+                    public_service_network_path(load_balancer_addresses, service.address),
+                ),
+                evidence_item(
+                    "task_definitions",
+                    [f"address={address}" for address in task_definition_addresses],
+                ),
+                evidence_item("task_roles", _task_role_evidence(paths)),
+                evidence_item("kms_management_paths", _management_path_evidence(paths)),
+                evidence_item(
+                    "assessment_scope",
+                    _management_assessment_scope(operations, management_effect),
+                ),
+            ]
+            if management_effect == "disruption":
+                management_evidence.extend(
+                    [
+                        evidence_item(
+                            "downstream_dependencies",
+                            _downstream_dependency_evidence(downstream_dependencies),
+                        ),
+                        evidence_item(
+                            "recovery_window",
+                            recovery_window_evidence,
+                        ),
+                    ]
+                )
             findings.append(
                 self._finding_factory.build(
                     rule_id=rule_id,
@@ -221,23 +261,11 @@ class AwsEcsKmsOperationRuleDetectors:
                         len(key_addresses),
                         authorization_bases,
                         management_effect,
+                        downstream_dependent_count=len(downstream_dependent_addresses),
+                        downstream_dependency_count=len(downstream_dependencies),
+                        recovery_window_evidence=recovery_window_evidence,
                     ),
-                    evidence=collect_evidence(
-                        evidence_item(
-                            "network_path",
-                            public_service_network_path(load_balancer_addresses, service.address),
-                        ),
-                        evidence_item(
-                            "task_definitions",
-                            [f"address={address}" for address in task_definition_addresses],
-                        ),
-                        evidence_item("task_roles", _task_role_evidence(paths)),
-                        evidence_item("kms_management_paths", _management_path_evidence(paths)),
-                        evidence_item(
-                            "assessment_scope",
-                            _management_assessment_scope(operations, management_effect),
-                        ),
-                    ),
+                    evidence=collect_evidence(*management_evidence),
                     severity_reasoning=severity_reasoning,
                 )
             )
@@ -384,13 +412,16 @@ def _management_operations(paths: Sequence[AwsEcsKmsManagementPath]) -> list[str
     ]
 
 
-def _management_severity(key_count: int) -> SeverityReasoning:
+def _management_severity(
+    key_count: int,
+    downstream_dependent_count: int = 0,
+) -> SeverityReasoning:
     return build_severity_reasoning(
         internet_exposure=True,
         privilege_breadth=2,
         data_sensitivity=1,
         lateral_movement=1,
-        blast_radius=2 if key_count > 1 else 1,
+        blast_radius=2 if key_count > 1 or downstream_dependent_count > 1 else 1,
     )
 
 
@@ -400,22 +431,177 @@ def _management_rationale(
     key_count: int,
     authorization_bases: list[str],
     management_effect: AwsEcsKmsManagementEffect,
+    *,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
+    recovery_window_evidence: Sequence[str] = (),
 ) -> str:
     operation_text = _operation_text(operations)
     basis = ", ".join(authorization_bases)
     if management_effect == "disruption":
         consequence = "could disrupt KMS-backed data or cryptographic availability through those operations"
         capability = "deterministic KMS key-disruption authority"
+        downstream = (
+            f" The modeled keys have {downstream_dependent_count} unique downstream encrypted dependent "
+            f"resource(s) across {downstream_dependency_count} unique dependency relationship(s)."
+            if downstream_dependent_count
+            else " No resolved downstream encrypted dependent resources are modeled for these keys."
+        )
+        recovery = (
+            f" Recovery-window evidence: {', '.join(recovery_window_evidence)}."
+            if recovery_window_evidence
+            else " Recovery-window evidence is unavailable or unresolved."
+        )
     else:
         consequence = "could change KMS authorization or delegate further key authority through those operations"
         capability = "deterministic KMS authorization-delegation authority"
+        downstream = ""
+        recovery = ""
     return (
         f"{service.display_name} is reachable through an internet-facing load balancer and its ECS task role has "
         f"{capability} ({operation_text}) on {key_count} exact modeled KMS key(s) through {basis}. A compromise "
-        f"of the public workload {consequence}. This establishes cryptographic key-management authority, not proof "
+        f"of the public workload {consequence}.{downstream}{recovery} This establishes cryptographic "
+        "key-management authority, not proof "
         "that the operation will succeed outside the modeled AWS policy, grant, and key-state evidence. The KMS "
         "key itself is not public."
     )
+
+
+def _resolved_downstream_dependencies(
+    paths: Sequence[AwsEcsKmsManagementPath],
+    context: RuleEvaluationContext,
+) -> list[Mapping[str, object]]:
+    dependencies: list[Mapping[str, object]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for key_address in path_string_values(paths, "key_address"):
+        key = context.inventory.get_by_address(key_address)
+        if key is None or key.resource_type != _AWS_KMS_KEY:
+            continue
+        for dependency in aws_facts(key).kms_encryption_dependencies:
+            if dependency.get("resolution_state") != "resolved":
+                continue
+            if dependency.get("key_address") != key_address:
+                continue
+            dependent_address = dependency.get("dependent_address")
+            source_address = dependency.get("dependency_source_address")
+            configuration_path = repr(dependency.get("configuration_path"))
+            if not isinstance(dependent_address, str) or not isinstance(source_address, str):
+                continue
+            dependent = context.inventory.get_by_address(dependent_address)
+            source = context.inventory.get_by_address(source_address)
+            if (
+                dependent is None
+                or source is None
+                or dependent.provider != "aws"
+                or source.provider != "aws"
+                or dependency.get("dependent_resource_type") != dependent.resource_type
+                or dependency.get("dependency_source_type") != source.resource_type
+            ):
+                continue
+            key_facts = aws_facts(key)
+            recorded_key_arn = dependency.get("key_arn")
+            if recorded_key_arn is not None and recorded_key_arn != key_facts.kms_key_arn:
+                continue
+            fingerprint = (key_address, dependent_address, source_address, configuration_path)
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            dependencies.append(dependency)
+    return sorted(
+        dependencies,
+        key=lambda dependency: (
+            str(dependency.get("dependent_address")),
+            str(dependency.get("dependency_source_address")),
+            repr(dependency.get("configuration_path")),
+        ),
+    )
+
+
+def _downstream_dependent_addresses(
+    dependencies: Sequence[Mapping[str, object]],
+) -> list[str]:
+    return sorted(
+        {
+            value
+            for dependency in dependencies
+            if isinstance(value := dependency.get("dependent_address"), str) and value
+        }
+    )
+
+
+def _downstream_dependency_evidence(
+    dependencies: Sequence[Mapping[str, object]],
+) -> list[str]:
+    dependent_addresses = _downstream_dependent_addresses(dependencies)
+    values = [
+        (
+            f"unique_dependency_count={len(dependencies)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            f"blast_radius_basis="
+            f"{'downstream_encrypted_dependents' if dependent_addresses else 'no_resolved_downstream_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                f"key_address={dependency.get('key_address') or 'unknown'}",
+                f"dependent_address={dependency.get('dependent_address') or 'unknown'}",
+                f"dependency_source={dependency.get('dependency_source_address') or 'unknown'}",
+                f"configuration_path={dependency.get('configuration_path') or 'unknown'}",
+                f"reference_kind={dependency.get('reference_kind') or 'unknown'}",
+            )
+        )
+        for dependency in dependencies
+    )
+    return values
+
+
+def _recovery_window_evidence(
+    paths: Sequence[AwsEcsKmsManagementPath],
+    context: RuleEvaluationContext,
+) -> list[str]:
+    operations_by_key: dict[str, set[str]] = {}
+    for path in paths:
+        key_address = path.get("key_address")
+        operation = path.get("operation")
+        if isinstance(key_address, str) and isinstance(operation, str):
+            operations_by_key.setdefault(key_address, set()).add(operation)
+
+    values: list[str] = []
+    for key_address in sorted(operations_by_key):
+        key = context.inventory.get_by_address(key_address)
+        if key is None or key.resource_type != _AWS_KMS_KEY:
+            continue
+        operations = operations_by_key[key_address]
+        if "kms:ScheduleKeyDeletion" in operations:
+            deletion_window = aws_facts(key).kms_deletion_window_in_days
+            values.append(
+                "; ".join(
+                    (
+                        f"key_address={key_address}",
+                        "operation=kms:ScheduleKeyDeletion",
+                        f"deletion_window_in_days={deletion_window if deletion_window is not None else 'unknown'}",
+                        (
+                            "recovery_window_state=cancelable_scheduled_deletion"
+                            if deletion_window is not None
+                            else "recovery_window_state=unknown_scheduled_deletion_window"
+                        ),
+                    )
+                )
+            )
+        for operation in _MANAGEMENT_OPERATION_ORDER:
+            if operation not in operations or operation == "kms:ScheduleKeyDeletion":
+                continue
+            values.append(
+                "; ".join(
+                    (
+                        f"key_address={key_address}",
+                        f"operation={operation}",
+                        "recovery_window_state=not_governed_by_deletion_window",
+                    )
+                )
+            )
+    return values
 
 
 def _management_assessment_scope(
