@@ -24,7 +24,7 @@ class AzureIdentityFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.RESOLVED_MANAGED_IDENTITY_ADDRESS)
 
     @property
-    def managed_identity_role_assignments(self) -> list[dict]:
+    def managed_identity_role_assignments(self) -> list[dict[str, object]]:
         return self.get(AzureResourceMetadata.MANAGED_IDENTITY_ROLE_ASSIGNMENTS)
 
     @property
@@ -121,7 +121,10 @@ class AzureIdentityFacts(AzureBaseFacts):
     ) -> None:
         self.extend(AzureResourceMetadata.FEDERATED_MANAGED_IDENTITY_TRUST_PATH_UNCERTAINTIES, values)
 
-    def add_managed_identity_role_assignment(self, assignment: dict) -> None:
+    def add_managed_identity_role_assignment(
+        self,
+        assignment: dict[str, object],
+    ) -> None:
         assignments = self.managed_identity_role_assignments
         if assignment not in assignments:
             assignments.append(assignment)

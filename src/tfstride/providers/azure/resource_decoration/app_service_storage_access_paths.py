@@ -3,17 +3,29 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Any
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultRuntimeIdentityKind
+from tfstride.providers.azure.protected_data_evidence import (
+    AzureAppServiceStorageAccessPath,
+    AzureStorageAccessClass,
+)
 from tfstride.providers.azure.resource_decoration.workload_identities import workload_managed_identities
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AZURE_APP_SERVICE_RESOURCE_TYPES, AzureResourceType
 from tfstride.providers.coercion import dedupe
 
-_ACCESS_CLASS_ORDER = ("read", "write", "delete", "administrative")
-_BUILT_IN_BLOB_DATA_ROLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
+_ACCESS_CLASS_ORDER: tuple[AzureStorageAccessClass, ...] = (
+    "read",
+    "write",
+    "delete",
+    "administrative",
+)
+_BUILT_IN_BLOB_DATA_ROLES: dict[
+    str,
+    tuple[str, str, tuple[AzureStorageAccessClass, ...]],
+] = {
     "storage blob data reader": (
         "Storage Blob Data Reader",
         "blob_data_reader",
@@ -30,12 +42,15 @@ _BUILT_IN_BLOB_DATA_ROLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
         _ACCESS_CLASS_ORDER,
     ),
 }
-_BUILT_IN_BLOB_DATA_ROLE_IDS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+_BUILT_IN_BLOB_DATA_ROLE_IDS: dict[
+    str,
+    tuple[str, str, tuple[AzureStorageAccessClass, ...]],
+] = {
     "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1": _BUILT_IN_BLOB_DATA_ROLES["storage blob data reader"],
     "ba92f5b4-2d11-453d-a403-e96b0029c9fe": _BUILT_IN_BLOB_DATA_ROLES["storage blob data contributor"],
     "b7e6dc6d-f1e8-4753-8033-0f276bb0955b": _BUILT_IN_BLOB_DATA_ROLES["storage blob data owner"],
 }
-_BLOB_DATA_ACTIONS: tuple[tuple[str, str], ...] = (
+_BLOB_DATA_ACTIONS: tuple[tuple[str, AzureStorageAccessClass], ...] = (
     ("microsoft.storage/storageaccounts/blobservices/containers/blobs/read", "read"),
     ("microsoft.storage/storageaccounts/blobservices/containers/blobs/tags/read", "read"),
     ("microsoft.storage/storageaccounts/blobservices/containers/blobs/filter/action", "read"),
@@ -81,7 +96,7 @@ _STORAGE_TARGET_TYPES = frozenset(
 class _StorageDataGrant:
     role_name: str
     role_kind: str
-    access_classes: tuple[str, ...]
+    access_classes: tuple[AzureStorageAccessClass, ...]
     grant_basis: str
     role_definition_address: str | None = None
     permission_patterns: tuple[str, ...] = ()
@@ -106,14 +121,14 @@ class ModelAppServiceStorageAccessPathsStage:
 def _app_service_storage_access_paths(
     workload: NormalizedResource,
     context: AzureDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AzureAppServiceStorageAccessPath], list[str]]:
     workload_facts = azure_facts(workload)
     identities, identity_uncertainties = workload_managed_identities(workload, context)
     uncertainties = [
         *identity_uncertainties,
         *[f"{workload.address}: {value}" for value in workload_facts.managed_identity_uncertainties],
     ]
-    paths: list[dict[str, Any]] = []
+    paths: list[AzureAppServiceStorageAccessPath] = []
 
     for identity, identity_kind in identities:
         identity_facts = azure_facts(identity)
@@ -157,7 +172,7 @@ def _app_service_storage_access_paths(
 
 
 def _assignment_resource(
-    assignment: Mapping[str, Any],
+    assignment: Mapping[str, object],
     context: AzureDecorationContext,
 ) -> NormalizedResource | None:
     resource = context.index.resolve(_string_value(assignment.get("source")))
@@ -167,7 +182,7 @@ def _assignment_resource(
 
 
 def _exact_storage_target(
-    assignment: Mapping[str, Any],
+    assignment: Mapping[str, object],
     assignment_resource: NormalizedResource,
     context: AzureDecorationContext,
 ) -> tuple[NormalizedResource | None, str | None]:
@@ -185,7 +200,7 @@ def _exact_storage_target(
 
 
 def _storage_data_grant(
-    assignment: Mapping[str, Any],
+    assignment: Mapping[str, object],
     assignment_resource: NormalizedResource,
     context: AzureDecorationContext,
 ) -> tuple[_StorageDataGrant | None, str | None]:
@@ -241,7 +256,7 @@ def _storage_data_grant(
 def _built_in_role(
     role_name: str | None,
     role_definition_id: str | None,
-) -> tuple[str, str, tuple[str, ...]] | None:
+) -> tuple[str, str, tuple[AzureStorageAccessClass, ...]] | None:
     if role_definition_id:
         match = _BUILT_IN_BLOB_DATA_ROLE_IDS.get(role_definition_id.strip().lower().rstrip("/").rsplit("/", 1)[-1])
         if match is not None:
@@ -267,7 +282,7 @@ def _matched_data_actions(
     return tuple(matched), tuple(excluded)
 
 
-def _access_classes(actions: tuple[str, ...]) -> tuple[str, ...]:
+def _access_classes(actions: tuple[str, ...]) -> tuple[AzureStorageAccessClass, ...]:
     classes = {access_class for action, access_class in _BLOB_DATA_ACTIONS if action in actions}
     return tuple(access_class for access_class in _ACCESS_CLASS_ORDER if access_class in classes)
 
@@ -280,17 +295,17 @@ def _matches_any(action: str, patterns: tuple[str, ...]) -> bool:
 def _access_path_record(
     workload: NormalizedResource,
     identity: NormalizedResource,
-    identity_kind: str,
+    identity_kind: AzureKeyVaultRuntimeIdentityKind,
     assignment: NormalizedResource,
     target: NormalizedResource,
     grant: _StorageDataGrant,
     context: AzureDecorationContext,
-) -> dict[str, Any]:
+) -> AzureAppServiceStorageAccessPath:
     identity_facts = azure_facts(identity)
     assignment_facts = azure_facts(assignment)
     storage_account = _storage_account_for_target(target, context)
     condition = assignment_facts.role_assignment_condition
-    record: dict[str, Any] = {
+    record: AzureAppServiceStorageAccessPath = {
         "workload_address": workload.address,
         "workload_type": workload.resource_type,
         "identity_address": identity.address,
@@ -359,8 +374,10 @@ def _string_value(value: object) -> str | None:
     return normalized or None
 
 
-def _dedupe_dicts(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
+def _dedupe_dicts(
+    values: list[AzureAppServiceStorageAccessPath],
+) -> list[AzureAppServiceStorageAccessPath]:
+    result: list[AzureAppServiceStorageAccessPath] = []
     for value in values:
         if value not in result:
             result.append(value)

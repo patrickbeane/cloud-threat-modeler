@@ -7,6 +7,7 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsOperationPath,
 )
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
+from tfstride.providers.gcp.protected_data_evidence import GcpCloudRunGcsAccessPath
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
 
 
@@ -66,7 +67,7 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES)
 
     @property
-    def cloud_run_gcs_access_paths(self) -> list[dict[str, Any]]:
+    def cloud_run_gcs_access_paths(self) -> list[GcpCloudRunGcsAccessPath]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_ACCESS_PATHS)
 
     @property
@@ -119,7 +120,7 @@ class GcpComputeFacts(GcpBaseFacts):
     def extend_cloud_run_secret_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES, values)
 
-    def set_cloud_run_gcs_access_paths(self, values: list[dict[str, Any]]) -> None:
+    def set_cloud_run_gcs_access_paths(self, values: list[GcpCloudRunGcsAccessPath]) -> None:
         self.set(GcpResourceMetadata.CLOUD_RUN_GCS_ACCESS_PATHS, values)
 
     def extend_cloud_run_gcs_access_path_uncertainties(self, values: list[str]) -> None:

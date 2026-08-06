@@ -5,6 +5,7 @@ from typing import Any
 
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
+from tfstride.providers.aws.protected_data_evidence import AwsEcsS3AccessPath
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 from tfstride.resource_metadata import DictListMetadataField
 
@@ -93,7 +94,7 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_SECRET_ACCESS_PATH_UNCERTAINTIES)
 
     @property
-    def ecs_s3_access_paths(self) -> list[dict[str, Any]]:
+    def ecs_s3_access_paths(self) -> list[AwsEcsS3AccessPath]:
         return self.get(AwsResourceMetadata.ECS_S3_ACCESS_PATHS)
 
     @property
@@ -536,7 +537,7 @@ class AwsComputeFacts(AwsBaseFacts):
     def extend_ecs_secret_access_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECS_SECRET_ACCESS_PATH_UNCERTAINTIES, values)
 
-    def set_ecs_s3_access_paths(self, values: list[dict[str, Any]]) -> None:
+    def set_ecs_s3_access_paths(self, values: list[AwsEcsS3AccessPath]) -> None:
         self.set(AwsResourceMetadata.ECS_S3_ACCESS_PATHS, values)
 
     def extend_ecs_s3_access_path_uncertainties(self, values: Sequence[str | None]) -> None:

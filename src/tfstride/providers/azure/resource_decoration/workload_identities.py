@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultRuntimeIdentityKind
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AzureResourceType
@@ -9,9 +10,12 @@ from tfstride.providers.azure.resource_types import AzureResourceType
 def workload_managed_identities(
     workload: NormalizedResource,
     context: AzureDecorationContext,
-) -> tuple[list[tuple[NormalizedResource, str]], list[str]]:
+) -> tuple[
+    list[tuple[NormalizedResource, AzureKeyVaultRuntimeIdentityKind]],
+    list[str],
+]:
     facts = azure_facts(workload)
-    identities: list[tuple[NormalizedResource, str]] = []
+    identities: list[tuple[NormalizedResource, AzureKeyVaultRuntimeIdentityKind]] = []
     uncertainties: list[str] = []
     if facts.has_system_assigned_identity:
         if facts.principal_id:

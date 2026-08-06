@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
+from tfstride.providers.gcp.protected_data_evidence import (
+    GcpCloudRunGcsAccessPath,
+    GcpGcsAccessClass,
+)
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import GcpDecorationContext
 from tfstride.providers.gcp.resource_types import GCP_CLOUD_RUN_RESOURCE_TYPES, GcpResourceType
@@ -19,8 +23,13 @@ from tfstride.providers.gcp.resource_utils import (
 if TYPE_CHECKING:
     from tfstride.providers.gcp.custom_roles import GcpCustomRoleIndex
 
-_ACCESS_CLASS_ORDER = ("read", "write", "delete", "administrative")
-_BUILT_IN_ROLE_ACCESS: dict[str, tuple[str, tuple[str, ...]]] = {
+_ACCESS_CLASS_ORDER: tuple[GcpGcsAccessClass, ...] = (
+    "read",
+    "write",
+    "delete",
+    "administrative",
+)
+_BUILT_IN_ROLE_ACCESS: dict[str, tuple[str, tuple[GcpGcsAccessClass, ...]]] = {
     "roles/storage.objectViewer": ("viewer", ("read",)),
     "roles/storage.objectCreator": ("creator", ("write",)),
     "roles/storage.objectUser": ("user", ("read", "write", "delete")),
@@ -53,7 +62,7 @@ _ADMIN_PERMISSIONS = frozenset({"storage.objects.setIamPolicy"})
 @dataclass(frozen=True, slots=True)
 class _GcsRoleAccess:
     role_kind: str
-    access_classes: tuple[str, ...]
+    access_classes: tuple[GcpGcsAccessClass, ...]
     custom_role_permissions: tuple[str, ...] = ()
     matched_permissions: tuple[str, ...] = ()
 
@@ -81,13 +90,13 @@ def _cloud_run_gcs_access_paths(
     workload: NormalizedResource,
     buckets: tuple[NormalizedResource, ...],
     custom_roles: GcpCustomRoleIndex,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[GcpCloudRunGcsAccessPath], list[str]]:
     workload_facts = gcp_facts(workload)
     service_account_member = workload_facts.service_account_member
     if not service_account_member:
         return [], [f"{workload.address}: Cloud Run service account is unresolved"]
 
-    paths: list[dict[str, Any]] = []
+    paths: list[GcpCloudRunGcsAccessPath] = []
     uncertainties: list[str] = []
     seen: set[tuple[str, str, str, str]] = set()
     for bucket in buckets:
@@ -158,12 +167,12 @@ def _is_gcs_data_permission(permission: str) -> bool:
     return permission in {"*", "storage.*", "storage.objects.*"} or permission.startswith("storage.objects.")
 
 
-def _custom_access_classes(permissions: tuple[str, ...]) -> tuple[str, ...]:
+def _custom_access_classes(permissions: tuple[str, ...]) -> tuple[GcpGcsAccessClass, ...]:
     wildcard = any(permission in {"*", "storage.*", "storage.objects.*"} for permission in permissions)
     if wildcard:
         return _ACCESS_CLASS_ORDER
 
-    classes: set[str] = set()
+    classes: set[GcpGcsAccessClass] = set()
     for permission in permissions:
         if permission in _READ_PERMISSIONS:
             classes.add("read")
@@ -183,8 +192,8 @@ def _access_path_record(
     iam_resource_address: str | None,
     role: str,
     role_access: _GcsRoleAccess,
-    condition: dict[str, Any] | None,
-) -> dict[str, Any]:
+    condition: dict[str, object] | None,
+) -> GcpCloudRunGcsAccessPath:
     workload_facts = gcp_facts(workload)
     bucket_facts = gcp_facts(bucket)
     return {
@@ -211,7 +220,7 @@ def _access_path_record(
     }
 
 
-def _condition(value: object) -> dict[str, Any] | None:
+def _condition(value: object) -> dict[str, object] | None:
     if isinstance(value, Mapping):
         return {str(key): item for key, item in value.items()}
     return None

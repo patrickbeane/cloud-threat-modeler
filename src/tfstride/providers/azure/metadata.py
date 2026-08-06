@@ -6,6 +6,7 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
 )
+from tfstride.providers.azure.protected_data_evidence import AzureAppServiceStorageAccessPath
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -389,7 +390,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_MANAGEMENT_PATHS = RecordListMetadataField[AzureAppServiceKeyVaultManagementPath](
         "app_service_key_vault_management_paths"
     )
-    APP_SERVICE_STORAGE_ACCESS_PATHS = DictListMetadataField("app_service_storage_access_paths")
+    APP_SERVICE_STORAGE_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceStorageAccessPath](
+        "app_service_storage_access_paths"
+    )
     APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = DictListMetadataField("app_service_service_bus_access_paths")
     APP_SERVICE_COSMOSDB_ACCESS_PATHS = DictListMetadataField("app_service_cosmosdb_access_paths")
     APP_SERVICE_AUTH_SETTINGS = DictMetadataField("app_service_auth_settings")
@@ -495,7 +498,7 @@ class AzureResourceMetadata:
     KEY_VAULT_ACCESS_POLICIES = DictListMetadataField("key_vault_access_policies")
     KEY_VAULT_ROLE_ASSIGNMENTS = DictListMetadataField("key_vault_role_assignments")
     KEY_VAULT_ROTATION_POLICY = DictMetadataField("key_vault_rotation_policy")
-    MANAGED_IDENTITY_ROLE_ASSIGNMENTS = DictListMetadataField("managed_identity_role_assignments")
+    MANAGED_IDENTITY_ROLE_ASSIGNMENTS = RecordListMetadataField[dict[str, object]]("managed_identity_role_assignments")
     FEDERATED_MANAGED_IDENTITY_TRUST_PATHS = DictListMetadataField("federated_managed_identity_trust_paths")
     ACR_WRITE_PATHS = DictListMetadataField("acr_write_paths")
     PRIVILEGED_ACCESS_GRANTS = DictListMetadataField("privileged_access_grants")

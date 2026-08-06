@@ -1,24 +1,36 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Any, Literal
+from typing import Literal, TypedDict
 
 from tfstride.models import IAMPolicyCondition, IAMPolicyStatement, NormalizedResource
+from tfstride.providers.aws.protected_data_evidence import (
+    AwsEcsS3AccessPath,
+    AwsS3AccessClass,
+    AwsS3AccessState,
+    AwsS3PolicyConditionEvidence,
+    AwsS3PolicyStatementEvidence,
+    AwsS3ResourceScope,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import dedupe
 
 _ECS_TASK_DEFINITION = "aws_ecs_task_definition"
 _ECS_SERVICE = "aws_ecs_service"
-_ACCESS_CLASS_ORDER = ("read", "write", "delete", "administrative")
+_ACCESS_CLASS_ORDER: tuple[AwsS3AccessClass, ...] = (
+    "read",
+    "write",
+    "delete",
+    "administrative",
+)
 
 
 @dataclass(frozen=True, slots=True)
 class _S3Action:
     name: str
-    access_class: str
+    access_class: AwsS3AccessClass
     resource_kind: Literal["bucket_level", "object_level"]
 
 
@@ -73,6 +85,13 @@ _S3_ACTIONS = (
 _ACTION_BY_NAME = {action.name: action for action in _S3_ACTIONS}
 
 
+class _S3AccessAssessment(TypedDict):
+    allowed_actions: list[str]
+    denied_actions: list[str]
+    unknown_actions: list[str]
+    conditional_actions: list[str]
+
+
 class ModelEcsS3AccessPathsStage:
     name = "model_ecs_s3_access_paths"
 
@@ -95,7 +114,7 @@ class ProjectEcsS3AccessPathsOntoServicesStage:
                 continue
 
             facts = aws_facts(service)
-            paths: list[dict[str, Any]] = []
+            paths: list[AwsEcsS3AccessPath] = []
             uncertainties = [
                 f"{service.address}: task definition reference {reference} is unresolved for S3 access-path projection"
                 for reference in facts.unresolved_task_definition_references
@@ -121,8 +140,8 @@ class ProjectEcsS3AccessPathsOntoServicesStage:
 def _service_access_path(
     service: NormalizedResource,
     task_definition: NormalizedResource,
-    path: Mapping[str, Any],
-) -> dict[str, Any]:
+    path: AwsEcsS3AccessPath,
+) -> AwsEcsS3AccessPath:
     return {
         **path,
         "workload_address": service.address,
@@ -136,7 +155,7 @@ def _service_access_path(
 def _ecs_s3_access_paths(
     task_definition: NormalizedResource,
     context: AwsDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AwsEcsS3AccessPath], list[str]]:
     task_facts = aws_facts(task_definition)
     task_role_reference = task_facts.task_role_arn
     if not task_role_reference:
@@ -157,7 +176,7 @@ def _ecs_s3_access_paths(
     target_buckets, target_uncertainties = _target_buckets(task_role, context)
     uncertainties.extend(f"{task_definition.address}: {message}" for message in target_uncertainties)
 
-    paths: list[dict[str, Any]] = []
+    paths: list[AwsEcsS3AccessPath] = []
     for bucket in target_buckets:
         if not bucket.arn:
             uncertainties.append(
@@ -232,11 +251,15 @@ def _exact_bucket_arn(resource: str) -> str | None:
 def _matching_statement_records(
     statements: tuple[IAMPolicyStatement, ...],
     bucket_arn: str,
-) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
+) -> list[AwsS3PolicyStatementEvidence]:
+    records: list[AwsS3PolicyStatementEvidence] = []
     for statement in statements:
         effect = statement.effect.strip().lower()
-        if effect not in {"allow", "deny"}:
+        if effect == "allow":
+            normalized_effect: Literal["allow", "deny"] = "allow"
+        elif effect == "deny":
+            normalized_effect = "deny"
+        else:
             continue
 
         matched_actions: list[str] = []
@@ -255,7 +278,7 @@ def _matching_statement_records(
             continue
         records.append(
             {
-                "effect": effect,
+                "effect": normalized_effect,
                 "actions": list(statement.actions),
                 "matched_actions": matched_actions,
                 "matching_action_patterns": sorted(matching_patterns, key=str.lower),
@@ -285,7 +308,7 @@ def _matching_resources(
     return {resource for resource in statement.resources if resource.startswith(prefix)}
 
 
-def _condition_record(condition: IAMPolicyCondition) -> dict[str, Any]:
+def _condition_record(condition: IAMPolicyCondition) -> AwsS3PolicyConditionEvidence:
     return {
         "operator": condition.operator,
         "key": condition.key,
@@ -293,7 +316,7 @@ def _condition_record(condition: IAMPolicyCondition) -> dict[str, Any]:
     }
 
 
-def _assess_actions(records: list[dict[str, Any]]) -> dict[str, list[str]]:
+def _assess_actions(records: list[AwsS3PolicyStatementEvidence]) -> _S3AccessAssessment:
     allowed: list[str] = []
     denied: list[str] = []
     unknown: list[str] = []
@@ -328,21 +351,23 @@ def _access_path_record(
     task_definition: NormalizedResource,
     bucket: NormalizedResource,
     task_role: NormalizedResource,
-    statement_records: list[dict[str, Any]],
-    assessment: dict[str, list[str]],
+    statement_records: list[AwsS3PolicyStatementEvidence],
+    assessment: _S3AccessAssessment,
     *,
     role_policy_complete: bool,
-) -> dict[str, Any]:
+) -> AwsEcsS3AccessPath:
     allow_records = [record for record in statement_records if record["effect"] == "allow"]
     deny_records = [record for record in statement_records if record["effect"] == "deny"]
     modeled_access_state = _modeled_access_state(assessment)
-    access_state = modeled_access_state if role_policy_complete else "unknown"
+    access_state: AwsS3AccessState = modeled_access_state if role_policy_complete else "unknown"
+    bucket_arn = bucket.arn
+    assert bucket_arn is not None
     return {
         "workload_address": task_definition.address,
         "workload_type": task_definition.resource_type,
         "bucket_address": bucket.address,
         "bucket_name": aws_facts(bucket).bucket_name or bucket.name,
-        "bucket_arn": bucket.arn,
+        "bucket_arn": bucket_arn,
         "role_kind": "ecs_task_role",
         "credential_context": "workload_runtime",
         "role_address": task_role.address,
@@ -363,12 +388,12 @@ def _access_path_record(
         "policy_resources": _statement_values(allow_records, "matching_resources"),
         "deny_action_patterns": _statement_values(deny_records, "matching_action_patterns"),
         "deny_policy_resources": _statement_values(deny_records, "matching_resources"),
-        "resource_scopes": _statement_values(allow_records, "resource_scopes"),
+        "resource_scopes": _statement_resource_scopes(allow_records),
         "policy_statements": statement_records,
     }
 
 
-def _modeled_access_state(assessment: Mapping[str, list[str]]) -> str:
+def _modeled_access_state(assessment: _S3AccessAssessment) -> AwsS3AccessState:
     if assessment["allowed_actions"]:
         return "allowed"
     if assessment["unknown_actions"]:
@@ -378,25 +403,40 @@ def _modeled_access_state(assessment: Mapping[str, list[str]]) -> str:
     return "not_modeled"
 
 
-def _access_classes(actions: list[str]) -> list[str]:
+def _access_classes(actions: list[str]) -> list[AwsS3AccessClass]:
     classes = {_ACTION_BY_NAME[action].access_class for action in actions}
     return [access_class for access_class in _ACCESS_CLASS_ORDER if access_class in classes]
 
 
-def _statement_values(statements: list[dict[str, Any]], key: str) -> list[str]:
-    return sorted(
-        {value for statement in statements for value in statement[key] if isinstance(value, str)},
-        key=str.lower,
-    )
+def _statement_values(
+    statements: list[AwsS3PolicyStatementEvidence],
+    key: Literal["matching_action_patterns", "matching_resources"],
+) -> list[str]:
+    values = {
+        value
+        for statement in statements
+        for value in (
+            statement["matching_action_patterns"]
+            if key == "matching_action_patterns"
+            else statement["matching_resources"]
+        )
+    }
+    return sorted(values, key=str.lower)
 
 
-def _resource_scopes(resources: set[str], bucket_arn: str) -> list[str]:
+def _statement_resource_scopes(
+    statements: list[AwsS3PolicyStatementEvidence],
+) -> list[AwsS3ResourceScope]:
+    return sorted({scope for statement in statements for scope in statement["resource_scopes"]})
+
+
+def _resource_scopes(resources: set[str], bucket_arn: str) -> list[AwsS3ResourceScope]:
     scopes = {_resource_scope(resource, bucket_arn) for resource in resources}
     order = ("exact_bucket", "all_bucket_objects", "object_prefix", "exact_object")
     return [scope for scope in order if scope in scopes]
 
 
-def _resource_scope(resource: str, bucket_arn: str) -> str:
+def _resource_scope(resource: str, bucket_arn: str) -> AwsS3ResourceScope:
     if resource == bucket_arn:
         return "exact_bucket"
     object_path = resource[len(bucket_arn) + 1 :]

@@ -9,6 +9,7 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsKeyPolicyEvidence,
     AwsKmsOperationAuthorization,
 )
+from tfstride.providers.aws.protected_data_evidence import AwsEcsS3AccessPath
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -448,7 +449,7 @@ class AwsResourceMetadata:
     CONTAINER_IMAGE_REFERENCES = DictListMetadataField("container_image_references")
     ECS_SECRET_REFERENCES = DictListMetadataField("ecs_secret_references")
     ECS_SECRET_ACCESS_PATHS = DictListMetadataField("ecs_secret_access_paths")
-    ECS_S3_ACCESS_PATHS = DictListMetadataField("ecs_s3_access_paths")
+    ECS_S3_ACCESS_PATHS = RecordListMetadataField[AwsEcsS3AccessPath]("ecs_s3_access_paths")
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
