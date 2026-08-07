@@ -19,9 +19,14 @@ from tfstride.providers.aws.kms_evidence import (
     AwsEcsKmsManagementPath,
     AwsEcsKmsOperationPath,
 )
+from tfstride.providers.aws.protected_data_evidence import (
+    AwsEcsS3ProtectedDataConvergence,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
+_AWS_ECS_TASK_DEFINITION = "aws_ecs_task_definition"
+_AWS_IAM_ROLE = "aws_iam_role"
 _AWS_KMS_KEY = "aws_kms_key"
 _DECRYPT_OPERATION = "kms:Decrypt"
 _SIGN_OPERATION = "kms:Sign"
@@ -123,9 +128,16 @@ class AwsEcsKmsOperationRuleDetectors:
             key_addresses = path_string_values(paths, "key_address")
             authorization_bases = _authorization_bases(paths)
             matched_operations = _path_operations(paths)
+            protected_data_convergences = (
+                _resolved_protected_data_convergences(paths, service, context) if disclosure else []
+            )
+            protected_data_dependent_addresses = _protected_data_dependent_addresses(
+                protected_data_convergences,
+            )
             severity_reasoning = _operation_severity(
                 disclosure=disclosure,
                 key_count=len(key_addresses),
+                downstream_dependent_count=len(protected_data_dependent_addresses),
             )
             affected_resources = [
                 *load_balancer_addresses,
@@ -133,6 +145,7 @@ class AwsEcsKmsOperationRuleDetectors:
                 *task_definition_addresses,
                 *role_addresses,
                 *key_addresses,
+                *protected_data_dependent_addresses,
             ]
             findings.append(
                 self._finding_factory.build(
@@ -146,6 +159,8 @@ class AwsEcsKmsOperationRuleDetectors:
                         len(key_addresses),
                         authorization_bases,
                         disclosure=disclosure,
+                        downstream_dependent_count=len(protected_data_dependent_addresses),
+                        downstream_dependency_count=len(protected_data_convergences),
                     ),
                     evidence=collect_evidence(
                         evidence_item(
@@ -161,6 +176,22 @@ class AwsEcsKmsOperationRuleDetectors:
                         evidence_item(
                             "assessment_scope",
                             _assessment_scope(matched_operations),
+                        ),
+                        *(
+                            [
+                                evidence_item(
+                                    "downstream_dependencies",
+                                    _protected_data_dependency_evidence(
+                                        protected_data_convergences,
+                                    ),
+                                ),
+                                evidence_item(
+                                    "protected_data_uncertainties",
+                                    aws_facts(service).ecs_s3_protected_data_convergence_uncertainties,
+                                ),
+                            ]
+                            if disclosure
+                            else []
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -673,13 +704,18 @@ def _management_grant_sources(path: AwsEcsKmsManagementPath) -> list[str]:
     return sorted(sources) or ["none"]
 
 
-def _operation_severity(*, disclosure: bool, key_count: int) -> SeverityReasoning:
+def _operation_severity(
+    *,
+    disclosure: bool,
+    key_count: int,
+    downstream_dependent_count: int = 0,
+) -> SeverityReasoning:
     return build_severity_reasoning(
         internet_exposure=True,
         privilege_breadth=1,
         data_sensitivity=2 if disclosure else 1,
         lateral_movement=1,
-        blast_radius=2 if key_count > 1 else 1,
+        blast_radius=2 if key_count > 1 or downstream_dependent_count > 1 else 1,
     )
 
 
@@ -690,6 +726,8 @@ def _rationale(
     authorization_bases: list[str],
     *,
     disclosure: bool,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
 ) -> str:
     basis = ", ".join(authorization_bases)
     operation_text = _operation_text(operations)
@@ -699,29 +737,209 @@ def _rationale(
             "This establishes cryptographic-operation authority, not proof that the workload possesses useful "
             "ciphertext or can disclose plaintext."
         )
+        downstream = (
+            f" The exact decrypt evidence converges with {downstream_dependent_count} unique KMS-protected S3 "
+            f"resource(s) across {downstream_dependency_count} unique encryption dependency relationship(s)."
+            if downstream_dependent_count
+            else " No resolved KMS-protected S3 access convergence is modeled for these keys."
+        )
     elif operations == [_SIGN_OPERATION]:
         capability = "could generate KMS signatures, creating spoofing potential"
         qualification = (
             "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
             "application-level signature accepted by a relying system."
         )
+        downstream = ""
     elif operations == [_MAC_GENERATION_OPERATION]:
         capability = "could generate KMS message authentication codes, creating spoofing potential"
         qualification = (
             "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
             "message authentication code accepted by a relying system."
         )
+        downstream = ""
     else:
         capability = "could generate KMS signatures or message authentication codes, creating spoofing potential"
         qualification = (
             "This establishes cryptographic-operation authority, not proof that the workload can produce a valid "
             "signature or message authentication code accepted by a relying system."
         )
+        downstream = ""
     return (
         f"{service.display_name} is reachable through an internet-facing load balancer and its ECS task role has "
         f"deterministic {operation_text} authority on {key_count} exact modeled KMS key(s) through {basis}. "
-        f"A compromise of the public workload {capability}. {qualification} The KMS key itself is not public."
+        f"A compromise of the public workload {capability}. {qualification}{downstream} The KMS key itself is not public."
     )
+
+
+def _resolved_protected_data_convergences(
+    paths: Sequence[AwsEcsKmsOperationPath],
+    service: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> list[AwsEcsS3ProtectedDataConvergence]:
+    valid_path_keys = {
+        (
+            path["task_definition_address"],
+            path["role_address"],
+            path["role_arn"],
+            path["key_address"],
+            path["key_arn"],
+        )
+        for path in paths
+        if path["operation"] == _DECRYPT_OPERATION
+    }
+    convergences: list[AwsEcsS3ProtectedDataConvergence] = []
+    seen: set[tuple[str, str, str]] = set()
+    for convergence in aws_facts(service).ecs_s3_protected_data_convergences:
+        if not _is_valid_protected_data_convergence(
+            convergence,
+            service,
+            context,
+            valid_path_keys,
+        ):
+            continue
+        dependency = convergence["encryption_dependency"]
+        fingerprint = (
+            convergence["bucket_address"],
+            dependency["dependency_source_address"],
+            repr(dependency["configuration_path"]),
+        )
+        if fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        convergences.append(convergence)
+    return sorted(
+        convergences,
+        key=lambda convergence: (
+            convergence["bucket_address"],
+            convergence["encryption_dependency"]["dependency_source_address"],
+            repr(convergence["encryption_dependency"]["configuration_path"]),
+        ),
+    )
+
+
+def _is_valid_protected_data_convergence(
+    convergence: AwsEcsS3ProtectedDataConvergence,
+    service: NormalizedResource,
+    context: RuleEvaluationContext,
+    valid_path_keys: set[tuple[str, str, str | None, str, str]],
+) -> bool:
+    if (
+        convergence["convergence_state"] != "resolved"
+        or convergence["workload_address"] != service.address
+        or convergence["workload_type"] != _AWS_ECS_SERVICE
+        or convergence["operation"] != _DECRYPT_OPERATION
+        or convergence["access_class"] != "read"
+        or convergence["runtime_identity_match"] is not True
+        or convergence["protected_resource_match"] is not True
+        or convergence["key_identity_match"] is not True
+    ):
+        return False
+
+    if (
+        convergence["task_definition_address"],
+        convergence["role_address"],
+        convergence["role_arn"],
+        convergence["key_address"],
+        convergence["key_arn"],
+    ) not in valid_path_keys:
+        return False
+
+    task_definition = context.inventory.get_by_address(
+        convergence["task_definition_address"],
+    )
+    role = context.inventory.get_by_address(convergence["role_address"])
+    key = context.inventory.get_by_address(convergence["key_address"])
+    bucket = context.inventory.get_by_address(convergence["bucket_address"])
+    if (
+        task_definition is None
+        or task_definition.provider != "aws"
+        or task_definition.resource_type != _AWS_ECS_TASK_DEFINITION
+        or role is None
+        or role.provider != "aws"
+        or role.resource_type != _AWS_IAM_ROLE
+        or convergence["role_arn"] != role.arn
+        or key is None
+        or key.provider != "aws"
+        or key.resource_type != _AWS_KMS_KEY
+        or bucket is None
+        or bucket.provider != "aws"
+        or bucket.resource_type != "aws_s3_bucket"
+        or convergence["key_arn"] != (aws_facts(key).kms_key_arn or key.arn)
+        or convergence["bucket_arn"] != bucket.arn
+    ):
+        return False
+
+    access_path = convergence["access_path"]
+    operation_path = convergence["key_operation_path"]
+    if (
+        access_path["workload_address"] != service.address
+        or access_path["workload_type"] != _AWS_ECS_SERVICE
+        or access_path.get("task_definition_address") != convergence["task_definition_address"]
+        or access_path["role_address"] != convergence["role_address"]
+        or access_path["role_arn"] != convergence["role_arn"]
+        or access_path["bucket_address"] != convergence["bucket_address"]
+        or access_path["bucket_arn"] != convergence["bucket_arn"]
+        or access_path["access_state"] != "allowed"
+        or access_path["role_kind"] != "ecs_task_role"
+        or access_path["credential_context"] != "workload_runtime"
+        or operation_path["workload_address"] != service.address
+        or operation_path["workload_type"] != _AWS_ECS_SERVICE
+        or operation_path["task_definition_address"] != convergence["task_definition_address"]
+        or operation_path["role_address"] != convergence["role_address"]
+        or operation_path["key_address"] != convergence["key_address"]
+        or operation_path["key_arn"] != convergence["key_arn"]
+        or operation_path["operation"] != _DECRYPT_OPERATION
+        or operation_path["authorization_state"] != "allowed"
+    ):
+        return False
+
+    dependency = convergence["encryption_dependency"]
+    source_address = dependency["dependency_source_address"]
+    source = context.inventory.get_by_address(source_address)
+    return bool(
+        dependency["resolution_state"] == "resolved"
+        and dependency["encryption_ownership_state"] == "customer_managed"
+        and dependency["dependent_address"] == convergence["bucket_address"]
+        and dependency["dependent_resource_type"] == bucket.resource_type
+        and dependency["key_address"] == convergence["key_address"]
+        and dependency["key_arn"] == convergence["key_arn"]
+        and source is not None
+        and source.provider == "aws"
+        and dependency["dependency_source_type"] == source.resource_type
+    )
+
+
+def _protected_data_dependent_addresses(
+    convergences: Sequence[AwsEcsS3ProtectedDataConvergence],
+) -> list[str]:
+    return sorted({convergence["bucket_address"] for convergence in convergences})
+
+
+def _protected_data_dependency_evidence(
+    convergences: Sequence[AwsEcsS3ProtectedDataConvergence],
+) -> list[str]:
+    dependent_addresses = _protected_data_dependent_addresses(convergences)
+    values = [
+        (
+            f"unique_dependency_count={len(convergences)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            "downstream_dependency_state="
+            f"{'resolved_dependents' if dependent_addresses else 'no_resolved_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                f"key_address={convergence['key_address']}",
+                f"dependent_address={convergence['bucket_address']}",
+                f"dependency_source={convergence['encryption_dependency']['dependency_source_address']}",
+                f"configuration_path={convergence['encryption_dependency']['configuration_path']}",
+                f"reference_kind={convergence['encryption_dependency']['reference_kind'] or 'unknown'}",
+            )
+        )
+        for convergence in convergences
+    )
+    return values
 
 
 def _assessment_scope(operations: list[str]) -> list[str]:
