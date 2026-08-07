@@ -379,6 +379,10 @@ class GcpKmsEncryptionDependencyTests(unittest.TestCase):
                     "configuration_reference",
                 )
                 self.assertEqual(dependency["reference_kind"], "terraform_reference")
+                self.assertEqual(
+                    dependency["customer_managed_encryption_state"],
+                    "unknown",
+                )
                 self.assertEqual(dependency["key_address"], "google_kms_crypto_key.orders")
                 self.assertEqual(dependency["key_resource_name"], _KEY_PATH)
                 self.assertEqual(dependency["posture_uncertainties"], [])

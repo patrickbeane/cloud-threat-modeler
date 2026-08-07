@@ -7,7 +7,10 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpKmsIamGrant,
     GcpKmsKeyRingIamGrant,
 )
-from tfstride.providers.gcp.protected_data_evidence import GcpCloudRunGcsAccessPath
+from tfstride.providers.gcp.protected_data_evidence import (
+    GcpCloudRunGcsAccessPath,
+    GcpCloudRunGcsProtectedDataConvergence,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -85,6 +88,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_SECRET_POSTURE_UNCERTAINTIES = StringListMetadataField("cloud_run_secret_posture_uncertainties")
     CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_secret_access_path_uncertainties")
     CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_gcs_access_path_uncertainties")
+    CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_gcs_protected_data_convergence_uncertainties"
+    )
     CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_pubsub_access_path_uncertainties")
     CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_access_path_uncertainties"
@@ -471,6 +477,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_SECRET_REFERENCES = DictListMetadataField("cloud_run_secret_references")
     CLOUD_RUN_SECRET_ACCESS_PATHS = DictListMetadataField("cloud_run_secret_access_paths")
     CLOUD_RUN_GCS_ACCESS_PATHS = RecordListMetadataField[GcpCloudRunGcsAccessPath]("cloud_run_gcs_access_paths")
+    CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[GcpCloudRunGcsProtectedDataConvergence](
+        "cloud_run_gcs_protected_data_convergences"
+    )
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
     CLOUD_RUN_KMS_OPERATION_PATHS = RecordListMetadataField[GcpCloudRunKmsOperationPath](

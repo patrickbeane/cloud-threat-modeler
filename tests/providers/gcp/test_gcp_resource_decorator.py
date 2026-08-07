@@ -271,6 +271,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "normalize_firestore_iam_posture",
                 "model_cloud_run_firestore_access_paths",
                 "model_cloud_run_gcs_access_paths",
+                "model_cloud_run_gcs_protected_data_convergence",
                 "model_cloud_run_pubsub_access_paths",
                 "model_cloud_run_secret_access_paths",
                 "model_cloud_run_artifact_registry_write_paths",
