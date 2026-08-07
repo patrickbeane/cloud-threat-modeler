@@ -8,7 +8,7 @@ Terraform plan JSON for provider-aware architecture-risk patterns,
 trust-boundary crossings, workload-to-data paths, identity blast radius, and
 STRIDE-oriented findings that are useful during infrastructure review.
 
-tfSTRIDE is best used as an architecture-risk layer beside your existing IaC 
+tfSTRIDE is best used as an architecture-risk layer beside your existing IaC
 scanner, not as a replacement for one.
 
 Use both when the workflows overlap:
@@ -112,15 +112,18 @@ federated trust paths, and identity relationships that cross trust boundaries.
 
 ## Provider Coverage
 
-tfSTRIDE supports AWS, GCP, and Azure Terraform provider analysis with active
+tfSTRIDE supports AWS, GCP, and Azure Terraform provider analysis, with active
 coverage across compute, storage, IAM, networking, and managed database
-resources. Coverage depth varies by provider and resource type.
+resources. AWS is currently the deepest provider implementation; GCP and Azure
+are both under active, intentionally-scoped support. Coverage depth varies by
+provider and resource type, and grows regularly, so current resource-family and
+rule-theme summaries live with each provider rather than here. Reports identify
+unsupported resource types encountered in each plan, and `tfstride --list-rules`
+is the authoritative rule catalog:
 
-| Provider | Status          | Coverage Summary                                                                                                                                                                                                                                                                        |
-| -------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AWS      | Deepest support | EC2, ECS/Fargate, Lambda and Function URLs, EKS control-plane/add-on posture, RDS endpoint/recovery/encryption posture, S3 public/encryption/versioning posture, IAM, KMS, SNS/SQS, Secrets Manager, VPC routing, security groups, trust boundaries, and control observations.          |
-| GCP      | Active support  | Compute, GKE control-plane/auth/hardening posture, Cloud SQL, GCS public/encryption/versioning/retention posture, IAM, Cloud Run, Cloud Functions, Pub/Sub, BigQuery, Secret Manager, KMS, firewall posture, and workload-to-data paths.                                                |
-| Azure    | Active support  | Storage public/encryption/recovery/private-endpoint posture, Key Vault, SQL/PostgreSQL, App Service/Function Apps, AKS control-plane/auth/add-on posture, managed identity/custom RBAC posture, NSG-aware public ingress, public VM exposure, and workload-to-sensitive-resource paths. |
+* [AWS provider coverage](providers/aws.md)
+* [GCP provider coverage](providers/gcp.md)
+* [AzureRM provider coverage](providers/azure.md)
 
 ## When To Use tfSTRIDE
 

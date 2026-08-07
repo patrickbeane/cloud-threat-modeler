@@ -46,8 +46,6 @@ Full comparison - different jobs, transitive exposure, workload blast radius, sc
 
 `tfstride` analyzes Terraform plan JSON and produces evidence-backed reports for supported cloud providers.
 
-It currently supports AWS, GCP, and AzureRM through provider plugins for normalization, decoration, rule contribution, metadata, resource facts, and trust-boundary analysis.
-
 Core capabilities:
 
 * Offline Terraform plan analysis
@@ -55,7 +53,7 @@ Core capabilities:
 * Trust-boundary detection
 * STRIDE-oriented security findings
 * Stable finding fingerprints
-* Markdown, JSON, and SARIF 2.1.0 output
+* Markdown, JSON, and SARIF output
 * CI policy gating with `--fail-on low|medium|high`
 * Suppressions and baselines for incremental adoption
 * Repo-level TOML configuration
@@ -121,242 +119,25 @@ tfstride --list-rules --json
 
 ## Provider Support
 
-| Provider | Status          | Coverage Summary                                                                                                                                     |
-| -------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AWS      | Deepest support | EC2, ECS/Fargate and Lambda container image integrity plus runtime ECR write-path, ECS secret-delivery, exact public ECS-to-Secrets Manager, S3, SNS/SQS, SQS receive, and DynamoDB table/index read and mutation paths, plus execution/task-role access posture, Lambda and Function URLs, CloudFront TLS/WAF/access-log posture, API Gateway authorization/stage-telemetry posture, ALB listener TLS and WAF posture, EKS control-plane/add-on posture, ECR image-tag/encryption/scanning posture, RDS endpoint/recovery/encryption/observability/HA posture, DynamoDB encryption ownership, point-in-time recovery, and deletion-protection posture, S3 public/encryption/versioning/immutability/recovery posture, Secrets Manager recovery/encryption/rotation posture, KMS key lifecycle, exact key identity, policy, alias, grant, cryptographic capability, authorization, encrypted-resource dependency resolution and downstream blast-radius evidence, public ECS decrypt/signing/MAC-generation paths, and public ECS KMS key-disruption and authorization-delegation paths, VPC endpoint/private service posture, VPC Flow Logs telemetry posture, account audit/detection/governance posture, IAM, OIDC federation, and privileged role-assignment posture, SNS/SQS encryption/retention/redrive posture, VPC routing, security groups, trust boundaries, and control observations. |
-| GCP      | Active support  | Compute, Cloud Run container image integrity, secret-delivery, exact public Cloud Run-to-Secret Manager, GCS, Pub/Sub, and Firestore read and mutation paths, plus Pub/Sub subscription consume and service-account access blast-radius posture, plus Artifact Registry IAM/write-path posture, GKE control-plane/auth/hardening posture, Cloud SQL resilience/observability posture, Firestore encryption ownership, point-in-time recovery, and service delete-protection posture, GCS public/encryption/versioning/retention posture, load balancer TLS and Cloud Armor posture, subnet Flow Logs telemetry posture, Private Service Access and Private Google Access posture, Secret Manager lifecycle/encryption posture, Cloud KMS key and key-version lifecycle, exact ancestry, cryptographic capability, IAM source/scope, unresolved-policy posture, CMEK dependency resolution and version-aware downstream blast-radius evidence, public Cloud Run decrypt/signing/MAC-generation paths, and public Cloud Run Cloud KMS key-disruption and authorization-delegation paths, audit logging/SCC posture, IAM, Workload Identity Federation, and privileged assignment posture, Cloud Functions, Pub/Sub encryption/retention/dead-letter posture, Artifact Registry tag/encryption/scanning posture, BigQuery, firewall posture, and workload-to-data paths. |
-| Azure    | Active support  | Azure Storage public/encryption/recovery/private-endpoint posture, Service Bus namespace encryption/network/TLS/local-auth/private-endpoint posture, Container Registry public/admin/anonymous-pull/Premium CMK/private-endpoint posture plus App Service/Function App managed-identity ACR write-path, secret-delivery, and exact public App Service-to-Key Vault, Storage, Service Bus, and Cosmos DB for NoSQL read and mutation paths across account, database, and container scopes, plus Service Bus receive paths, Key Vault network, exact key identity, key authorization, cryptographic operations, encrypted-resource dependency resolution and operation-aware downstream blast-radius evidence, public App Service decrypt/unwrap/signing paths, and public App Service Key Vault key-disruption and authorization-delegation paths, SQL/PostgreSQL recovery and exposure posture, Cosmos DB for NoSQL encryption ownership, Continuous backup/recovery, public network/local-auth/TLS, and Private Endpoint posture, App Service/Function App container image digest integrity, access, and platform-authentication posture, AKS control-plane/auth/add-on posture, Load Balancer/Application Gateway exposure and WAF posture, NSG Flow Logs telemetry posture, diagnostic settings/Defender posture, managed identity, federated managed identity, built-in RBAC, and custom RBAC posture, NSG-aware public ingress, public VM exposure, and workload-to-sensitive-resource paths. |
+`tfstride` supports AWS, GCP, and AzureRM through provider plugins for normalization, decoration, rule contribution, metadata, resource facts, and trust-boundary analysis. Coverage is provider-native and plan-local - similar threat outcomes are parity-tested across providers, but AWS IAM, GCP IAM, and Azure RBAC semantics are never treated as interchangeable.
 
+| Provider | Status | Highlights | Coverage details |
+| --- | --- | --- | --- |
+| **AWS** | Deepest support | EC2/ECS/Lambda edge & data-plane paths, ECR image integrity, RDS/DynamoDB/S3/Secrets Manager posture, KMS-backed crypto & key-disruption paths, IAM/OIDC trust, CloudTrail/GuardDuty/Config/Security Hub/Access Analyzer/Macie posture | [docs/providers/aws.md](docs/providers/aws.md) |
+| **GCP** | Active support | Compute/Cloud Run/Functions edge & data-plane paths, Artifact Registry image integrity, Cloud SQL/Firestore/GCS/Pub-Sub posture, Cloud KMS CMEK paths, IAM & Workload Identity Federation, Security Command Center & logging posture | [docs/providers/gcp.md](docs/providers/gcp.md) |
+| **Azure** | Active support | VM/App Service/Function App edge & data-plane paths, ACR image integrity, Storage/SQL/PostgreSQL/Cosmos DB/Service Bus posture, Key Vault CMK paths, managed identity & RBAC, Defender & diagnostic posture | [docs/providers/azure.md](docs/providers/azure.md) |
 
-### Managed-Key Dependency Coverage
+Unsupported resources are skipped and called out in the report rather than silently treated as analyzed.
 
-Managed-key analysis tracks the dependency between supported encrypted resources and exact provider-native keys. AWS resolves KMS keys and aliases for supported encryption fields, GCP resolves CMEK CryptoKeys while keeping CryptoKeyVersion lifecycle separate, and Azure preserves versioned versus versionless Key Vault identities. Public disruption findings can use those reverse-indexed dependencies to report exact modeled downstream resources and unique dependency counts.
+## Cross-Provider Path Analysis
 
-The blast-radius enrichment is intentionally conservative: project, account, subscription, resource-group, vault, ring, and key scope remain provider-specific; unresolved or ambiguous dependencies are retained as uncertainty; and out-of-plan consumers are not inferred.
+Beyond per-resource posture checks, `tfstride` models multi-resource security paths that hold across AWS, GCP, and AzureRM, while keeping each provider's native identity, key, and authorization semantics intact:
 
-Unsupported resources are skipped and called out in the report.
+* **Managed-key authority** - distinguishes cryptographic operations from disruptive or delegating administration while preserving provider-native authorization and recovery semantics. → [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)
+* **Managed-key dependencies** - resolves supported encrypted resources to their exact provider-native keys and enriches key-disruption findings with modeled downstream blast radius. → [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)
+* **Protected-data convergence** - flags when a public workload has both read/receive access to protected data and decrypt/unwrap authority over that data's exact customer-managed key. → [docs/analysis/protected-data-convergence.md](docs/analysis/protected-data-convergence.md)
 
-<details>
-<summary>Detailed AWS resource coverage</summary>
-
-AWS support currently includes:
-
-* `aws_instance`
-* `aws_ecs_service`
-* `aws_ecs_task_definition`
-* `aws_ecr_repository`
-* `aws_ecs_cluster`
-* `aws_eks_cluster`
-* `aws_eks_addon`
-* `aws_security_group`
-* `aws_security_group_rule`
-* `aws_nat_gateway`
-* `aws_lb`
-* `aws_lb_listener`
-* `aws_lb_listener_rule`
-* `aws_lb_target_group`
-* `aws_cloudfront_distribution`
-* `aws_api_gateway_rest_api`
-* `aws_apigatewayv2_api`
-* `aws_wafv2_web_acl_association`
-* `aws_db_instance`
-* `aws_dynamodb_table`
-* `aws_s3_bucket`
-* `aws_s3_bucket_lifecycle_configuration`
-* `aws_s3_bucket_object_lock_configuration`
-* `aws_s3_bucket_policy`
-* `aws_s3_bucket_public_access_block`
-* `aws_s3_bucket_versioning`
-* `aws_s3_bucket_server_side_encryption_configuration`
-* `aws_iam_role`
-* `aws_iam_policy`
-* `aws_iam_role_policy`
-* `aws_iam_role_policy_attachment`
-* `aws_iam_instance_profile`
-* `aws_iam_openid_connect_provider`
-* `aws_lambda_function`
-* `aws_lambda_function_url`
-* `aws_lambda_permission`
-* `aws_kms_key`
-* `aws_kms_alias`
-* `aws_kms_grant`
-* `aws_kms_key_policy`
-* `aws_sns_topic`
-* `aws_sqs_queue`
-* `aws_secretsmanager_secret`
-* `aws_secretsmanager_secret_rotation`
-* `aws_secretsmanager_secret_policy`
-* `aws_subnet`
-* `aws_vpc`
-* `aws_internet_gateway`
-* `aws_route_table`
-* `aws_route_table_association`
-* `aws_vpc_endpoint`
-* `aws_flow_log`
-* `aws_cloudtrail`
-* `aws_guardduty_detector`
-* `aws_securityhub_account`
-* `aws_config_configuration_recorder`
-* `aws_config_configuration_recorder_status`
-* `aws_config_delivery_channel`
-* `aws_accessanalyzer_analyzer`
-* `aws_macie2_account`
-
-AWS rule coverage includes public compute ingress, public Lambda Function URL invocation, ECS/Lambda container images without digest pins, exact ECR mutable-tag correlation, runtime identities with exact ECR write access to their deployed image repository, and ECS literal sensitive environment values, public ECS service-to-Secrets Manager, S3, SNS/SQS, and DynamoDB mutation paths, exact public ECS-to-SQS receive paths, and execution/task-role access broader than consumed references, while native Secrets Manager or SSM references, denied/conditional/incomplete paths, and unknown values remain quiet, CloudFront viewer HTTP/TLS/WAF and standard access-log posture, public API Gateway CORS/WAF, route authorization, and stage access-log posture, ALB listener HTTP/TLS certificate/SSL-policy posture, public ALB WAF association posture, EKS public endpoint/CIDR/private-endpoint posture, EKS secrets encryption, authentication mode, control-plane logging, and VPC CNI network-policy posture, ECR mutable tags, customer-managed encryption, and repository scanning posture, VPC Flow Logs coverage, traffic-type, and destination posture, S3 public-access/encryption/versioning/Object Lock/recovery posture, RDS public endpoint, backup retention, deletion protection, customer-managed KMS, Multi-AZ, Performance Insights, engine-log export, and IAM authentication posture, DynamoDB customer-managed key ownership, point-in-time recovery, and deletion-protection posture, Secrets Manager customer-managed key, recovery-window, and rotation posture, KMS key lifecycle, exact key/alias identity, key-policy completeness, lockout-safety configuration, grant operations and constraints, cryptographic capabilities, authorization, exact encrypted-resource dependencies and downstream blast-radius enrichment, public ECS decrypt, signing, and MAC-generation paths that require deterministic task-role authority and public load-balancer reachability, and public ECS KMS key-disruption and authorization-delegation paths that require deterministic task-role management authority, SNS/SQS encryption ownership, SQS retention, and redrive posture, workload use of S3, KMS, or Secrets Manager without modeled VPC endpoint coverage, broad VPC endpoint policies, CloudTrail multi-region, log-validation, event-selector, data-event, and Insights posture, GuardDuty, Security Hub, AWS Config, Access Analyzer, and Macie account posture, IAM wildcard permissions, privileged role-assignment posture, OIDC provider resolution and federated trust narrowing, workload-role sensitive permissions, resource-policy exposure, tier segmentation, transitive private-data exposure, control-plane-to-sensitive-workload chains, and role-trust narrowing. KMS posture, public workload cryptographic-operation paths, and public workload managed-key administration paths are plan-local and require deterministic modeled authorization.
-
-</details>
-
-<details>
-<summary>Detailed GCP resource coverage</summary>
-
-GCP support currently includes normalization and analysis for:
-
-* `google_compute_instance`
-* `google_container_cluster`
-* `google_container_node_pool`
-* `google_compute_network`
-* `google_compute_subnetwork`
-* `google_compute_firewall`
-* GCP firewall policy, rule, and association resources
-* `google_compute_route`
-* `google_compute_router`
-* `google_compute_router_nat`
-* `google_compute_forwarding_rule`
-* `google_compute_global_forwarding_rule`
-* `google_compute_backend_service`
-* `google_compute_backend_bucket`
-* `google_compute_url_map`
-* `google_compute_region_url_map`
-* `google_compute_target_http_proxy`
-* `google_compute_target_https_proxy`
-* `google_compute_region_target_http_proxy`
-* `google_compute_region_target_https_proxy`
-* `google_compute_ssl_policy`
-* `google_compute_managed_ssl_certificate`
-* `google_compute_service_attachment`
-* `google_compute_global_address`
-* `google_service_networking_connection`
-* `google_network_connectivity_service_connection_policy`
-* `google_cloud_run_service`
-* `google_cloud_run_v2_service`
-* `google_artifact_registry_repository`
-* Cloud Run IAM member, binding, and policy resources
-* `google_cloudfunctions_function`
-* `google_cloudfunctions2_function`
-* Cloud Functions IAM member, binding, and policy resources
-* Organization, folder, and project IAM member, binding, and policy resources
-* Project and organization custom IAM roles
-* `google_service_account`
-* `google_service_account_key`
-* GCP service-account IAM member, binding, and policy resources
-* `google_iam_workload_identity_pool`
-* `google_iam_workload_identity_pool_provider`
-* `google_pubsub_topic`
-* `google_pubsub_subscription`
-* Pub/Sub IAM member, binding, and policy resources
-* `google_bigquery_dataset`
-* `google_bigquery_table`
-* BigQuery dataset and table IAM member, binding, and policy resources
-* `google_sql_database_instance`
-* `google_firestore_database`
-* Firestore database IAM member, binding, and policy resources
-* `google_secret_manager_secret`
-* Secret Manager secret IAM member, binding, and policy resources
-* `google_kms_crypto_key`
-* `google_kms_crypto_key_version`
-* Cloud KMS crypto-key and key-ring IAM member, binding, and policy resources
-* `google_storage_bucket`
-* GCS bucket IAM member, binding, and policy resources
-* `google_logging_project_sink`
-* `google_logging_organization_sink`
-* `google_logging_project_exclusion`
-* `google_logging_organization_exclusion`
-* `google_scc_organization_settings`
-
-GCP trust-boundary coverage includes public compute, GKE control planes, Cloud Run, Cloud Functions, external forwarding rules, Cloud SQL, GCS buckets, Cloud NAT posture, and workload-to-sensitive-data paths through GCE, Cloud Run, and Cloud Functions service accounts.
-
-GCP rule coverage includes public compute ingress, Cloud Run images without digest pins, exact Artifact Registry mutable-tag correlation, runtime service accounts with exact Artifact Registry write access to deployed image repositories, and Cloud Run literal sensitive environment values, exact public Cloud Run-to-Secret Manager, GCS, Pub/Sub, and Firestore read and mutation paths, exact public Cloud Run-to-Pub/Sub subscription consume paths, and service-account access broader than consumed references, while Secret Manager references, denied/conditional/external paths, and unknown values remain quiet, external load balancer HTTP/TLS, SSL-policy, and Cloud Armor edge-protection posture, GKE public control-plane and authorized-network posture, Workload Identity, Workload Identity Federation provider-condition and principal narrowing, legacy metadata, node identity, control-plane logging, network policy, secrets encryption, legacy ABAC, client-certificate auth, Shielded Nodes, and Binary Authorization posture, subnet Flow Logs coverage and capture-completeness posture, Cloud SQL exposure, private-service-access, recovery, zonal availability, Query Insights, and connector-enforcement posture, Firestore customer-managed encryption, point-in-time recovery, and service delete-protection posture, Private Google Access posture for private workloads, GCS public-access, encryption, versioning, and retention posture, Pub/Sub customer-managed encryption, message retention, and dead-letter posture, Artifact Registry mutable Docker tags, customer-managed encryption, and vulnerability-scanning posture, Secret Manager customer-managed encryption and lifecycle posture, Cloud KMS key and key-version lifecycle, exact key-ring/key ancestry, cryptographic capabilities, IAM source/scope, conditions, and unresolved-policy posture, exact CMEK encrypted-resource dependencies and version-aware downstream blast-radius enrichment, plus public Cloud Run decrypt, signing, and MAC-generation paths for compatible key purposes and granted IAM at project, key-ring, or CryptoKey scope, and public Cloud Run Cloud KMS key-disruption and authorization-delegation paths for deterministic management authority at project, key-ring, or CryptoKey scope, Security Command Center asset-discovery posture, logging exclusions that drop audit/security logs, logging sink destination/filter coverage, central audit sink modeling, broad IAM access to sensitive services, privileged IAM assignment posture, federated privileged service-account access, internet-exposed workloads with sensitive data access, broad organization/folder/project IAM principals, service-account key hygiene, and custom-role permission expansion. Cloud KMS posture, public workload cryptographic-operation paths, and public workload managed-key administration paths are plan-local and require deterministic modeled authorization.
-
-GCP currently emphasizes findings and evidence over provider-specific positive observation records; dedicated GCP observation records are still limited.
-
-</details>
-
-<details>
-<summary>Detailed Azure resource coverage</summary>
-
-Azure support currently includes normalization, decoration, and analysis for AzureRM resources:
-
-* `azurerm_storage_account`
-* `azurerm_storage_account_network_rules`
-* `azurerm_storage_container`
-* `azurerm_servicebus_namespace`
-* `azurerm_servicebus_namespace_network_rule_set`
-* `azurerm_servicebus_namespace_customer_managed_key`
-* `azurerm_container_registry`
-* `azurerm_key_vault`
-* `azurerm_key_vault_access_policy`
-* `azurerm_key_vault_secret`
-* `azurerm_key_vault_key`
-* `azurerm_key_vault_certificate`
-* `azurerm_user_assigned_identity`
-* `azurerm_federated_identity_credential`
-* `azurerm_role_definition`
-* `azurerm_role_assignment`
-* `azurerm_virtual_network`
-* `azurerm_subnet`
-* `azurerm_network_security_group`
-* `azurerm_network_security_rule`
-* `azurerm_network_watcher_flow_log`
-* `azurerm_subnet_network_security_group_association`
-* `azurerm_network_interface`
-* `azurerm_network_interface_security_group_association`
-* `azurerm_public_ip`
-* `azurerm_lb`
-* `azurerm_application_gateway`
-* `azurerm_private_dns_zone`
-* `azurerm_private_dns_zone_virtual_network_link`
-* `azurerm_linux_virtual_machine`
-* `azurerm_windows_virtual_machine`
-* `azurerm_private_endpoint`
-* `azurerm_linux_web_app`
-* `azurerm_windows_web_app`
-* `azurerm_function_app`
-* `azurerm_linux_function_app`
-* `azurerm_windows_function_app`
-* `azurerm_kubernetes_cluster`
-* `azurerm_mssql_server`
-* `azurerm_mssql_database`
-* `azurerm_mssql_firewall_rule`
-* `azurerm_mssql_virtual_network_rule`
-* `azurerm_mssql_server_security_alert_policy`
-* `azurerm_postgresql_flexible_server`
-* `azurerm_postgresql_flexible_server_database`
-* `azurerm_postgresql_flexible_server_firewall_rule`
-* `azurerm_postgresql_flexible_server_configuration`
-* `azurerm_cosmosdb_account`
-* `azurerm_cosmosdb_sql_database`
-* `azurerm_cosmosdb_sql_container`
-* `azurerm_cosmosdb_sql_role_definition`
-* `azurerm_cosmosdb_sql_role_assignment`
-* `azurerm_monitor_diagnostic_setting`
-* `azurerm_security_center_subscription_pricing`
-* `azurerm_security_center_auto_provisioning`
-* `azurerm_security_center_contact`
-* `azurerm_security_center_workspace`
-* `azurerm_security_center_setting`
-* `azurerm_advanced_threat_protection`
-
-AzureRM provider detection uses provider source paths ending in `/azurerm` and Terraform resource types prefixed with `azurerm_`. Adjacent providers such as AzAPI, AzureAD, and Azure DevOps are not claimed as AzureRM support.
-
-Azure trust-boundary coverage includes public storage and Key Vault endpoints plus virtual machines that are reachable through a public IP and effective subnet/NIC NSG decisions.
-
-Azure rule coverage includes public storage posture, storage encryption ownership and recovery posture, Service Bus namespace public-network, minimum-TLS, local/SAS-auth, Premium CMK, and private-endpoint posture, Container Registry public-network fallback, admin-account, anonymous-pull, Premium CMK, and private-endpoint posture, Key Vault network/recovery/authorization posture, exact versioned/versionless key identities, key expiration, HSM-backed key types, rotation, cryptographic operations, legacy access-policy and native RBAC source/scope, supported built-in/custom key permissions, and condition/uncertainty posture, exact encrypted-resource dependencies and operation-aware downstream blast-radius enrichment, plus public App Service and Function App-to-Key Vault decrypt, unwrap, and signing paths for attached runtime identities and compatible key options, and public App Service Key Vault key-disruption and authorization-delegation paths for deterministic data-plane lifecycle or ARM control-plane authority, Key Vault secret and certificate lifecycle posture, SQL and PostgreSQL public access, recovery, and transport hardening, Cosmos DB for NoSQL customer-managed encryption, Continuous backup/recovery, minimum TLS, public network, local authentication, and Private Endpoint posture, App Service and Function App container images without digest pins, literal sensitive app settings, and runtime managed identities with exact ACR write access, App Service Key Vault reference identity/access paths, exact public App Service-to-Key Vault, Storage, Service Bus, and Cosmos DB for NoSQL read and mutation paths across account, database, and container scopes, exact public App Service-to-Service Bus receive paths, and vault/storage-scoped least-privilege posture, while unresolved Key Vault references and denied/conditional/external/incompatible/unknown cryptographic paths remain quiet, public access, platform authentication, TLS, managed-identity, VNet-integration, access-restriction, and SCM posture, Private Endpoint coverage, DNS posture, and public fallback for supported data-plane resources, Load Balancer and Application Gateway public exposure, Application Gateway WAF posture, NSG Flow Logs coverage, enabled-state, destination, and retention posture, diagnostic settings coverage, diagnostic log destination and audit-category completeness, Defender pricing and auto-provisioning posture, custom RBAC role breadth and assigned blast radius, privileged built-in RBAC assignments, managed identity broad RBAC assignments, federated managed identity privilege paths, AKS control-plane, auth, network-policy, workload-identity, KMS, monitoring, Defender, and Azure Policy posture, precedence-aware broad NSG ingress, public virtual machines with broad administrative or all-port ingress, and deterministic public-workload-to-sensitive-resource exposure paths where the required plan facts are available. Key Vault key posture, public workload cryptographic-operation paths, and public workload managed-key administration paths are plan-local and require deterministic modeled authorization.
-
-Azure identity analysis is scoped to managed identities, federated identity credentials, exact issuer/subject/audience trust paths, role assignments, custom role definitions, Key Vault access policies, built-in privileged RBAC roles, and vault-scoped role assignments when they resolve deterministically in the Terraform plan. Private Endpoint analysis is scoped to deterministic coverage, DNS-zone-group posture, and public-fallback posture for supported Storage, Key Vault, SQL, Premium Service Bus namespace, and Premium Container Registry resources. Diagnostic analysis is scoped to resolved diagnostic settings for supported sensitive resources and modeled Defender/Security Center resources. Network telemetry analysis is provider-local: AWS checks modeled VPC Flow Logs, GCP checks subnet Flow Logs, and Azure checks modeled Network Watcher flow logs for NSGs. Public edge protection analysis is also provider-local: AWS checks modeled WAFv2 Web ACL associations for public ALBs, GCP checks Cloud Armor policy references on public load-balancer backends, and Azure checks firewall policy or enabled WAF configuration for public Application Gateway listeners. AKS support covers public/private API posture, authorized IP restrictions, local account usage, RBAC posture, network policy posture, workload identity/OIDC, KMS, monitoring, Defender, and Azure Policy signals when represented in the plan. App Service support covers modeled platform authentication and strict sensitive app-setting delivery, but does not verify application-level authentication, application code, or routing behavior outside the Terraform plan. Deeper AKS workload/node posture, full Private DNS record correctness, and broader unsupported platform services are reported as unsupported rather than silently treated as analyzed.
-
-Azure observations distinguish restricted network posture, identity authorization posture, private-endpoint uncertainty, and unresolved Azure plan values.
-
-</details>
+These findings and enrichments require deterministic modeled evidence. Exact symbolic first-apply references may qualify when resolution is unambiguous. Denied or incompatible evidence stays quiet; condition-dependent, ambiguous, unresolved, unsupported, or incomplete expected relationships remain visible as uncertainty where applicable. For how trust boundaries, evidence, and this "quiet vs. promoted" vocabulary work across providers, see [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md).
 
 ## Output Formats
 
@@ -550,7 +331,7 @@ Provider-specific behavior is exposed through plugin contribution points for:
 
 Provider-specific rule detectors live in provider-owned domain modules and are wired through each provider's rule contribution root, while rule metadata remains in provider-owned catalogs.
 
-Privileged identity assignment posture is normalized into a shared provider-neutral vocabulary for evidence and parity tests, while findings stay provider-owned so AWS IAM, GCP IAM, and Azure RBAC semantics remain separate. Workload data-plane paths remain provider-local: AWS distinguishes ECS execution-role secret delivery from task-role permissions and connects public ECS services to exact Secrets Manager, S3, SNS/SQS, DynamoDB, and KMS grants; GCP connects public Cloud Run service accounts to exact Secret Manager, GCS, Pub/Sub, Firestore, and Cloud KMS grants; and Azure connects public App Service or Function App managed identities to exact Key Vault, Storage Account/container, Service Bus, or Cosmos DB for NoSQL authorization. Public mutation and read findings require deterministic workload exposure, exact target resolution, and unconditional provider-native modeled authority; public cryptographic-operation findings additionally require compatible key capabilities and effective operation authorization; public managed-key administration findings require deterministic workload exposure, exact modeled key or management target resolution, and effective provider-native disruption or delegation authority. Managed-key dependency analysis preserves provider-native key, alias, version, and vault identity, then enriches disruption findings only with exact modeled encrypted dependents; unresolved, ambiguous, incompatible, and out-of-plan consumers remain uncertainty rather than inferred blast radius. Public messaging read findings require the corresponding exact receive/consume grant. Unknown, external, conditional, denied, broad-scope, incompatible, or computed paths remain uncertainty rather than an unsafe claim, and secret values are never retained in evidence or reports.
+Identity, workload data-plane, and managed-key findings all follow the same pattern: a shared provider-neutral vocabulary for evidence and parity tests, with findings themselves staying provider-owned. See [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md) for exactly how that plays out across AWS IAM, GCP IAM, and Azure RBAC.
 
 ## Repo Layout
 
@@ -632,7 +413,7 @@ ruff format --check .
 vulture src tests --min-confidence 100
 ```
 
-The scoped basedpyright gate protects provider/plugin contracts, metadata ownership, shared provider-boundary seams, and the managed-key normalization-to-finding pipeline; it is intentionally not full-repository strict mode yet.
+The scoped basedpyright gate protects provider/plugin contracts, configuration-reference and symbolic relationship resolution, metadata ownership, and the typed managed-key and protected-data convergence pipelines; it is intentionally not full-repository strict mode yet.
 
 The suite is also compatible with stdlib discovery:
 
@@ -642,17 +423,13 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 ## Limitations
 
-* AWS is currently the deepest provider implementation.
-* GCP support is broad across core workload, data, Kubernetes, private-connectivity, public-edge TLS/protection, and audit/security-posture checks, but still has limited provider-specific positive observation records compared with its finding coverage.
-* Azure service breadth is intentionally scoped, but now covers Storage, Service Bus, Container Registry, Key Vault, SQL/PostgreSQL, App Service/Function Apps platform-authentication posture, AKS posture, Private Endpoint and DNS-zone-group posture, Load Balancer/Application Gateway exposure and WAF posture, diagnostics/Defender posture, NSG flow-log telemetry posture, managed identity, built-in RBAC, and custom RBAC posture, NSG-based public ingress, public virtual-machine exposure, and deterministic sensitive-resource exposure paths.
-* Public workload messaging read findings establish deterministic modeled identity/RBAC receive grants, not guaranteed effective message retrieval after provider deny, network, or encryption controls.
-* Managed-key blast-radius evidence counts exact in-plan dependency relationships and dependent resources; it does not claim coverage of external consumers or prove which key version protects runtime data unless the provider model establishes that relationship.
+* AWS is currently the deepest provider implementation; GCP and Azure are both under active/broad support but intentionally scoped - see each provider doc for current coverage and provider-specific limits.
+* Managed-key blast-radius evidence counts exact in-plan dependency relationships; it does not claim coverage of external consumers or prove which key version protects runtime data unless the provider model establishes that relationship (details in [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)).
+* Public workload messaging read findings establish modeled identity and provider-native authorization to receive or consume messages, not guaranteed effective message retrieval after provider deny, network, or encryption controls (details in [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md)).
 * Audit, detection, and private-connectivity checks are based on modeled Terraform resources. They do not prove runtime log delivery, DNS resolution, endpoint routing, or cloud-control state outside the plan.
-* Deeper managed Kubernetes workload/node posture, full Private Endpoint DNS record correctness, App Service routing and application-level authentication modeling, and broader Azure RBAC hierarchy modeling are not covered yet.
 * Terraform resource coverage is scoped to security-relevant resources, relationships, and trust paths rather than exhaustive provider parity.
 * Subnet classification prefers explicit route table associations when available, but does not model main-route-table inheritance or every routing edge case.
-* Identity assignment analysis is deterministic and plan-local: AWS focuses on inline policies, standalone policies, role-policy attachments, OIDC providers, and trust policies; GCP focuses on modeled IAM bindings/members, custom roles, and Workload Identity Federation pools/providers; Azure focuses on modeled RBAC assignments, managed identities, federated identity credentials, custom roles, and Key Vault access policies.
-* Condition narrowing focuses on high-signal keys such as `SourceArn`, `SourceAccount`, and `ExternalId` rather than every service-specific authorization condition.
+* Identity-assignment analysis is deterministic and plan-local - AWS, GCP, and Azure each model a different set of native identity constructs; see each provider doc for specifics.
 * The analyzer works from Terraform plan data only; it does not perform runtime validation, cloud API calls, or drift detection.
 * Architecture diagrams and graph visualization are not generated yet.
 

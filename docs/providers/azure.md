@@ -1,0 +1,140 @@
+# AzureRM Provider Coverage
+
+Azure is an actively supported provider, intentionally scoped, covering virtual machine/App Service/Function App edge exposure, workload-to-data paths, Key Vault CMK-backed cryptographic paths, managed identity/RBAC, and diagnostics/Defender posture.
+
+AzureRM provider detection uses provider source paths ending in `/azurerm` and Terraform resource types prefixed with `azurerm_`. Adjacent providers such as AzAPI, AzureAD, and Azure DevOps are not claimed as AzureRM support.
+
+## Modeled Resources and Families
+
+This is a concise coverage map. Reports identify unsupported AzureRM resource types encountered in each plan.
+
+* `azurerm_storage_account`
+* `azurerm_storage_account_network_rules`
+* `azurerm_storage_container`
+* `azurerm_servicebus_namespace`
+* `azurerm_servicebus_namespace_network_rule_set`
+* `azurerm_servicebus_namespace_customer_managed_key`
+* `azurerm_servicebus_queue`
+* `azurerm_servicebus_topic`
+* `azurerm_servicebus_subscription`
+* `azurerm_container_registry`
+* `azurerm_key_vault`
+* `azurerm_key_vault_access_policy`
+* `azurerm_key_vault_secret`
+* `azurerm_key_vault_key`
+* `azurerm_key_vault_certificate`
+* `azurerm_user_assigned_identity`
+* `azurerm_federated_identity_credential`
+* `azurerm_role_definition`
+* `azurerm_role_assignment`
+* `azurerm_virtual_network`
+* `azurerm_subnet`
+* `azurerm_network_security_group`
+* `azurerm_network_security_rule`
+* `azurerm_network_watcher_flow_log`
+* `azurerm_subnet_network_security_group_association`
+* `azurerm_network_interface`
+* `azurerm_network_interface_security_group_association`
+* `azurerm_public_ip`
+* `azurerm_lb`
+* `azurerm_application_gateway`
+* `azurerm_private_dns_zone`
+* `azurerm_private_dns_zone_virtual_network_link`
+* `azurerm_linux_virtual_machine`
+* `azurerm_windows_virtual_machine`
+* `azurerm_private_endpoint`
+* `azurerm_linux_web_app`
+* `azurerm_windows_web_app`
+* `azurerm_function_app`
+* `azurerm_linux_function_app`
+* `azurerm_windows_function_app`
+* `azurerm_kubernetes_cluster`
+* `azurerm_mssql_server`
+* `azurerm_mssql_database`
+* `azurerm_mssql_firewall_rule`
+* `azurerm_mssql_virtual_network_rule`
+* `azurerm_mssql_server_security_alert_policy`
+* `azurerm_postgresql_flexible_server`
+* `azurerm_postgresql_flexible_server_database`
+* `azurerm_postgresql_flexible_server_firewall_rule`
+* `azurerm_postgresql_flexible_server_configuration`
+* `azurerm_cosmosdb_account`
+* `azurerm_cosmosdb_sql_database`
+* `azurerm_cosmosdb_sql_container`
+* `azurerm_cosmosdb_sql_role_definition`
+* `azurerm_cosmosdb_sql_role_assignment`
+* `azurerm_monitor_diagnostic_setting`
+* `azurerm_security_center_subscription_pricing`
+* `azurerm_security_center_auto_provisioning`
+* `azurerm_security_center_contact`
+* `azurerm_security_center_workspace`
+* `azurerm_security_center_setting`
+* `azurerm_advanced_threat_protection`
+
+## Trust Boundaries
+
+Azure trust-boundary records currently cover public storage and Key Vault endpoints plus virtual machines that are reachable through a public IP and effective subnet/NIC NSG decisions.
+
+## Rule Coverage
+
+### Public exposure & edge
+* Public storage posture
+* Load Balancer and Application Gateway public exposure, and Application Gateway WAF posture
+* Precedence-aware broad NSG ingress, and public virtual machines with broad administrative or all-port ingress
+* Deterministic public-workload-to-sensitive-resource exposure paths where the required plan facts are available
+
+### Container & image integrity
+* App Service and Function App container images without digest pins, and literal sensitive app settings
+* Runtime managed identities with exact ACR write access
+* Container Registry public-network fallback, admin-account, anonymous-pull, Premium CMK, and private-endpoint posture
+
+### App Service / Function App platform posture
+* Public access, platform authentication, TLS, managed-identity, VNet-integration, access-restriction, and SCM posture
+* App Service Key Vault reference identity/access paths
+
+### Workload-to-data paths
+* Exact public App Service Key Vault secret-access and Storage/Cosmos DB read paths, plus Storage, Service Bus, and Cosmos DB mutation paths across supported scopes
+* Exact public App Service-to-Service Bus receive paths, and vault/storage-scoped least-privilege posture
+* External, explicitly denied, or incompatible Key Vault reference or secret-access paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected access paths remain uncertainty where modeled
+
+### Data-store posture
+* Storage encryption ownership and recovery posture
+* SQL and PostgreSQL public access, recovery, and transport hardening
+* Cosmos DB for NoSQL customer-managed encryption, Continuous backup/recovery, minimum TLS, public network, local authentication, and Private Endpoint posture
+* Service Bus namespace public-network, minimum-TLS, local/SAS-auth, Premium CMK, and private-endpoint posture
+
+### Key Vault & cryptographic paths
+* Key Vault network/recovery/authorization posture, exact versioned/versionless key identities, key expiration, HSM-backed key types, rotation, and cryptographic operations
+* Legacy access-policy and native RBAC source/scope, supported built-in/custom key permissions, and condition/uncertainty posture
+* Exact encrypted-resource dependencies and operation-aware downstream blast-radius enrichment
+* Public App Service and Function App-to-Key Vault decrypt, unwrap, and signing paths for attached runtime identities and compatible key options
+* Public App Service Key Vault key-disruption and authorization-delegation paths for data-plane lifecycle or ARM control-plane authority
+* Key Vault secret and certificate lifecycle posture
+
+### Networking & telemetry
+* Private Endpoint coverage, DNS posture, and public fallback for supported data-plane resources
+* NSG Flow Logs coverage, enabled-state, destination, and retention posture
+
+### Audit & detection
+* Diagnostic settings coverage, diagnostic log destination, and audit-category completeness
+* Defender pricing and auto-provisioning posture
+
+### IAM & identity
+* Custom RBAC role breadth and assigned blast radius
+* Privileged built-in RBAC assignments, managed identity broad RBAC assignments, and federated managed identity privilege paths
+
+### Kubernetes (AKS)
+* Control-plane, auth, network-policy, workload-identity, KMS, monitoring, Defender, and Azure Policy posture
+
+## Scope & Limitations
+
+* Azure service breadth is intentionally scoped; see the resource and rule lists above for current coverage.
+* Identity analysis is scoped to managed identities, federated identity credentials, exact issuer/subject/audience trust paths, role assignments, custom role definitions, Key Vault access policies, built-in privileged RBAC roles, and vault-scoped role assignments when they resolve deterministically in the plan.
+* Private Endpoint analysis is scoped to coverage, DNS-zone-group posture, and public-fallback posture for supported Storage, Key Vault, SQL, Premium Service Bus namespace, and Premium Container Registry resources.
+* Diagnostic analysis is scoped to resolved diagnostic settings for supported sensitive resources and modeled Defender/Security Center resources.
+* AKS support covers public/private API posture, authorized IP restrictions, local account usage, RBAC posture, network policy posture, workload identity/OIDC, KMS, monitoring, Defender, and Azure Policy signals when represented in the plan.
+* App Service support covers modeled platform authentication and strict sensitive app-setting delivery, but does not verify application-level authentication, application code, or routing behavior outside the Terraform plan.
+* Deeper AKS workload/node posture, full Private DNS record correctness, App Service routing/application-level authentication modeling, and broader Azure RBAC hierarchy modeling are not covered yet.
+* Azure observations distinguish restricted network posture, identity authorization posture, private-endpoint uncertainty, and unresolved Azure plan values.
+
+See [Cross-Provider Threat-Path Semantics](../analysis/path-semantics.md) for how these findings relate to the shared cross-provider evidence model, including how network telemetry and public edge-protection checks are implemented per provider.
