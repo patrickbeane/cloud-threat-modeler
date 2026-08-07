@@ -9,7 +9,10 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsKeyPolicyEvidence,
     AwsKmsOperationAuthorization,
 )
-from tfstride.providers.aws.protected_data_evidence import AwsEcsS3AccessPath
+from tfstride.providers.aws.protected_data_evidence import (
+    AwsEcsS3AccessPath,
+    AwsEcsS3ProtectedDataConvergence,
+)
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -74,6 +77,9 @@ class AwsResourceMetadata:
     ECR_WRITE_PATH_UNCERTAINTIES = StringListMetadataField("ecr_write_path_uncertainties")
     ECS_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_access_path_uncertainties")
     ECS_S3_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_access_path_uncertainties")
+    ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
+        "ecs_s3_protected_data_convergence_uncertainties"
+    )
     ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_messaging_access_path_uncertainties")
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     ECS_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_operation_path_uncertainties")
@@ -450,6 +456,9 @@ class AwsResourceMetadata:
     ECS_SECRET_REFERENCES = DictListMetadataField("ecs_secret_references")
     ECS_SECRET_ACCESS_PATHS = DictListMetadataField("ecs_secret_access_paths")
     ECS_S3_ACCESS_PATHS = RecordListMetadataField[AwsEcsS3AccessPath]("ecs_s3_access_paths")
+    ECS_S3_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[AwsEcsS3ProtectedDataConvergence](
+        "ecs_s3_protected_data_convergences"
+    )
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")

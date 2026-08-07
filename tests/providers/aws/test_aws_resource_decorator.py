@@ -191,6 +191,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "project_ecs_s3_access_paths_onto_services",
                 "project_ecs_messaging_access_paths_onto_services",
                 "project_ecs_dynamodb_access_paths_onto_services",
+                "model_ecs_s3_protected_data_convergence",
             ],
         )
 

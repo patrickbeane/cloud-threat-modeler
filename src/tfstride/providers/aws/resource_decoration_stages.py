@@ -27,6 +27,9 @@ from tfstride.providers.aws.resource_decoration.ecs_s3_access_paths import (
     ModelEcsS3AccessPathsStage,
     ProjectEcsS3AccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_s3_protected_data_convergence import (
+    ModelEcsS3ProtectedDataConvergenceStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_secret_access_paths import (
     ModelEcsSecretAccessPathsStage,
     ProjectEcsSecretAccessPathsOntoServicesStage,
@@ -110,4 +113,5 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsS3AccessPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
+        ModelEcsS3ProtectedDataConvergenceStage(),
     )

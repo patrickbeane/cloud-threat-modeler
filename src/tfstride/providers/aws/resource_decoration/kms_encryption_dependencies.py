@@ -243,15 +243,12 @@ def _dependency_inputs(
             facts.s3_posture_uncertainties,
             ("encryption", "kms_master_key_id", "rule"),
         )
+        has_key_resolution = _has_matching_resolution(
+            source,
+            (("rule", 0, "apply_server_side_encryption_by_default", 0, "kms_master_key_id"),),
+        )
         if algorithm in _KMS_S3_ALGORITHMS or (
-            algorithm is None
-            and (
-                facts.s3_kms_master_key_id
-                or _has_matching_resolution(
-                    source,
-                    (("rule", 0, "apply_server_side_encryption_by_default", 0, "kms_master_key_id"),),
-                )
-            )
+            algorithm is None and (facts.s3_kms_master_key_id or has_key_resolution)
         ):
             dependency = _input_if_relevant(
                 dependent=dependent,
@@ -275,7 +272,7 @@ def _dependency_inputs(
                 configured_reference=facts.s3_kms_master_key_id,
                 ownership_state=(
                     "customer_managed"
-                    if facts.s3_kms_master_key_id
+                    if facts.s3_kms_master_key_id or has_key_resolution
                     else ("unknown" if algorithm is None else "service_managed")
                 ),
                 key_reference_suffixes=_KEY_ID_SUFFIXES,

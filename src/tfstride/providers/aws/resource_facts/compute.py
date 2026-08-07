@@ -5,7 +5,10 @@ from typing import Any
 
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
-from tfstride.providers.aws.protected_data_evidence import AwsEcsS3AccessPath
+from tfstride.providers.aws.protected_data_evidence import (
+    AwsEcsS3AccessPath,
+    AwsEcsS3ProtectedDataConvergence,
+)
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
 from tfstride.resource_metadata import DictListMetadataField
 
@@ -100,6 +103,16 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_s3_access_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_S3_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_s3_protected_data_convergences(
+        self,
+    ) -> list[AwsEcsS3ProtectedDataConvergence]:
+        return self.get(AwsResourceMetadata.ECS_S3_PROTECTED_DATA_CONVERGENCES)
+
+    @property
+    def ecs_s3_protected_data_convergence_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES)
 
     @property
     def ecs_messaging_access_paths(self) -> list[dict[str, Any]]:
@@ -542,6 +555,21 @@ class AwsComputeFacts(AwsBaseFacts):
 
     def extend_ecs_s3_access_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECS_S3_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_ecs_s3_protected_data_convergences(
+        self,
+        values: list[AwsEcsS3ProtectedDataConvergence],
+    ) -> None:
+        self.set(AwsResourceMetadata.ECS_S3_PROTECTED_DATA_CONVERGENCES, values)
+
+    def extend_ecs_s3_protected_data_convergence_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES,
+            values,
+        )
 
     def set_ecs_messaging_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(AwsResourceMetadata.ECS_MESSAGING_ACCESS_PATHS, values)
