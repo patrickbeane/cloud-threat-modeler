@@ -15,6 +15,9 @@ from tfstride.providers.azure.resource_decoration.app_service_key_vault_manageme
 from tfstride.providers.azure.resource_decoration.app_service_key_vault_operation_paths import (
     ModelAppServiceKeyVaultOperationPathsStage,
 )
+from tfstride.providers.azure.resource_decoration.app_service_key_vault_protected_data_convergence import (
+    ModelAppServiceKeyVaultProtectedDataConvergenceStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_service_bus_access_paths import (
     ModelAppServiceServiceBusAccessPathsStage,
 )
@@ -90,6 +93,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),
         ModelAppServiceServiceBusAccessPathsStage(),
+        ModelAppServiceKeyVaultProtectedDataConvergenceStage(),
         ModelFederatedManagedIdentityTrustPathsStage(),
         ModelAppServiceAcrWritePathsStage(),
     )

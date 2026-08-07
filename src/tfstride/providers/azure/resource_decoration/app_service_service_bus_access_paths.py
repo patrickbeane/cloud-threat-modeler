@@ -6,14 +6,27 @@ from fnmatch import fnmatchcase
 from typing import Any
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultRuntimeIdentityKind
+from tfstride.providers.azure.protected_data_evidence import (
+    AzureAppServiceServiceBusAccessPath,
+    AzureServiceBusAccessClass,
+    AzureServiceBusResourceScope,
+)
 from tfstride.providers.azure.resource_decoration.workload_identities import workload_managed_identities
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_index import AzureDecorationContext
 from tfstride.providers.azure.resource_types import AZURE_APP_SERVICE_RESOURCE_TYPES, AzureResourceType
 from tfstride.providers.coercion import dedupe
 
-_ACCESS_CLASS_ORDER = ("send", "receive", "administrative")
-_BUILT_IN_SERVICE_BUS_DATA_ROLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
+_ACCESS_CLASS_ORDER: tuple[AzureServiceBusAccessClass, ...] = (
+    "send",
+    "receive",
+    "administrative",
+)
+_BUILT_IN_SERVICE_BUS_DATA_ROLES: dict[
+    str,
+    tuple[str, str, tuple[AzureServiceBusAccessClass, ...]],
+] = {
     "azure service bus data sender": (
         "Azure Service Bus Data Sender",
         "service_bus_data_sender",
@@ -30,7 +43,10 @@ _BUILT_IN_SERVICE_BUS_DATA_ROLES: dict[str, tuple[str, str, tuple[str, ...]]] = 
         _ACCESS_CLASS_ORDER,
     ),
 }
-_BUILT_IN_SERVICE_BUS_DATA_ROLE_IDS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+_BUILT_IN_SERVICE_BUS_DATA_ROLE_IDS: dict[
+    str,
+    tuple[str, str, tuple[AzureServiceBusAccessClass, ...]],
+] = {
     "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39": _BUILT_IN_SERVICE_BUS_DATA_ROLES["azure service bus data sender"],
     "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0": _BUILT_IN_SERVICE_BUS_DATA_ROLES["azure service bus data receiver"],
     "090c5cfd-751d-490a-894a-3ce6f1109419": _BUILT_IN_SERVICE_BUS_DATA_ROLES["azure service bus data owner"],
@@ -67,7 +83,7 @@ _TARGET_ACCESS_CLASSES: dict[str, frozenset[str]] = {
 class _ServiceBusDataGrant:
     role_name: str
     role_kind: str
-    access_classes: tuple[str, ...]
+    access_classes: tuple[AzureServiceBusAccessClass, ...]
     grant_basis: str
     role_definition_address: str | None = None
     permission_patterns: tuple[str, ...] = ()
@@ -92,14 +108,14 @@ class ModelAppServiceServiceBusAccessPathsStage:
 def _app_service_service_bus_access_paths(
     workload: NormalizedResource,
     context: AzureDecorationContext,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[AzureAppServiceServiceBusAccessPath], list[str]]:
     workload_facts = azure_facts(workload)
     identities, identity_uncertainties = workload_managed_identities(workload, context)
     uncertainties = [
         *identity_uncertainties,
         *[f"{workload.address}: {value}" for value in workload_facts.managed_identity_uncertainties],
     ]
-    paths: list[dict[str, Any]] = []
+    paths: list[AzureAppServiceServiceBusAccessPath] = []
 
     for identity, identity_kind in identities:
         identity_facts = azure_facts(identity)
@@ -169,6 +185,13 @@ def _exact_service_bus_target(
     target_address = _string_value(assignment.get("target_resource_address"))
     target_type = _string_value(assignment.get("target_resource_type"))
     scope_kind = _string_value(assignment.get("scope_kind"))
+    if (
+        scope_kind == "resource"
+        and target_address is not None
+        and target_type is not None
+        and target_type not in _SERVICE_BUS_TARGET_TYPES
+    ):
+        return None, None
     if scope_kind != "resource" or target_address is None or target_type not in _SERVICE_BUS_TARGET_TYPES:
         scope = azure_facts(assignment_resource).role_assignment_scope or "unknown"
         return (
@@ -250,7 +273,7 @@ def _service_bus_data_grant(
 def _built_in_role(
     role_name: str | None,
     role_definition_id: str | None,
-) -> tuple[str, str, tuple[str, ...]] | None:
+) -> tuple[str, str, tuple[AzureServiceBusAccessClass, ...]] | None:
     if role_definition_id:
         role_id = role_definition_id.strip().lower().rstrip("/").rsplit("/", 1)[-1]
         return _BUILT_IN_SERVICE_BUS_DATA_ROLE_IDS.get(role_id)
@@ -279,15 +302,15 @@ def _matched_data_actions(
     return tuple(matched), tuple(excluded)
 
 
-def _access_classes(actions: tuple[str, ...]) -> tuple[str, ...]:
+def _access_classes(actions: tuple[str, ...]) -> tuple[AzureServiceBusAccessClass, ...]:
     classes = {access_class for action, access_class in _SERVICE_BUS_DATA_ACTIONS if action in actions}
     return tuple(access_class for access_class in _ACCESS_CLASS_ORDER if access_class in classes)
 
 
 def _applicable_access_classes(
-    access_classes: tuple[str, ...],
+    access_classes: tuple[AzureServiceBusAccessClass, ...],
     target_type: str,
-) -> tuple[str, ...]:
+) -> tuple[AzureServiceBusAccessClass, ...]:
     applicable = _TARGET_ACCESS_CLASSES.get(target_type, frozenset())
     return tuple(
         access_class
@@ -304,19 +327,19 @@ def _matches_any(action: str, patterns: tuple[str, ...]) -> bool:
 def _access_path_record(
     workload: NormalizedResource,
     identity: NormalizedResource,
-    identity_kind: str,
+    identity_kind: AzureKeyVaultRuntimeIdentityKind,
     assignment: NormalizedResource,
     target: NormalizedResource,
     grant: _ServiceBusDataGrant,
     context: AzureDecorationContext,
-) -> dict[str, Any]:
+) -> AzureAppServiceServiceBusAccessPath:
     identity_facts = azure_facts(identity)
     assignment_facts = azure_facts(assignment)
     target_facts = azure_facts(target)
     namespace = _service_bus_namespace_for_target(target, context)
     topic = _service_bus_topic_for_target(target, context)
     condition = assignment_facts.role_assignment_condition
-    return {
+    record: AzureAppServiceServiceBusAccessPath = {
         "workload_address": workload.address,
         "workload_type": workload.resource_type,
         "identity_address": identity.address,
@@ -357,6 +380,7 @@ def _access_path_record(
         "matched_data_actions": list(grant.matched_data_actions),
         "excluded_data_actions": list(grant.excluded_data_actions),
     }
+    return record
 
 
 def _service_bus_resource_id(target: NormalizedResource) -> str | None:
@@ -392,7 +416,7 @@ def _service_bus_topic_for_target(
     return topic
 
 
-def _resource_scope(target: NormalizedResource) -> str:
+def _resource_scope(target: NormalizedResource) -> AzureServiceBusResourceScope:
     if target.resource_type == AzureResourceType.SERVICE_BUS_QUEUE:
         return "exact_service_bus_queue"
     if target.resource_type == AzureResourceType.SERVICE_BUS_TOPIC:
@@ -420,8 +444,10 @@ def _string_value(value: object) -> str | None:
     return normalized or None
 
 
-def _dedupe_dicts(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
+def _dedupe_dicts(
+    values: list[AzureAppServiceServiceBusAccessPath],
+) -> list[AzureAppServiceServiceBusAccessPath]:
+    result: list[AzureAppServiceServiceBusAccessPath] = []
     for value in values:
         if value not in result:
             result.append(value)

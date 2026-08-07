@@ -7,7 +7,12 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
 )
 from tfstride.providers.azure.metadata import AzureResourceMetadata
-from tfstride.providers.azure.protected_data_evidence import AzureAppServiceStorageAccessPath
+from tfstride.providers.azure.protected_data_evidence import (
+    AzureAppServiceServiceBusAccessPath,
+    AzureAppServiceServiceBusProtectedDataConvergence,
+    AzureAppServiceStorageAccessPath,
+    AzureAppServiceStorageProtectedDataConvergence,
+)
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
 
 
@@ -97,18 +102,71 @@ class AzureAppServiceFacts(AzureBaseFacts):
         self.extend(AzureResourceMetadata.APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES, values)
 
     @property
-    def app_service_service_bus_access_paths(self) -> list[dict[str, Any]]:
+    def app_service_storage_protected_data_convergences(
+        self,
+    ) -> list[AzureAppServiceStorageProtectedDataConvergence]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCES)
+
+    @property
+    def app_service_storage_protected_data_convergence_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES)
+
+    def set_app_service_storage_protected_data_convergences(
+        self,
+        values: list[AzureAppServiceStorageProtectedDataConvergence],
+    ) -> None:
+        self.set(AzureResourceMetadata.APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCES, values)
+
+    def extend_app_service_storage_protected_data_convergence_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES,
+            values,
+        )
+
+    @property
+    def app_service_service_bus_access_paths(self) -> list[AzureAppServiceServiceBusAccessPath]:
         return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_ACCESS_PATHS)
 
     @property
     def app_service_service_bus_access_path_uncertainties(self) -> list[str]:
         return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_ACCESS_PATH_UNCERTAINTIES)
 
-    def set_app_service_service_bus_access_paths(self, values: list[dict[str, Any]]) -> None:
+    def set_app_service_service_bus_access_paths(
+        self,
+        values: list[AzureAppServiceServiceBusAccessPath],
+    ) -> None:
         self.set(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_ACCESS_PATHS, values)
 
     def extend_app_service_service_bus_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_ACCESS_PATH_UNCERTAINTIES, values)
+
+    @property
+    def app_service_service_bus_protected_data_convergences(
+        self,
+    ) -> list[AzureAppServiceServiceBusProtectedDataConvergence]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCES)
+
+    @property
+    def app_service_service_bus_protected_data_convergence_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES)
+
+    def set_app_service_service_bus_protected_data_convergences(
+        self,
+        values: list[AzureAppServiceServiceBusProtectedDataConvergence],
+    ) -> None:
+        self.set(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCES, values)
+
+    def extend_app_service_service_bus_protected_data_convergence_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES,
+            values,
+        )
 
     @property
     def app_service_cosmosdb_access_paths(self) -> list[dict[str, Any]]:

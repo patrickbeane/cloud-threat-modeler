@@ -6,7 +6,12 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
 )
-from tfstride.providers.azure.protected_data_evidence import AzureAppServiceStorageAccessPath
+from tfstride.providers.azure.protected_data_evidence import (
+    AzureAppServiceServiceBusAccessPath,
+    AzureAppServiceServiceBusProtectedDataConvergence,
+    AzureAppServiceStorageAccessPath,
+    AzureAppServiceStorageProtectedDataConvergence,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -374,8 +379,14 @@ class AzureResourceMetadata:
     APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_access_path_uncertainties"
     )
+    APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
+        "app_service_storage_protected_data_convergence_uncertainties"
+    )
     APP_SERVICE_SERVICE_BUS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_access_path_uncertainties"
+    )
+    APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
+        "app_service_service_bus_protected_data_convergence_uncertainties"
     )
     APP_SERVICE_COSMOSDB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_cosmosdb_access_path_uncertainties"
@@ -393,7 +404,15 @@ class AzureResourceMetadata:
     APP_SERVICE_STORAGE_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceStorageAccessPath](
         "app_service_storage_access_paths"
     )
-    APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = DictListMetadataField("app_service_service_bus_access_paths")
+    APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
+        AzureAppServiceStorageProtectedDataConvergence
+    ]("app_service_storage_protected_data_convergences")
+    APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceServiceBusAccessPath](
+        "app_service_service_bus_access_paths"
+    )
+    APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
+        AzureAppServiceServiceBusProtectedDataConvergence
+    ]("app_service_service_bus_protected_data_convergences")
     APP_SERVICE_COSMOSDB_ACCESS_PATHS = DictListMetadataField("app_service_cosmosdb_access_paths")
     APP_SERVICE_AUTH_SETTINGS = DictMetadataField("app_service_auth_settings")
     APP_SERVICE_AUTH_SETTINGS_V2 = DictMetadataField("app_service_auth_settings_v2")
