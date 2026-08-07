@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from tests.providers.gcp.normalizer_support import _terraform_resource
 from tests.providers.gcp.test_gcp_cloud_run_kms_operation_paths import (
     _PROJECT,
     _RING,
@@ -18,11 +19,18 @@ from tests.providers.gcp.test_gcp_public_cloud_run_firestore_mutation_rules impo
     _public_cloud_run,
     _public_invoker,
 )
+from tests.providers.test_protected_data_key_authority_convergence import (
+    _GCP_KEY_PATH,
+    GCP_BUCKET_ADDRESS,
+    GCP_SERVICE_ACCOUNT_MEMBER,
+    _gcp_resources,
+)
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
 from tfstride.analysis.trust_boundaries import detect_trust_boundaries
 from tfstride.models import StrideCategory, TerraformResource
 from tfstride.providers.gcp.normalizer import GcpNormalizer
+from tfstride.providers.gcp.resource_types import GcpResourceType
 from tfstride.providers.gcp.rules import GCP_RULE_GROUP_IDS
 
 _DECRYPT_RULE = "gcp-public-cloud-run-kms-decrypt-access"
@@ -31,6 +39,36 @@ _WORKLOAD_ADDRESS = "google_cloud_run_v2_service.orders"
 _DECRYPT_KEY_ADDRESS = "google_kms_crypto_key.data"
 _SIGN_KEY_ADDRESS = "google_kms_crypto_key.signing"
 _DECRYPT_IAM_ADDRESS = "google_project_iam_member.runtime_decrypter"
+
+
+def _with_second_cmek_bucket(
+    resources: list[TerraformResource],
+) -> list[TerraformResource]:
+    resources.extend(
+        [
+            _terraform_resource(
+                "google_storage_bucket.archive",
+                GcpResourceType.STORAGE_BUCKET,
+                {
+                    "id": "tfstride-archive-data",
+                    "name": "tfstride-archive-data",
+                    "project": "tfstride-demo",
+                    "location": "US",
+                    "encryption": [{"default_kms_key_name": _GCP_KEY_PATH}],
+                },
+            ),
+            _terraform_resource(
+                "google_storage_bucket_iam_member.archive_access",
+                GcpResourceType.STORAGE_BUCKET_IAM_MEMBER,
+                {
+                    "bucket": "google_storage_bucket.archive.name",
+                    "role": "roles/storage.objectViewer",
+                    "member": GCP_SERVICE_ACCOUNT_MEMBER,
+                },
+            ),
+        ]
+    )
+    return resources
 
 
 def _evaluate(resources: list[TerraformResource], *rule_ids: str):
@@ -102,6 +140,102 @@ class GcpPublicCloudRunKmsOperationRuleTests(unittest.TestCase):
             ],
         )
         self.assertIn("iam_scope_is_key_version=false", evidence["authorization_scope"][1])
+
+    def test_public_decrypt_enriches_blast_radius_with_cmek_bucket(self) -> None:
+        findings = _evaluate(_gcp_resources(), _DECRYPT_RULE)
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertIn(GCP_BUCKET_ADDRESS, finding.affected_resources)
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.blast_radius, 1)
+
+        evidence = _evidence(finding)
+        self.assertEqual(
+            evidence["downstream_dependencies"][0],
+            "unique_dependency_count=1; unique_dependent_resource_count=1; "
+            "downstream_dependency_state=resolved_dependents",
+        )
+        self.assertIn(
+            f"bucket_address={GCP_BUCKET_ADDRESS}",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "key_address=google_kms_crypto_key.data",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "authorization_proof_count=1",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "unique KMS-protected GCS bucket(s) across 1 unique encryption dependency relationship(s)",
+            finding.rationale,
+        )
+
+    def test_duplicate_iam_proofs_collapse_to_one_logical_dependency(self) -> None:
+        resources = _gcp_resources()
+        resources.append(
+            _project_member(
+                "additional_project_decrypter",
+                "roles/cloudkms.cryptoKeyDecrypter",
+            )
+        )
+
+        findings = _evaluate(resources, _DECRYPT_RULE)
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.blast_radius, 2)
+
+        evidence = _evidence(finding)
+        self.assertEqual(
+            evidence["downstream_dependencies"][0],
+            "unique_dependency_count=1; unique_dependent_resource_count=1; "
+            "downstream_dependency_state=resolved_dependents",
+        )
+        self.assertIn(
+            "authorization_proof_count=2",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "crypto_key:",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "project:tfstride-demo",
+            evidence["downstream_dependencies"][1],
+        )
+        self.assertIn(
+            "unique KMS-protected GCS bucket(s) across 1 unique encryption dependency relationship(s)",
+            finding.rationale,
+        )
+
+    def test_multiple_cmek_buckets_raise_downstream_blast_radius(self) -> None:
+        findings = _evaluate(
+            _with_second_cmek_bucket(_gcp_resources()),
+            _DECRYPT_RULE,
+        )
+
+        self.assertEqual(len(findings), 1)
+        finding = findings[0]
+        self.assertIn(
+            "google_storage_bucket.orders",
+            finding.affected_resources,
+        )
+        self.assertIn(
+            "google_storage_bucket.archive",
+            finding.affected_resources,
+        )
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.blast_radius, 2)
+
+        evidence = _evidence(finding)
+        self.assertEqual(
+            evidence["downstream_dependencies"][0],
+            "unique_dependency_count=2; unique_dependent_resource_count=2; "
+            "downstream_dependency_state=resolved_dependents",
+        )
 
     def test_public_exact_key_signing_is_reported_with_narrower_blast_radius(self) -> None:
         findings = _evaluate(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal, TypedDict, cast
 
 from tfstride.analysis.finding_factory import FindingFactory
@@ -26,12 +27,17 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpKmsOperationPermission,
     GcpKmsScopeType,
 )
+from tfstride.providers.gcp.protected_data_evidence import (
+    GcpCloudRunGcsAccessPath,
+    GcpCloudRunGcsProtectedDataConvergence,
+)
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_types import (
     GCP_CLOUD_RUN_RESOURCE_TYPES,
     GCP_KMS_CRYPTO_KEY_IAM_RESOURCE_TYPES,
     GCP_KMS_KEY_RING_IAM_RESOURCE_TYPES,
     GCP_PROJECT_IAM_RESOURCE_TYPES,
+    GCP_STORAGE_BUCKET_IAM_RESOURCE_TYPES,
     GcpResourceType,
 )
 from tfstride.providers.gcp.resource_utils import binding_members
@@ -49,6 +55,18 @@ class _GcpDownstreamDependency(TypedDict):
     key_address: str
     key_resource_name: str
     dependency: GcpKmsEncryptionDependency
+
+
+@dataclass(frozen=True, slots=True)
+class _GcpLogicalProtectedDataDependency:
+    bucket_address: str
+    bucket_name: str
+    key_address: str
+    key_resource_name: str
+    dependency_source_address: str
+    configuration_path: str
+    proof_count: int
+    authorization_scopes: tuple[str, ...]
 
 
 _PathAddressKey = Literal["key_address", "iam_resource_address"]
@@ -90,6 +108,19 @@ _VERSION_DESTROY_OPERATION: GcpKmsManagementPermission = "cloudkms.cryptoKeyVers
 _KMS_KEY_RING_PATH_PATTERN = re.compile(
     r"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/keyRings/(?P<key_ring>[^/]+)$"
 )
+
+
+_GCS_PAYLOAD_READ_ROLES = frozenset(
+    {
+        "roles/storage.objectViewer",
+        "roles/storage.objectUser",
+        "roles/storage.objectAdmin",
+        "roles/storage.admin",
+        "roles/editor",
+        "roles/owner",
+    }
+)
+_GCS_PAYLOAD_READ_PERMISSIONS = frozenset({"*", "storage.*", "storage.objects.*", "storage.objects.get"})
 
 
 class GcpCloudRunKmsOperationRuleDetectors:
@@ -286,12 +317,30 @@ class GcpCloudRunKmsOperationRuleDetectors:
             public_source_addresses: list[str] = sorted({binding["source"] for binding in public_invokers})
             project_scope = any(path.get("scope_type") == "project" for path in paths)
             matched_operations = _path_operation_classes(paths)
+            protected_data_convergences = (
+                _resolved_protected_data_convergences(
+                    paths,
+                    workload,
+                    context,
+                )
+                if disclosure
+                else []
+            )
+            logical_protected_data_dependencies = (
+                _logical_protected_data_dependencies(protected_data_convergences) if disclosure else []
+            )
+            protected_data_dependent_addresses = _protected_data_dependent_addresses(
+                logical_protected_data_dependencies
+            )
+            protected_data_uncertainties = (
+                gcp_facts(workload).cloud_run_gcs_protected_data_convergence_uncertainties if disclosure else []
+            )
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
                 privilege_breadth=1,
                 data_sensitivity=2 if disclosure else 1,
                 lateral_movement=1,
-                blast_radius=2 if project_scope else 1,
+                blast_radius=(2 if project_scope or len(protected_data_dependent_addresses) > 1 else 1),
             )
             boundary = context.boundary_index.get((BoundaryType.INTERNET_TO_SERVICE, "internet", workload.address))
             findings.append(
@@ -304,6 +353,7 @@ class GcpCloudRunKmsOperationRuleDetectors:
                             *public_source_addresses,
                             *key_addresses,
                             *iam_resource_addresses,
+                            *protected_data_dependent_addresses,
                         ]
                     ),
                     trust_boundary_id=boundary.identifier if boundary else None,
@@ -313,6 +363,8 @@ class GcpCloudRunKmsOperationRuleDetectors:
                         key_addresses,
                         project_scope=project_scope,
                         disclosure=disclosure,
+                        downstream_dependent_count=len(protected_data_dependent_addresses),
+                        downstream_dependency_count=len(logical_protected_data_dependencies),
                     ),
                     evidence=collect_evidence(
                         evidence_item("public_invoker_bindings", _public_invoker_evidence(public_invokers)),
@@ -330,6 +382,22 @@ class GcpCloudRunKmsOperationRuleDetectors:
                                 matched_operations,
                                 project_scope,
                             ),
+                        ),
+                        *(
+                            [
+                                evidence_item(
+                                    "downstream_dependencies",
+                                    _protected_data_dependency_evidence(
+                                        logical_protected_data_dependencies,
+                                    ),
+                                ),
+                                evidence_item(
+                                    "downstream_dependency_uncertainties",
+                                    protected_data_uncertainties,
+                                ),
+                            ]
+                            if disclosure
+                            else []
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -1113,6 +1181,291 @@ def _key_ring_identity(resource: NormalizedResource) -> str | None:
     return None
 
 
+def _resolved_protected_data_convergences(
+    paths: Sequence[GcpCloudRunKmsOperationPath],
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> list[GcpCloudRunGcsProtectedDataConvergence]:
+    valid_paths = tuple(
+        path
+        for path in paths
+        if path["operation_class"] == _DECRYPT_OPERATION
+        and _is_deterministic_operation_path(
+            path,
+            workload,
+            context,
+            _DECRYPT_OPERATION,
+        )
+    )
+    convergences: list[GcpCloudRunGcsProtectedDataConvergence] = []
+    for convergence in gcp_facts(workload).cloud_run_gcs_protected_data_convergences:
+        if _is_valid_protected_data_convergence(
+            convergence,
+            workload,
+            context,
+            valid_paths,
+        ):
+            convergences.append(convergence)
+    return sorted(
+        convergences,
+        key=lambda convergence: (
+            convergence["bucket_address"],
+            convergence["key_address"],
+            convergence["key_operation_path"]["scope_type"],
+            convergence["key_operation_path"]["scope"],
+            convergence["key_operation_path"]["iam_resource_address"],
+        ),
+    )
+
+
+def _is_valid_protected_data_convergence(
+    convergence: GcpCloudRunGcsProtectedDataConvergence,
+    workload: NormalizedResource,
+    context: RuleEvaluationContext,
+    valid_paths: Sequence[GcpCloudRunKmsOperationPath],
+) -> bool:
+    if (
+        convergence["convergence_state"] != "resolved"
+        or convergence["workload_address"] != workload.address
+        or convergence["workload_type"] != workload.resource_type
+        or convergence["operation"] != "cloudkms.cryptoKeyVersions.useToDecrypt"
+        or convergence["access_class"] != "read"
+        or convergence["runtime_identity_match"] is not True
+        or convergence["protected_resource_match"] is not True
+        or convergence["key_identity_match"] is not True
+    ):
+        return False
+
+    workload_facts = gcp_facts(workload)
+    if (
+        convergence["service_account_email"] != workload_facts.service_account_email
+        or convergence["service_account_member"] != workload_facts.service_account_member
+    ):
+        return False
+
+    access_path = convergence["access_path"]
+    operation_path = convergence["key_operation_path"]
+    if (
+        access_path not in workload_facts.cloud_run_gcs_access_paths
+        or operation_path not in valid_paths
+        or access_path["bucket_address"] != convergence["bucket_address"]
+        or operation_path["key_address"] != convergence["key_address"]
+        or operation_path["key_resource_name"] != convergence["key_resource_name"]
+        or operation_path["service_account_member"] != convergence["service_account_member"]
+    ):
+        return False
+
+    bucket = context.inventory.get_by_address(convergence["bucket_address"])
+    key = context.inventory.get_by_address(convergence["key_address"])
+    if (
+        bucket is None
+        or bucket.provider != "gcp"
+        or bucket.resource_type != GcpResourceType.STORAGE_BUCKET
+        or convergence["bucket_name"] != (gcp_facts(bucket).bucket_name or bucket.name)
+        or not _is_deterministic_gcs_access_path(
+            access_path,
+            workload,
+            bucket,
+            context,
+        )
+        or key is None
+        or key.provider != "gcp"
+        or key.resource_type != GcpResourceType.KMS_CRYPTO_KEY
+        or _key_identity(key) != convergence["key_resource_name"]
+    ):
+        return False
+
+    dependency = convergence["encryption_dependency"]
+    if dependency not in gcp_facts(bucket).kms_encryption_dependencies:
+        return False
+    source = context.inventory.get_by_address(dependency["dependency_source_address"])
+    key_identity = _key_identity(key)
+    return bool(
+        dependency["resolution_state"] == "resolved"
+        and dependency["customer_managed_encryption_state"] == "configured"
+        and dependency["dependent_address"] == bucket.address
+        and dependency["dependent_resource_type"] == bucket.resource_type
+        and dependency["dependency_source_address"] == bucket.address
+        and dependency["dependency_source_type"] == bucket.resource_type
+        and dependency["configuration_path"]
+        == [
+            "encryption",
+            0,
+            "default_kms_key_name",
+        ]
+        and dependency["key_address"] == key.address
+        and dependency["key_resource_name"] == key_identity
+        and dependency["candidate_targets"]
+        == [
+            {
+                "address": key.address,
+                "target_kind": "crypto_key",
+            }
+        ]
+        and dependency["version_reference_is_explicit"] is False
+        and dependency["key_version_address"] is None
+        and dependency["key_version_resource_name"] is None
+        and source is bucket
+        and _dependency_reference_is_coherent(dependency, key_identity)
+    )
+
+
+def _is_deterministic_gcs_access_path(
+    path: GcpCloudRunGcsAccessPath,
+    workload: NormalizedResource,
+    bucket: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    workload_facts = gcp_facts(workload)
+    service_account_email = workload_facts.service_account_email
+    service_account_member = workload_facts.service_account_member
+    iam_resource_address = path["iam_resource_address"]
+    iam_resource = (
+        context.inventory.get_by_address(iam_resource_address) if isinstance(iam_resource_address, str) else None
+    )
+    if (
+        not isinstance(service_account_email, str)
+        or not service_account_email
+        or service_account_member != f"serviceAccount:{service_account_email}"
+        or path["workload_address"] != workload.address
+        or path["workload_type"] != workload.resource_type
+        or path["service_account_email"] != service_account_email
+        or path["service_account_member"] != service_account_member
+        or path["identity_kind"] != "cloud_run_service_account"
+        or path["credential_context"] != "workload_runtime"
+        or path["bucket_address"] != bucket.address
+        or path["bucket_name"] != (gcp_facts(bucket).bucket_name or bucket.name)
+        or path["grant_basis"] != "storage_bucket_iam"
+        or path["resource_scope"] != "exact_bucket"
+        or path["condition"] is not None
+        or path["condition_state"] != "not_configured"
+        or path["access_state"] != "granted"
+        or "read" not in path["access_classes"]
+        or not _gcs_path_has_payload_read(path)
+        or iam_resource is None
+        or iam_resource.provider != "gcp"
+        or iam_resource.resource_type not in GCP_STORAGE_BUCKET_IAM_RESOURCE_TYPES
+    ):
+        return False
+    return any(
+        binding.get("source") == iam_resource_address
+        and binding.get("role") == path["role"]
+        and service_account_member in binding_members(binding)
+        and not isinstance(binding.get("condition"), Mapping)
+        for binding in gcp_facts(bucket).bindings
+    )
+
+
+def _gcs_path_has_payload_read(path: GcpCloudRunGcsAccessPath) -> bool:
+    return bool(
+        path["role"] in _GCS_PAYLOAD_READ_ROLES
+        or _GCS_PAYLOAD_READ_PERMISSIONS.intersection(path["matched_permissions"])
+    )
+
+
+def _dependency_reference_is_coherent(
+    dependency: GcpKmsEncryptionDependency,
+    key_identity: str | None,
+) -> bool:
+    configured = dependency["configured_key_reference"]
+    if key_identity is None or not isinstance(configured, str):
+        return False
+    if dependency["reference_provenance"] == "planned_value":
+        return dependency["reference_kind"] == "crypto_key_resource_name" and configured == key_identity
+    return (
+        dependency["reference_provenance"] == "configuration_reference"
+        and dependency["reference_kind"] == "terraform_reference"
+        and configured == f"{dependency['key_address']}.id"
+    )
+
+
+def _logical_protected_data_dependencies(
+    convergences: Sequence[GcpCloudRunGcsProtectedDataConvergence],
+) -> list[_GcpLogicalProtectedDataDependency]:
+    grouped: dict[
+        tuple[str, str, str, str],
+        list[GcpCloudRunGcsProtectedDataConvergence],
+    ] = {}
+    for convergence in convergences:
+        dependency = convergence["encryption_dependency"]
+        fingerprint = (
+            convergence["bucket_address"],
+            convergence["key_address"],
+            dependency["dependency_source_address"],
+            repr(dependency["configuration_path"]),
+        )
+        grouped.setdefault(fingerprint, []).append(convergence)
+
+    logical: list[_GcpLogicalProtectedDataDependency] = []
+    for (bucket_address, key_address, source_address, configuration_path), proofs in grouped.items():
+        representative = proofs[0]
+        scopes = tuple(
+            sorted(
+                {
+                    f"{proof['key_operation_path']['scope_type']}:{proof['key_operation_path']['scope']}"
+                    for proof in proofs
+                }
+            )
+        )
+        logical.append(
+            _GcpLogicalProtectedDataDependency(
+                bucket_address=bucket_address,
+                bucket_name=representative["bucket_name"],
+                key_address=key_address,
+                key_resource_name=representative["key_resource_name"],
+                dependency_source_address=source_address,
+                configuration_path=configuration_path,
+                proof_count=len(proofs),
+                authorization_scopes=scopes,
+            )
+        )
+    return sorted(
+        logical,
+        key=lambda item: (
+            item.bucket_address,
+            item.key_address,
+            item.dependency_source_address,
+            item.configuration_path,
+        ),
+    )
+
+
+def _protected_data_dependent_addresses(
+    dependencies: Sequence[_GcpLogicalProtectedDataDependency],
+) -> list[str]:
+    return sorted({dependency.bucket_address for dependency in dependencies})
+
+
+def _protected_data_dependency_evidence(
+    dependencies: Sequence[_GcpLogicalProtectedDataDependency],
+) -> list[str]:
+    dependent_addresses = _protected_data_dependent_addresses(dependencies)
+    values = [
+        (
+            f"unique_dependency_count={len(dependencies)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            "downstream_dependency_state="
+            f"{'resolved_dependents' if dependent_addresses else 'no_resolved_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                f"bucket_address={dependency.bucket_address}",
+                f"bucket_name={dependency.bucket_name}",
+                f"key_address={dependency.key_address}",
+                f"key_resource_name={dependency.key_resource_name}",
+                f"dependency_source={dependency.dependency_source_address}",
+                f"configuration_path={dependency.configuration_path}",
+                f"authorization_proof_count={dependency.proof_count}",
+                f"authorization_scopes={','.join(dependency.authorization_scopes)}",
+            )
+        )
+        for dependency in dependencies
+    )
+    return values
+
+
 def _rationale(
     workload: NormalizedResource,
     operation_classes: list[GcpKmsOperationClass],
@@ -1120,6 +1473,8 @@ def _rationale(
     *,
     project_scope: bool,
     disclosure: bool,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
 ) -> str:
     operation_text = _operation_text(operation_classes)
     if disclosure:
@@ -1136,10 +1491,16 @@ def _rationale(
         if project_scope
         else "The modeled grants are limited to key-ring or exact CryptoKey scopes."
     )
+    downstream_text = (
+        f" The exact decrypt evidence converges with {downstream_dependent_count} unique KMS-protected "
+        f"GCS bucket(s) across {downstream_dependency_count} unique encryption dependency relationship(s)."
+        if disclosure and downstream_dependent_count
+        else (" No resolved KMS-protected GCS access convergence is modeled for these keys." if disclosure else "")
+    )
     return (
         f"{workload.display_name} is publicly invokable and its Cloud Run runtime service account has "
         f"deterministic Cloud KMS {operation_text} authority on {len(key_addresses)} exact modeled CryptoKey(s). "
-        f"A compromise of the public workload {capability}. {scope_text} This establishes cryptographic-operation "
+        f"A compromise of the public workload {capability}. {scope_text}{downstream_text} This establishes cryptographic-operation "
         "authority, not proof that the workload possesses useful ciphertext, can disclose plaintext, or can produce "
         "a signature or message authentication code accepted by a relying application. Cloud KMS IAM is modeled at "
         "project, key-ring, and CryptoKey scope; it is not treated as CryptoKeyVersion-scoped authority."
