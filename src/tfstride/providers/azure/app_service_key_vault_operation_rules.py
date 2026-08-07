@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from typing import Literal
+from dataclasses import dataclass
+from typing import Literal, cast
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -13,12 +14,21 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding, NormalizedResource
+from tfstride.providers.azure.key_vault_dependency_evidence import (
+    AzureKeyVaultEncryptionDependency,
+)
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultGrantBasis,
     AzureKeyVaultGrantKind,
     AzureKeyVaultOperation,
     AzureKeyVaultPathScopeType,
+)
+from tfstride.providers.azure.protected_data_evidence import (
+    AzureAppServiceServiceBusAccessPath,
+    AzureAppServiceServiceBusProtectedDataConvergence,
+    AzureAppServiceStorageAccessPath,
+    AzureAppServiceStorageProtectedDataConvergence,
 )
 from tfstride.providers.azure.resource_facts import AzureResourceFacts, azure_facts
 from tfstride.providers.azure.resource_types import (
@@ -41,6 +51,23 @@ _GrantFingerprint = tuple[
     str | None,
     str | None,
 ]
+_AzureProtectedDataConvergence = (
+    AzureAppServiceStorageProtectedDataConvergence | AzureAppServiceServiceBusProtectedDataConvergence
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _AzureLogicalProtectedDataDependency:
+    protected_resources: tuple[tuple[str, str], ...]
+    parent_address: str
+    key_address: str
+    key_uri: str | None
+    key_versionless_uri: str
+    dependency_source_address: str
+    configuration_path: str
+    proof_count: int
+    operations: tuple[AzureKeyVaultOperation, ...]
+    authorization_scopes: tuple[str, ...]
 
 
 _DECRYPT_OPERATION: _RuleOperationClass = "decrypt"
@@ -108,12 +135,25 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
             role_definition_addresses = _path_values(paths, "role_definition_address")
             operations = _path_operations(paths)
             parent_scope = any(path.get("scope_type") in _PARENT_SCOPE_TYPES for path in paths)
+            protected_data_convergences = (
+                _resolved_protected_data_convergences(paths, app, context)
+                if operation_class == _DECRYPT_OPERATION
+                else []
+            )
+            logical_protected_data_dependencies = (
+                _logical_protected_data_dependencies(protected_data_convergences)
+                if operation_class == _DECRYPT_OPERATION
+                else []
+            )
+            protected_data_dependent_addresses = _protected_data_dependent_addresses(
+                logical_protected_data_dependencies,
+            )
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
                 privilege_breadth=1,
                 data_sensitivity=2 if operation_class == _DECRYPT_OPERATION else 1,
                 lateral_movement=1,
-                blast_radius=2 if parent_scope else 1,
+                blast_radius=(2 if parent_scope or len(protected_data_dependent_addresses) > 1 else 1),
             )
             findings.append(
                 self._finding_factory.build(
@@ -127,6 +167,7 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
                             *key_addresses,
                             *grant_addresses,
                             *role_definition_addresses,
+                            *protected_data_dependent_addresses,
                         ]
                     ),
                     trust_boundary_id=None,
@@ -136,6 +177,8 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
                         operations,
                         key_addresses,
                         parent_scope=parent_scope,
+                        downstream_dependent_count=len(protected_data_dependent_addresses),
+                        downstream_dependency_count=len(logical_protected_data_dependencies),
                     ),
                     evidence=collect_evidence(
                         evidence_item("public_endpoint", _public_endpoint_evidence(app)),
@@ -145,6 +188,22 @@ class AzureAppServiceKeyVaultOperationRuleDetectors:
                         evidence_item(
                             "authorization_scope",
                             _authorization_scope(operation_class, operations, parent_scope),
+                        ),
+                        *(
+                            [
+                                evidence_item(
+                                    "downstream_dependencies",
+                                    _protected_data_dependency_evidence(
+                                        logical_protected_data_dependencies,
+                                    ),
+                                ),
+                                evidence_item(
+                                    "downstream_dependency_uncertainties",
+                                    _protected_data_uncertainties(app),
+                                ),
+                            ]
+                            if operation_class == _DECRYPT_OPERATION
+                            else []
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -359,6 +418,8 @@ def _rationale(
     key_addresses: list[str],
     *,
     parent_scope: bool,
+    downstream_dependent_count: int = 0,
+    downstream_dependency_count: int = 0,
 ) -> str:
     operation_text = _operation_text(operations)
     if operation_class == _DECRYPT_OPERATION:
@@ -380,11 +441,502 @@ def _rationale(
         "ciphertext, can recover application plaintext, or can produce a signature accepted by a relying "
         "application."
     )
+    downstream = (
+        f" The exact plaintext-recovery evidence converges with {downstream_dependent_count} unique "
+        "Key Vault-protected Storage or Service Bus resource(s) across "
+        f"{downstream_dependency_count} unique encryption dependency relationship(s)."
+        if operation_class == _DECRYPT_OPERATION and downstream_dependent_count
+        else (
+            " No resolved Key Vault-protected Storage or Service Bus access convergence is modeled for these keys."
+            if operation_class == _DECRYPT_OPERATION
+            else ""
+        )
+    )
     return (
         f"{app.display_name} has public network access enabled and its runtime managed identity has deterministic "
         f"Key Vault {authority_text} authority "
         f"on {len(key_addresses)} exact modeled key(s). A compromise of the "
-        f"public workload {capability}. {scope_text} {qualification}"
+        f"public workload {capability}. {scope_text} {qualification}{downstream}"
+    )
+
+
+def _resolved_protected_data_convergences(
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> list[_AzureProtectedDataConvergence]:
+    facts = azure_facts(app)
+    candidates: list[_AzureProtectedDataConvergence] = [
+        *facts.app_service_storage_protected_data_convergences,
+        *facts.app_service_service_bus_protected_data_convergences,
+    ]
+    resolved = [
+        convergence
+        for convergence in candidates
+        if _is_valid_protected_data_convergence(convergence, paths, app, context)
+    ]
+    return sorted(
+        resolved,
+        key=lambda convergence: (
+            _protected_resource_address(convergence),
+            convergence["key_address"],
+            convergence["operation"],
+            convergence["key_operation_path"].get("grant_source_address") or "",
+        ),
+    )
+
+
+def _is_valid_protected_data_convergence(
+    convergence: _AzureProtectedDataConvergence,
+    paths: Sequence[AzureAppServiceKeyVaultOperationPath],
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    if (
+        convergence["convergence_state"] != "resolved"
+        or convergence["workload_address"] != app.address
+        or convergence["workload_type"] != app.resource_type
+        or convergence["operation"] not in _DECRYPT_OPERATIONS
+        or convergence["runtime_identity_match"] is not True
+        or convergence["protected_resource_match"] is not True
+        or convergence["key_identity_match"] is not True
+    ):
+        return False
+
+    access_path = convergence["access_path"]
+    operation_path = convergence["key_operation_path"]
+    if (
+        operation_path not in paths
+        or operation_path["operation"] != convergence["operation"]
+        or operation_path["key_address"] != convergence["key_address"]
+        or operation_path["identity_address"] != convergence["identity_address"]
+        or operation_path["principal_id"] != convergence["principal_id"]
+        or access_path["workload_address"] != app.address
+        or access_path["identity_address"] != convergence["identity_address"]
+        or access_path["identity_kind"] != convergence["identity_kind"]
+        or access_path["principal_id"] != convergence["principal_id"]
+    ):
+        return False
+
+    key = context.inventory.get_by_address(convergence["key_address"])
+    if key is None or key.provider != "azure" or key.resource_type != AzureResourceType.KEY_VAULT_KEY:
+        return False
+    key_facts = azure_facts(key)
+    if (
+        operation_path["key_vault_address"] != key_facts.resolved_key_vault_address
+        or operation_path["key_name"] != key_facts.key_vault_key_name
+        or operation_path["key_identity_state"] != key_facts.key_vault_key_identity_state
+        or not _same_optional_identifier(operation_path["key_uri"], key_facts.key_vault_key_uri)
+        or not _same_optional_identifier(
+            operation_path["key_versionless_uri"],
+            key_facts.key_vault_key_versionless_uri,
+        )
+        or convergence["key_uri"]
+        != (
+            key_facts.key_vault_key_uri
+            if convergence["encryption_dependency"]["target_kind"] == "key_version"
+            else None
+        )
+        or convergence["key_versionless_uri"] != key_facts.key_vault_key_versionless_uri
+    ):
+        return False
+
+    if "storage_resource_address" in convergence:
+        return _is_valid_storage_convergence(
+            convergence,
+            convergence["access_path"],
+            key,
+            app,
+            context,
+        )
+    return _is_valid_service_bus_convergence(
+        convergence,
+        convergence["access_path"],
+        key,
+        app,
+        context,
+    )
+
+
+def _is_valid_storage_convergence(
+    convergence: AzureAppServiceStorageProtectedDataConvergence,
+    access_path: AzureAppServiceStorageAccessPath,
+    key: NormalizedResource,
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    facts = azure_facts(app)
+    if (
+        convergence not in facts.app_service_storage_protected_data_convergences
+        or access_path not in facts.app_service_storage_access_paths
+    ):
+        return False
+    account = context.inventory.get_by_address(convergence["storage_account_address"])
+    target = context.inventory.get_by_address(convergence["storage_resource_address"])
+    if (
+        account is None
+        or account.provider != "azure"
+        or account.resource_type != AzureResourceType.STORAGE_ACCOUNT
+        or target is None
+        or target.provider != "azure"
+        or target.resource_type
+        not in {
+            AzureResourceType.STORAGE_ACCOUNT,
+            AzureResourceType.STORAGE_CONTAINER,
+        }
+        or target.address != convergence["storage_resource_address"]
+        or convergence["storage_account_address"] != account.address
+        or access_path.get("storage_account_address") != account.address
+        or access_path.get("storage_resource_address") != target.address
+        or access_path.get("storage_account_id") != convergence["storage_account_id"]
+    ):
+        return False
+    if target.resource_type == AzureResourceType.STORAGE_ACCOUNT:
+        if (
+            target.address != account.address
+            or access_path.get("resource_scope") != "exact_storage_account"
+            or access_path.get("container_address") is not None
+        ):
+            return False
+    elif (
+        access_path.get("resource_scope") != "exact_storage_container"
+        or access_path.get("container_address") != target.address
+        or azure_facts(target).resolved_storage_account_address != account.address
+    ):
+        return False
+    return _dependency_is_current(convergence["encryption_dependency"], account, key, context)
+
+
+def _is_valid_service_bus_convergence(
+    convergence: AzureAppServiceServiceBusProtectedDataConvergence,
+    access_path: AzureAppServiceServiceBusAccessPath,
+    key: NormalizedResource,
+    app: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    facts = azure_facts(app)
+    if (
+        convergence not in facts.app_service_service_bus_protected_data_convergences
+        or access_path not in facts.app_service_service_bus_access_paths
+    ):
+        return False
+    namespace = context.inventory.get_by_address(convergence["service_bus_namespace_address"])
+    target = context.inventory.get_by_address(convergence["service_bus_resource_address"])
+    if (
+        namespace is None
+        or namespace.provider != "azure"
+        or namespace.resource_type != AzureResourceType.SERVICE_BUS_NAMESPACE
+        or target is None
+        or target.provider != "azure"
+        or target.resource_type
+        not in {
+            AzureResourceType.SERVICE_BUS_NAMESPACE,
+            AzureResourceType.SERVICE_BUS_QUEUE,
+            AzureResourceType.SERVICE_BUS_TOPIC,
+            AzureResourceType.SERVICE_BUS_SUBSCRIPTION,
+        }
+        or target.address != convergence["service_bus_resource_address"]
+        or convergence["service_bus_namespace_address"] != namespace.address
+        or access_path.get("service_bus_namespace_address") != namespace.address
+        or access_path.get("service_bus_resource_address") != target.address
+        or access_path.get("service_bus_namespace_id") != convergence["service_bus_namespace_id"]
+    ):
+        return False
+    if target.resource_type == AzureResourceType.SERVICE_BUS_NAMESPACE:
+        if access_path.get("resource_scope") != "exact_service_bus_namespace" or any(
+            access_path.get(field) is not None for field in ("queue_address", "topic_address", "subscription_address")
+        ):
+            return False
+    elif (
+        azure_facts(target).resolved_service_bus_namespace_address != namespace.address
+        or access_path.get("resource_scope")
+        != {
+            AzureResourceType.SERVICE_BUS_QUEUE: "exact_service_bus_queue",
+            AzureResourceType.SERVICE_BUS_TOPIC: "exact_service_bus_topic",
+            AzureResourceType.SERVICE_BUS_SUBSCRIPTION: "exact_service_bus_subscription",
+        }[target.resource_type]
+    ):
+        return False
+    return _dependency_is_current(convergence["encryption_dependency"], namespace, key, context)
+
+
+def _dependency_is_current(
+    dependency: AzureKeyVaultEncryptionDependency,
+    parent: NormalizedResource,
+    key: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    if (
+        dependency not in azure_facts(parent).key_vault_encryption_dependencies
+        or dependency["resolution_state"] != "resolved"
+        or dependency["customer_managed_key_state"] != "configured"
+        or dependency["dependent_address"] != parent.address
+        or dependency["dependent_resource_type"] != parent.resource_type
+        or dependency["key_address"] != key.address
+        or dependency["candidate_key_addresses"] != [key.address]
+        or not _dependency_source_is_current(dependency, parent, context)
+    ):
+        return False
+    key_facts = azure_facts(key)
+    vault_address = key_facts.resolved_key_vault_address
+    if (
+        vault_address is None
+        or dependency["key_vault_address"] != vault_address
+        or dependency["key_name"] != key_facts.key_vault_key_name
+        or not _same_optional_identifier(
+            dependency["key_versionless_uri"],
+            key_facts.key_vault_key_versionless_uri,
+        )
+        or not _same_optional_identifier(
+            dependency["key_versionless_resource_id"],
+            key_facts.key_vault_key_versionless_resource_id,
+        )
+        or not _dependency_target_is_current(dependency, key_facts)
+        or not _dependency_reference_is_coherent(dependency, key)
+    ):
+        return False
+    vault = context.inventory.get_by_address(vault_address)
+    if vault is None or vault.provider != "azure" or vault.resource_type != AzureResourceType.KEY_VAULT:
+        return False
+    vault_facts = azure_facts(vault)
+    return _same_optional_identifier(
+        dependency["key_vault_id"], vault_facts.key_vault_id
+    ) and _same_optional_identifier(dependency["key_vault_uri"], vault_facts.key_vault_uri)
+
+
+def _dependency_target_is_current(
+    dependency: AzureKeyVaultEncryptionDependency,
+    key_facts: AzureResourceFacts,
+) -> bool:
+    target_kind = dependency["target_kind"]
+    if target_kind == "key":
+        return True
+    if target_kind != "key_version":
+        return False
+
+    versioned_fields = (
+        (dependency["key_uri"], key_facts.key_vault_key_uri),
+        (dependency["key_resource_id"], key_facts.key_vault_key_resource_id),
+        (dependency["key_version"], key_facts.key_vault_key_version),
+    )
+    return all(
+        _known_string(dependency_value) is not None
+        and _known_string(key_value) is not None
+        and _same_optional_identifier(dependency_value, key_value)
+        for dependency_value, key_value in versioned_fields
+    )
+
+
+def _dependency_source_is_current(
+    dependency: AzureKeyVaultEncryptionDependency,
+    parent: NormalizedResource,
+    context: RuleEvaluationContext,
+) -> bool:
+    source = context.inventory.get_by_address(dependency["dependency_source_address"])
+    if source is None or source.provider != "azure" or source.resource_type != dependency["dependency_source_type"]:
+        return False
+    if parent.resource_type == AzureResourceType.STORAGE_ACCOUNT:
+        return source.address == parent.address
+    if parent.resource_type != AzureResourceType.SERVICE_BUS_NAMESPACE:
+        return False
+    if source.address == parent.address:
+        return True
+    return bool(
+        source.resource_type == AzureResourceType.SERVICE_BUS_NAMESPACE_CUSTOMER_MANAGED_KEY
+        and azure_facts(source).resolved_service_bus_namespace_address == parent.address
+    )
+
+
+def _dependency_reference_is_coherent(
+    dependency: AzureKeyVaultEncryptionDependency,
+    key: NormalizedResource,
+) -> bool:
+    configured = _known_string(dependency["configured_key_reference"])
+    target_kind = dependency["target_kind"]
+    provenance = dependency["reference_provenance"]
+    reference_kind = dependency["reference_kind"]
+    if configured is None:
+        return False
+    if provenance == "planned_value":
+        if target_kind == "key":
+            if reference_kind == "versionless_uri":
+                return _same_identifier(configured, dependency["key_versionless_uri"])
+            if reference_kind == "versionless_resource_id":
+                return _same_identifier(configured, dependency["key_versionless_resource_id"])
+            return False
+        if target_kind == "key_version":
+            if reference_kind == "versioned_uri":
+                return _same_identifier(configured, dependency["key_uri"])
+            if reference_kind == "versioned_resource_id":
+                return _same_identifier(configured, dependency["key_resource_id"])
+            return False
+        return False
+    if provenance != "configuration_reference" or reference_kind != "terraform_reference":
+        return False
+    if target_kind == "key":
+        return configured in {
+            f"{key.address}.versionless_id",
+            f"{key.address}.resource_versionless_id",
+        }
+    if target_kind == "key_version":
+        return configured in {f"{key.address}.id", f"{key.address}.resource_id"}
+    return False
+
+
+def _logical_protected_data_dependencies(
+    convergences: Sequence[_AzureProtectedDataConvergence],
+) -> list[_AzureLogicalProtectedDataDependency]:
+    grouped: dict[tuple[str, str, str, str, str, str], list[_AzureProtectedDataConvergence]] = {}
+    for convergence in convergences:
+        dependency = convergence["encryption_dependency"]
+        fingerprint = (
+            _protected_parent_address(convergence),
+            convergence["key_address"],
+            dependency["dependency_source_address"],
+            repr(dependency["configuration_path"]),
+            dependency["target_kind"] or "unknown",
+            convergence["key_uri"] or "",
+        )
+        grouped.setdefault(fingerprint, []).append(convergence)
+
+    logical: list[_AzureLogicalProtectedDataDependency] = []
+    for (
+        parent_address,
+        key_address,
+        source_address,
+        configuration_path,
+        _target_kind,
+        _key_uri,
+    ), proofs in grouped.items():
+        representative = proofs[0]
+        operation_scopes = tuple(
+            sorted(
+                {
+                    f"{proof['key_operation_path']['scope_type']}:{proof['key_operation_path']['scope_arm_id']}"
+                    for proof in proofs
+                }
+            )
+        )
+        operations: tuple[AzureKeyVaultOperation, ...] = tuple(
+            cast(AzureKeyVaultOperation, operation)
+            for operation in _OPERATION_ORDER
+            if any(proof["operation"] == operation for proof in proofs)
+        )
+        authorization_proofs = {
+            (
+                proof["key_operation_path"]["grant_source_address"],
+                proof["key_operation_path"]["grant_kind"],
+                proof["key_operation_path"]["grant_basis"],
+                proof["key_operation_path"]["scope_type"],
+                proof["key_operation_path"]["scope_arm_id"] or "",
+                proof["key_operation_path"]["role_definition_address"] or "",
+            )
+            for proof in proofs
+        }
+        protected_resources = tuple(
+            sorted(
+                {
+                    (
+                        _protected_resource_address(proof),
+                        _protected_resource_type(proof),
+                    )
+                    for proof in proofs
+                }
+            )
+        )
+        logical.append(
+            _AzureLogicalProtectedDataDependency(
+                protected_resources=protected_resources,
+                parent_address=parent_address,
+                key_address=key_address,
+                key_uri=representative["key_uri"],
+                key_versionless_uri=representative["key_versionless_uri"],
+                dependency_source_address=source_address,
+                configuration_path=configuration_path,
+                proof_count=len(authorization_proofs),
+                operations=operations,
+                authorization_scopes=operation_scopes,
+            )
+        )
+    return sorted(
+        logical,
+        key=lambda dependency: (
+            dependency.parent_address,
+            dependency.key_address,
+            dependency.dependency_source_address,
+            dependency.configuration_path,
+        ),
+    )
+
+
+def _protected_resource_address(convergence: _AzureProtectedDataConvergence) -> str:
+    if "storage_resource_address" in convergence:
+        return convergence["storage_resource_address"]
+    return convergence["service_bus_resource_address"]
+
+
+def _protected_resource_type(convergence: _AzureProtectedDataConvergence) -> str:
+    if "storage_resource_address" in convergence:
+        return convergence["access_path"]["storage_resource_type"]
+    return convergence["service_bus_resource_type"]
+
+
+def _protected_parent_address(convergence: _AzureProtectedDataConvergence) -> str:
+    if "storage_resource_address" in convergence:
+        return convergence["storage_account_address"]
+    return convergence["service_bus_namespace_address"]
+
+
+def _protected_data_dependent_addresses(
+    dependencies: Sequence[_AzureLogicalProtectedDataDependency],
+) -> list[str]:
+    return sorted(
+        {address for dependency in dependencies for address, _resource_type in dependency.protected_resources}
+    )
+
+
+def _protected_data_dependency_evidence(
+    dependencies: Sequence[_AzureLogicalProtectedDataDependency],
+) -> list[str]:
+    dependent_addresses = _protected_data_dependent_addresses(dependencies)
+    values = [
+        (
+            f"unique_dependency_count={len(dependencies)}; "
+            f"unique_dependent_resource_count={len(dependent_addresses)}; "
+            "downstream_dependency_state="
+            f"{'resolved_dependents' if dependent_addresses else 'no_resolved_dependents'}"
+        )
+    ]
+    values.extend(
+        "; ".join(
+            (
+                "protected_resource_addresses="
+                f"{','.join(address for address, _resource_type in dependency.protected_resources)}",
+                "protected_resource_types="
+                f"{','.join(resource_type for _address, resource_type in dependency.protected_resources)}",
+                f"parent_address={dependency.parent_address}",
+                f"key_address={dependency.key_address}",
+                f"key_uri={dependency.key_uri or 'none'}",
+                f"key_versionless_uri={dependency.key_versionless_uri}",
+                f"dependency_source={dependency.dependency_source_address}",
+                f"configuration_path={dependency.configuration_path}",
+                f"operations={','.join(dependency.operations)}",
+                f"authorization_proof_count={dependency.proof_count}",
+                f"authorization_scopes={','.join(dependency.authorization_scopes)}",
+            )
+        )
+        for dependency in dependencies
+    )
+    return values
+
+
+def _protected_data_uncertainties(app: NormalizedResource) -> list[str]:
+    facts = azure_facts(app)
+    return sorted(
+        {
+            *facts.app_service_storage_protected_data_convergence_uncertainties,
+            *facts.app_service_service_bus_protected_data_convergence_uncertainties,
+        }
     )
 
 

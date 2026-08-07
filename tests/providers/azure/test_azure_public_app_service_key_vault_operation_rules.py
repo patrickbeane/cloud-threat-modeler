@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
 from typing import Any
 
 from tests.providers.azure.test_azure_app_service_key_vault_operation_paths import (
@@ -20,6 +21,15 @@ from tests.providers.azure.test_azure_app_service_key_vault_operation_paths impo
     _user_assigned_identity,
     _vault,
     _web_app,
+)
+from tests.providers.azure.test_azure_app_service_key_vault_protected_data_convergence import (
+    _AZURE_KEY_VERSIONLESS_URI as _PROTECTED_DATA_KEY_VERSIONLESS_URI,
+)
+from tests.providers.azure.test_azure_app_service_key_vault_protected_data_convergence import (
+    _azure_resources as _protected_data_resources,
+)
+from tests.providers.azure.test_azure_app_service_key_vault_protected_data_convergence import (
+    _versionless_storage_resources as _versionless_protected_data_resources,
 )
 from tests.providers.azure.test_azure_public_app_service_storage_mutation_rules import _public
 from tfstride.analysis.rule_registry import RulePolicy
@@ -71,6 +81,25 @@ def _key_named(
             }
         )
     return _resource(AzureResourceType.KEY_VAULT_KEY, name, values)
+
+
+def _two_storage_container_protected_data_resources() -> list[TerraformResource]:
+    resources = _protected_data_resources()
+    container = next(resource for resource in resources if resource.address == "azurerm_storage_container.orders")
+    role_assignment = next(
+        resource for resource in resources if resource.address == "azurerm_role_assignment.orders_blob"
+    )
+    second_container = deepcopy(container)
+    second_container.address = "azurerm_storage_container.archive"
+    second_container.name = "archive"
+    second_container.values["name"] = "archive"
+    second_container.values["id"] = str(second_container.values["id"]).replace("/orders", "/archive")
+    second_role_assignment = deepcopy(role_assignment)
+    second_role_assignment.address = "azurerm_role_assignment.archive_blob"
+    second_role_assignment.name = "archive_blob"
+    second_role_assignment.values["scope"] = "azurerm_storage_container.archive.resource_manager_id"
+    resources.extend([second_container, second_role_assignment])
+    return resources
 
 
 class AzurePublicAppServiceKeyVaultOperationRuleTests(unittest.TestCase):
@@ -138,6 +167,89 @@ class AzurePublicAppServiceKeyVaultOperationRuleTests(unittest.TestCase):
             "parent_scope_grants=1; modeled_keys=1; broadest_scope=vault; out_of_plan_keys_not_modeled=true; "
             "blast_radius_basis=parent_scope_grant",
             evidence["scope_breadth"],
+        )
+
+    def test_decrypt_enrichment_preserves_operations_and_logical_dependency_counts(self) -> None:
+        findings = _evaluate(_protected_data_resources(), _DECRYPT_RULE)
+
+        self.assertEqual([finding.rule_id for finding in findings], [_DECRYPT_RULE])
+        finding = findings[0]
+        assert finding.severity_reasoning is not None
+        self.assertIn("azurerm_storage_container.orders", finding.affected_resources)
+        self.assertIn(
+            "converges with 1 unique Key Vault-protected Storage or Service Bus resource(s) across "
+            "1 unique encryption dependency relationship(s)",
+            finding.rationale,
+        )
+        evidence = _evidence(finding)
+        self.assertEqual(
+            {value.split("operation=", 1)[1].split(";", 1)[0] for value in evidence["key_vault_operation_paths"]},
+            {"decrypt", "unwrap"},
+        )
+        self.assertIn(
+            "unique_dependency_count=1; unique_dependent_resource_count=1; "
+            "downstream_dependency_state=resolved_dependents",
+            evidence["downstream_dependencies"],
+        )
+        self.assertTrue(
+            any(
+                "protected_resource_addresses=azurerm_storage_container.orders" in value
+                and "operations=decrypt,unwrap" in value
+                and "authorization_proof_count=1" in value
+                for value in evidence["downstream_dependencies"]
+            )
+        )
+
+    def test_multiple_protected_resources_raise_downstream_blast_radius(self) -> None:
+        findings = _evaluate(_two_storage_container_protected_data_resources(), _DECRYPT_RULE)
+
+        self.assertEqual([finding.rule_id for finding in findings], [_DECRYPT_RULE])
+        finding = findings[0]
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.blast_radius, 2)
+        self.assertIn("azurerm_storage_container.orders", finding.affected_resources)
+        self.assertIn("azurerm_storage_container.archive", finding.affected_resources)
+        evidence = _evidence(finding)
+        self.assertIn(
+            "unique_dependency_count=1; unique_dependent_resource_count=2; "
+            "downstream_dependency_state=resolved_dependents",
+            evidence["downstream_dependencies"],
+        )
+        dependency_lines = [
+            value for value in evidence["downstream_dependencies"] if value.startswith("protected_resource_addresses=")
+        ]
+        self.assertEqual(len(dependency_lines), 1)
+        self.assertIn(
+            "protected_resource_addresses=azurerm_storage_container.archive,azurerm_storage_container.orders",
+            dependency_lines[0],
+        )
+        self.assertIn("operations=decrypt,unwrap", dependency_lines[0])
+        self.assertIn("authorization_proof_count=1", dependency_lines[0])
+
+    def test_versionless_dependency_enriches_plaintext_recovery_without_claiming_a_version(self) -> None:
+        findings = _evaluate(_versionless_protected_data_resources(), _DECRYPT_RULE)
+
+        self.assertEqual([finding.rule_id for finding in findings], [_DECRYPT_RULE])
+        finding = findings[0]
+        self.assertIn("azurerm_storage_container.orders", finding.affected_resources)
+        evidence = _evidence(finding)
+        self.assertEqual(
+            {value.split("operation=", 1)[1].split(";", 1)[0] for value in evidence["key_vault_operation_paths"]},
+            {"decrypt", "unwrap"},
+        )
+        self.assertIn(
+            "unique_dependency_count=1; unique_dependent_resource_count=1; "
+            "downstream_dependency_state=resolved_dependents",
+            evidence["downstream_dependencies"],
+        )
+        self.assertTrue(
+            any(
+                "protected_resource_addresses=azurerm_storage_container.orders" in value
+                and "key_uri=none" in value
+                and f"key_versionless_uri={_PROTECTED_DATA_KEY_VERSIONLESS_URI}" in value
+                and "operations=decrypt,unwrap" in value
+                for value in evidence["downstream_dependencies"]
+            )
         )
 
     def test_unwrap_only_path_does_not_claim_decrypt_authority(self) -> None:
