@@ -74,7 +74,7 @@ class AwsSecretsManagerOperationAuthorization(TypedDict):
     identity_policy_complete: bool
     resource_policy_complete: bool
     identity_policy_source_addresses: list[str]
-    resource_policy_source_addresses: list[str]
+    secrets_manager_resource_policy_source_addresses: list[str]
     unresolved_attached_policy_arns: list[str]
     identity_policy_uncertainties: list[str]
     resource_policy_uncertainties: list[str]
@@ -112,7 +112,7 @@ class AwsEcsSecretsManagerManagementPath(TypedDict):
     conditional_policy_evidence_present: bool
     authorization_requires_condition_evaluation: bool
     identity_policy_source_addresses: list[str]
-    resource_policy_source_addresses: list[str]
+    secrets_manager_resource_policy_source_addresses: list[str]
     identity_policy_statements: list[AwsSecretsManagerPolicyStatementEvidence]
     resource_policy_statements: list[AwsSecretsManagerPolicyStatementEvidence]
     terraform_recovery_window_in_days: int | None

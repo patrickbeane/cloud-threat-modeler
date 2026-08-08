@@ -34,6 +34,10 @@ from tfstride.providers.aws.resource_decoration.ecs_secret_access_paths import (
     ModelEcsSecretAccessPathsStage,
     ProjectEcsSecretAccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_secret_management_paths import (
+    ModelEcsSecretsManagerManagementPathsStage,
+    ProjectEcsSecretsManagerManagementPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.iam import (
     MergeRolePolicyResourcesStage,
     NormalizeIamAssignmentPostureStage,
@@ -60,6 +64,9 @@ from tfstride.providers.aws.resource_decoration.resource_policies import (
     ApplySecretsManagerPostureResourcesStage,
     ApplySqsRedrivePolicyResourcesStage,
     MergeResourcePolicyResourcesStage,
+)
+from tfstride.providers.aws.resource_decoration.secrets_manager_operation_authorization import (
+    ModelSecretsManagerOperationAuthorizationStage,
 )
 from tfstride.providers.aws.resource_decoration.security_groups import (
     MergeStandaloneSecurityGroupRulesStage,
@@ -101,6 +108,8 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ApplyS3PublicAccessBlocksStage(),
         ApplyS3PostureResourcesStage(),
         ApplySecretsManagerPostureResourcesStage(),
+        ModelSecretsManagerOperationAuthorizationStage(),
+        ModelEcsSecretsManagerManagementPathsStage(),
         ApplySqsRedrivePolicyResourcesStage(),
         ResolveAwsKmsEncryptionDependenciesStage(),
         DeriveSubnetPostureStage(),
@@ -109,6 +118,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         MarkEcsLoadBalancerExposureStage(),
         ProjectEcsKmsOperationPathsOntoServicesStage(),
         ProjectEcsKmsManagementPathsOntoServicesStage(),
+        ProjectEcsSecretsManagerManagementPathsOntoServicesStage(),
         ProjectEcsSecretAccessPathsOntoServicesStage(),
         ProjectEcsS3AccessPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),

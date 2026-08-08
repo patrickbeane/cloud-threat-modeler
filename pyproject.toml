@@ -61,8 +61,10 @@ include = [
   "src/tfstride/providers/gcp/plugin.py",
   "src/tfstride/providers/azure/plugin.py",
 
-  # AWS secret-management evidence contracts.
+  # AWS secret-management evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/secret_management_evidence.py",
+  "src/tfstride/providers/aws/resource_decoration/secrets_manager_operation_authorization.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_secret_management_paths.py",
 
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",

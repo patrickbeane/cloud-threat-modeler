@@ -52,6 +52,10 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.TASK_ROLE_ARN)
 
     @property
+    def unresolved_task_role_arns(self) -> list[str]:
+        return self.get(AwsResourceMetadata.UNRESOLVED_TASK_ROLE_ARNS)
+
+    @property
     def execution_role_arn(self) -> str | None:
         return self.get(AwsResourceMetadata.EXECUTION_ROLE_ARN)
 
