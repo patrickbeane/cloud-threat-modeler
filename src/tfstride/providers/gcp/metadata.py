@@ -11,6 +11,10 @@ from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsAccessPath,
     GcpCloudRunGcsProtectedDataConvergence,
 )
+from tfstride.providers.gcp.secret_management_evidence import (
+    GcpCloudRunSecretManagementPath,
+    GcpSecretManagerIamGrant,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -87,6 +91,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_SERVICE_REFERENCE = OptionalStringMetadataField("cloud_run_service_reference")
     CLOUD_RUN_SECRET_POSTURE_UNCERTAINTIES = StringListMetadataField("cloud_run_secret_posture_uncertainties")
     CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_secret_access_path_uncertainties")
+    CLOUD_RUN_SECRET_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_secret_management_path_uncertainties"
+    )
     CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_gcs_access_path_uncertainties")
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_gcs_protected_data_convergence_uncertainties"
@@ -113,6 +120,7 @@ class GcpResourceMetadata:
     SECRET_MANAGER_TTL = OptionalStringMetadataField("secret_manager_ttl")
     SECRET_MANAGER_EXPIRE_TIME = OptionalStringMetadataField("secret_manager_expire_time")
     SECRET_MANAGER_VERSION_DESTROY_TTL = OptionalStringMetadataField("secret_manager_version_destroy_ttl")
+    SECRET_MANAGER_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_iam_posture_uncertainties")
     PUBSUB_TOPIC_REFERENCE = OptionalStringMetadataField("pubsub_topic_reference")
     PUBSUB_SUBSCRIPTION_REFERENCE = OptionalStringMetadataField("pubsub_subscription_reference")
     PUBSUB_TOPIC_KMS_KEY_NAME = OptionalStringMetadataField("pubsub_topic_kms_key_name")
@@ -476,6 +484,9 @@ class GcpResourceMetadata:
     CONTAINER_IMAGE_REFERENCES = DictListMetadataField("container_image_references")
     CLOUD_RUN_SECRET_REFERENCES = DictListMetadataField("cloud_run_secret_references")
     CLOUD_RUN_SECRET_ACCESS_PATHS = DictListMetadataField("cloud_run_secret_access_paths")
+    CLOUD_RUN_SECRET_MANAGEMENT_PATHS = RecordListMetadataField[GcpCloudRunSecretManagementPath](
+        "cloud_run_secret_management_paths"
+    )
     CLOUD_RUN_GCS_ACCESS_PATHS = RecordListMetadataField[GcpCloudRunGcsAccessPath]("cloud_run_gcs_access_paths")
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[GcpCloudRunGcsProtectedDataConvergence](
         "cloud_run_gcs_protected_data_convergences"
@@ -488,5 +499,6 @@ class GcpResourceMetadata:
     CLOUD_RUN_KMS_MANAGEMENT_PATHS = RecordListMetadataField[GcpCloudRunKmsManagementPath](
         "cloud_run_kms_management_paths"
     )
+    SECRET_MANAGER_IAM_GRANTS = RecordListMetadataField[GcpSecretManagerIamGrant]("secret_manager_iam_grants")
     NAT_SUBNETWORKS = DictListMetadataField("nat_subnetworks")
     LABELS = DictMetadataField("labels")

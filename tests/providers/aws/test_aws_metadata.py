@@ -70,6 +70,7 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "ECS_NETWORK_POSTURE_UNCERTAINTIES": "ecs_network_posture_uncertainties",
             "ECS_SECURITY_GROUP_REFERENCE_STATE": "ecs_security_group_reference_state",
             "ECS_SECRET_ACCESS_PATH_UNCERTAINTIES": "ecs_secret_access_path_uncertainties",
+            "ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES": "ecs_secret_management_path_uncertainties",
             "ECS_S3_ACCESS_PATH_UNCERTAINTIES": "ecs_s3_access_path_uncertainties",
             "ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES": ("ecs_s3_protected_data_convergence_uncertainties"),
             "ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES": "ecs_messaging_access_path_uncertainties",
@@ -126,6 +127,10 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "KMS_KEY_POLICIES": "kms_key_policies",
             "KMS_OPERATION_AUTHORIZATIONS": "kms_operation_authorizations",
             "KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES": "kms_operation_authorization_uncertainties",
+            "SECRETS_MANAGER_OPERATION_AUTHORIZATIONS": "secrets_manager_operation_authorizations",
+            "SECRETS_MANAGER_OPERATION_AUTHORIZATION_UNCERTAINTIES": (
+                "secrets_manager_operation_authorization_uncertainties"
+            ),
             "KMS_UNRESOLVED_KEY_REFERENCES": "kms_unresolved_key_references",
             "KMS_ALIAS_NAME": "kms_alias_name",
             "KMS_ALIAS_NAME_PREFIX": "kms_alias_name_prefix",
@@ -175,6 +180,7 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "CONTAINER_IMAGE_REFERENCES": "container_image_references",
             "ECS_SECRET_REFERENCES": "ecs_secret_references",
             "ECS_SECRET_ACCESS_PATHS": "ecs_secret_access_paths",
+            "ECS_SECRET_MANAGEMENT_PATHS": "ecs_secret_management_paths",
             "ECS_S3_ACCESS_PATHS": "ecs_s3_access_paths",
             "ECS_S3_PROTECTED_DATA_CONVERGENCES": ("ecs_s3_protected_data_convergences"),
             "ECS_MESSAGING_ACCESS_PATHS": "ecs_messaging_access_paths",

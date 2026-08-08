@@ -13,6 +13,10 @@ from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
     AwsEcsS3ProtectedDataConvergence,
 )
+from tfstride.providers.aws.secret_management_evidence import (
+    AwsEcsSecretsManagerManagementPath,
+    AwsSecretsManagerOperationAuthorization,
+)
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -76,6 +80,7 @@ class AwsResourceMetadata:
     ECR_POSTURE_UNCERTAINTIES = StringListMetadataField("ecr_posture_uncertainties")
     ECR_WRITE_PATH_UNCERTAINTIES = StringListMetadataField("ecr_write_path_uncertainties")
     ECS_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_access_path_uncertainties")
+    ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_management_path_uncertainties")
     ECS_S3_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_access_path_uncertainties")
     ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "ecs_s3_protected_data_convergence_uncertainties"
@@ -136,6 +141,9 @@ class AwsResourceMetadata:
     UNRESOLVED_SECRET_ARNS = StringListMetadataField("unresolved_secret_arns")
     UNRESOLVED_SECRET_REFERENCES = StringListMetadataField("unresolved_secret_references")
     SECRETS_MANAGER_POSTURE_UNCERTAINTIES = StringListMetadataField("secrets_manager_posture_uncertainties")
+    SECRETS_MANAGER_OPERATION_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField(
+        "secrets_manager_operation_authorization_uncertainties"
+    )
     UNRESOLVED_FUNCTION_REFERENCES = StringListMetadataField("unresolved_function_references")
     CONTAINER_IMAGE_POSTURE_UNCERTAINTIES = StringListMetadataField("container_image_posture_uncertainties")
     ECS_SECRET_POSTURE_UNCERTAINTIES = StringListMetadataField("ecs_secret_posture_uncertainties")
@@ -455,6 +463,9 @@ class AwsResourceMetadata:
     CONTAINER_IMAGE_REFERENCES = DictListMetadataField("container_image_references")
     ECS_SECRET_REFERENCES = DictListMetadataField("ecs_secret_references")
     ECS_SECRET_ACCESS_PATHS = DictListMetadataField("ecs_secret_access_paths")
+    ECS_SECRET_MANAGEMENT_PATHS = RecordListMetadataField[AwsEcsSecretsManagerManagementPath](
+        "ecs_secret_management_paths"
+    )
     ECS_S3_ACCESS_PATHS = RecordListMetadataField[AwsEcsS3AccessPath]("ecs_s3_access_paths")
     ECS_S3_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[AwsEcsS3ProtectedDataConvergence](
         "ecs_s3_protected_data_convergences"
@@ -479,6 +490,9 @@ class AwsResourceMetadata:
     GUARDDUTY_FEATURES = DictListMetadataField("guardduty_features")
     SECRETS_MANAGER_ROTATION_RULES = DictMetadataField("secrets_manager_rotation_rules")
     SECRETS_MANAGER_REPLICATION = DictListMetadataField("secrets_manager_replication")
+    SECRETS_MANAGER_OPERATION_AUTHORIZATIONS = RecordListMetadataField[AwsSecretsManagerOperationAuthorization](
+        "secrets_manager_operation_authorizations"
+    )
     API_GATEWAY_METHODS = DictListMetadataField("api_gateway_methods")
     API_GATEWAY_STAGES = DictListMetadataField("api_gateway_stages")
     API_GATEWAY_AUTHORIZERS = DictListMetadataField("api_gateway_authorizers")

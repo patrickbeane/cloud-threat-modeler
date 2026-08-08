@@ -12,6 +12,9 @@ from tfstride.providers.aws.kms_evidence import (
 )
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
+from tfstride.providers.aws.secret_management_evidence import (
+    AwsSecretsManagerOperationAuthorization,
+)
 
 
 class AwsDataFacts(AwsBaseFacts):
@@ -36,6 +39,16 @@ class AwsDataFacts(AwsBaseFacts):
     @property
     def secrets_manager_posture_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.SECRETS_MANAGER_POSTURE_UNCERTAINTIES)
+
+    @property
+    def secrets_manager_operation_authorizations(
+        self,
+    ) -> list[AwsSecretsManagerOperationAuthorization]:
+        return self.get(AwsResourceMetadata.SECRETS_MANAGER_OPERATION_AUTHORIZATIONS)
+
+    @property
+    def secrets_manager_operation_authorization_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.SECRETS_MANAGER_OPERATION_AUTHORIZATION_UNCERTAINTIES)
 
     @property
     def unresolved_secret_references(self) -> list[str]:
@@ -342,6 +355,21 @@ class AwsDataFacts(AwsBaseFacts):
         )
         self.set(
             AwsResourceMetadata.KMS_OPERATION_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
+    def set_secrets_manager_operation_authorization_posture(
+        self,
+        *,
+        authorizations: Sequence[AwsSecretsManagerOperationAuthorization],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.SECRETS_MANAGER_OPERATION_AUTHORIZATIONS,
+            list(authorizations),
+        )
+        self.set(
+            AwsResourceMetadata.SECRETS_MANAGER_OPERATION_AUTHORIZATION_UNCERTAINTIES,
             list(uncertainties),
         )
 

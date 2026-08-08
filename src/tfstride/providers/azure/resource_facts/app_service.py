@@ -14,6 +14,9 @@ from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceStorageProtectedDataConvergence,
 )
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
+from tfstride.providers.azure.secret_management_evidence import (
+    AzureAppServiceKeyVaultSecretManagementPath,
+)
 
 
 class AzureAppServiceFacts(AzureBaseFacts):
@@ -86,6 +89,36 @@ class AzureAppServiceFacts(AzureBaseFacts):
 
     def extend_app_service_key_vault_management_path_uncertainties(self, values: list[str]) -> None:
         self.extend(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_MANAGEMENT_PATH_UNCERTAINTIES, values)
+
+    @property
+    def app_service_key_vault_secret_management_paths(
+        self,
+    ) -> list[AzureAppServiceKeyVaultSecretManagementPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATHS)
+
+    @property
+    def app_service_key_vault_secret_management_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATH_UNCERTAINTIES)
+
+    def set_app_service_key_vault_secret_management_paths(
+        self,
+        values: list[AzureAppServiceKeyVaultSecretManagementPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATHS,
+            values,
+        )
+
+    def extend_app_service_key_vault_secret_management_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATH_UNCERTAINTIES,
+            values,
+        )
 
     @property
     def app_service_storage_access_paths(self) -> list[AzureAppServiceStorageAccessPath]:

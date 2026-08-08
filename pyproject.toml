@@ -61,6 +61,9 @@ include = [
   "src/tfstride/providers/gcp/plugin.py",
   "src/tfstride/providers/azure/plugin.py",
 
+  # AWS secret-management evidence contracts.
+  "src/tfstride/providers/aws/secret_management_evidence.py",
+
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",
   "src/tfstride/providers/aws/protected_data_evidence.py",
@@ -81,6 +84,10 @@ include = [
   "src/tfstride/providers/aws/rule_catalog.py",
   "src/tfstride/providers/aws/kms_rules.py",
   "src/tfstride/providers/aws/ecs_kms_rules.py",
+
+  # GCP secret-management evidence contracts.
+  "src/tfstride/providers/gcp/secret_management_evidence.py",
+  "src/tfstride/providers/gcp/resource_facts/secret_manager.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
@@ -106,6 +113,9 @@ include = [
   # Azure ARM control-plane authorization.
   "src/tfstride/providers/azure/arm_control_plane_evidence.py",
   "src/tfstride/providers/azure/arm_control_plane_authorization.py",
+
+  # Azure secret-management evidence contracts.
+  "src/tfstride/providers/azure/secret_management_evidence.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",

@@ -7,6 +7,9 @@ from tfstride.providers.azure.key_vault_dependency_evidence import AzureKeyVault
 from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultAuthorizationGrant
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
+from tfstride.providers.azure.secret_management_evidence import (
+    AzureKeyVaultSecretAuthorizationGrant,
+)
 
 
 class AzureKeyVaultFacts(AzureBaseFacts):
@@ -87,6 +90,16 @@ class AzureKeyVaultFacts(AzureBaseFacts):
     @property
     def key_vault_key_authorization_uncertainties(self) -> list[str]:
         return self.get(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES)
+
+    @property
+    def key_vault_secret_authorization_grants(
+        self,
+    ) -> list[AzureKeyVaultSecretAuthorizationGrant]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_SECRET_AUTHORIZATION_GRANTS)
+
+    @property
+    def key_vault_secret_authorization_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.KEY_VAULT_SECRET_AUTHORIZATION_UNCERTAINTIES)
 
     @property
     def key_vault_expiration_date(self) -> str | None:
@@ -302,6 +315,21 @@ class AzureKeyVaultFacts(AzureBaseFacts):
         self.set(AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_GRANTS, list(grants))
         self.set(
             AzureResourceMetadata.KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES,
+            list(uncertainties),
+        )
+
+    def set_key_vault_secret_authorization_posture(
+        self,
+        *,
+        grants: Sequence[AzureKeyVaultSecretAuthorizationGrant],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.KEY_VAULT_SECRET_AUTHORIZATION_GRANTS,
+            list(grants),
+        )
+        self.set(
+            AzureResourceMetadata.KEY_VAULT_SECRET_AUTHORIZATION_UNCERTAINTIES,
             list(uncertainties),
         )
 

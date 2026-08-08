@@ -12,6 +12,10 @@ from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceStorageAccessPath,
     AzureAppServiceStorageProtectedDataConvergence,
 )
+from tfstride.providers.azure.secret_management_evidence import (
+    AzureAppServiceKeyVaultSecretManagementPath,
+    AzureKeyVaultSecretAuthorizationGrant,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -207,6 +211,12 @@ class AzureResourceMetadata:
         "key_vault_key_authorization_grants"
     )
     KEY_VAULT_KEY_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField("key_vault_key_authorization_uncertainties")
+    KEY_VAULT_SECRET_AUTHORIZATION_GRANTS = RecordListMetadataField[AzureKeyVaultSecretAuthorizationGrant](
+        "key_vault_secret_authorization_grants"
+    )
+    KEY_VAULT_SECRET_AUTHORIZATION_UNCERTAINTIES = StringListMetadataField(
+        "key_vault_secret_authorization_uncertainties"
+    )
     KEY_VAULT_EXPIRATION_DATE = OptionalStringMetadataField("key_vault_expiration_date")
     KEY_VAULT_NOT_BEFORE_DATE = OptionalStringMetadataField("key_vault_not_before_date")
     KEY_VAULT_KEY_TYPE = OptionalStringMetadataField("key_vault_key_type")
@@ -376,6 +386,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_key_vault_management_path_uncertainties"
     )
+    APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_key_vault_secret_management_path_uncertainties"
+    )
     APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_access_path_uncertainties"
     )
@@ -401,6 +414,9 @@ class AzureResourceMetadata:
     APP_SERVICE_KEY_VAULT_MANAGEMENT_PATHS = RecordListMetadataField[AzureAppServiceKeyVaultManagementPath](
         "app_service_key_vault_management_paths"
     )
+    APP_SERVICE_KEY_VAULT_SECRET_MANAGEMENT_PATHS = RecordListMetadataField[
+        AzureAppServiceKeyVaultSecretManagementPath
+    ]("app_service_key_vault_secret_management_paths")
     APP_SERVICE_STORAGE_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceStorageAccessPath](
         "app_service_storage_access_paths"
     )

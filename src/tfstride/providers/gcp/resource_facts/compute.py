@@ -12,6 +12,9 @@ from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsProtectedDataConvergence,
 )
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
+from tfstride.providers.gcp.secret_management_evidence import (
+    GcpCloudRunSecretManagementPath,
+)
 
 
 class GcpComputeFacts(GcpBaseFacts):
@@ -68,6 +71,16 @@ class GcpComputeFacts(GcpBaseFacts):
     @property
     def cloud_run_secret_access_path_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def cloud_run_secret_management_paths(
+        self,
+    ) -> list[GcpCloudRunSecretManagementPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_SECRET_MANAGEMENT_PATHS)
+
+    @property
+    def cloud_run_secret_management_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_SECRET_MANAGEMENT_PATH_UNCERTAINTIES)
 
     @property
     def cloud_run_gcs_access_paths(self) -> list[GcpCloudRunGcsAccessPath]:
@@ -134,6 +147,21 @@ class GcpComputeFacts(GcpBaseFacts):
 
     def extend_cloud_run_secret_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_SECRET_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_secret_management_paths(
+        self,
+        values: list[GcpCloudRunSecretManagementPath],
+    ) -> None:
+        self.set(GcpResourceMetadata.CLOUD_RUN_SECRET_MANAGEMENT_PATHS, values)
+
+    def extend_cloud_run_secret_management_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            GcpResourceMetadata.CLOUD_RUN_SECRET_MANAGEMENT_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def set_cloud_run_gcs_access_paths(self, values: list[GcpCloudRunGcsAccessPath]) -> None:
         self.set(GcpResourceMetadata.CLOUD_RUN_GCS_ACCESS_PATHS, values)

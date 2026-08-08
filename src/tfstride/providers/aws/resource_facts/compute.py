@@ -10,6 +10,9 @@ from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3ProtectedDataConvergence,
 )
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
+from tfstride.providers.aws.secret_management_evidence import (
+    AwsEcsSecretsManagerManagementPath,
+)
 from tfstride.resource_metadata import DictListMetadataField
 
 
@@ -95,6 +98,14 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_secret_access_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_SECRET_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_secret_management_paths(self) -> list[AwsEcsSecretsManagerManagementPath]:
+        return self.get(AwsResourceMetadata.ECS_SECRET_MANAGEMENT_PATHS)
+
+    @property
+    def ecs_secret_management_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES)
 
     @property
     def ecs_s3_access_paths(self) -> list[AwsEcsS3AccessPath]:
@@ -549,6 +560,18 @@ class AwsComputeFacts(AwsBaseFacts):
 
     def extend_ecs_secret_access_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECS_SECRET_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_ecs_secret_management_paths(
+        self,
+        values: list[AwsEcsSecretsManagerManagementPath],
+    ) -> None:
+        self.set(AwsResourceMetadata.ECS_SECRET_MANAGEMENT_PATHS, values)
+
+    def extend_ecs_secret_management_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(AwsResourceMetadata.ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES, values)
 
     def set_ecs_s3_access_paths(self, values: list[AwsEcsS3AccessPath]) -> None:
         self.set(AwsResourceMetadata.ECS_S3_ACCESS_PATHS, values)

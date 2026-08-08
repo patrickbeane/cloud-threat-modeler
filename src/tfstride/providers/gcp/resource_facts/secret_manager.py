@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
+from tfstride.providers.gcp.secret_management_evidence import GcpSecretManagerIamGrant
 
 
 class GcpSecretManagerFacts(GcpBaseFacts):
@@ -40,3 +42,23 @@ class GcpSecretManagerFacts(GcpBaseFacts):
     @property
     def secret_manager_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.SECRET_MANAGER_POSTURE_UNCERTAINTIES)
+
+    @property
+    def secret_manager_iam_grants(self) -> list[GcpSecretManagerIamGrant]:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_IAM_GRANTS)
+
+    @property
+    def secret_manager_iam_posture_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_IAM_POSTURE_UNCERTAINTIES)
+
+    def set_secret_manager_iam_posture(
+        self,
+        *,
+        grants: Sequence[GcpSecretManagerIamGrant],
+        uncertainties: Sequence[str],
+    ) -> None:
+        self.set(GcpResourceMetadata.SECRET_MANAGER_IAM_GRANTS, list(grants))
+        self.set(
+            GcpResourceMetadata.SECRET_MANAGER_IAM_POSTURE_UNCERTAINTIES,
+            list(uncertainties),
+        )
