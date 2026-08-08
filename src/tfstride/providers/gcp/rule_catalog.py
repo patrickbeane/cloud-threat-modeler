@@ -848,6 +848,43 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-secret-tampering",
+        title="Public Cloud Run identity can tamper with Secret Manager secrets",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Secret Manager version-add permission and secret scope required. Keep secret-value "
+            "mutation on a separate operational identity where possible."
+        ),
+        tags=("gcp", "cloud-run", "secret-manager", "iam", "public-access", "tampering"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="gcp-public-cloud-run-secret-disruption",
+        title="Public Cloud Run identity can disrupt Secret Manager secrets",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Secret Manager version disable, version destroy, or secret delete permissions and scope "
+            "required. Keep secret lifecycle administration on a separate operational identity and review version "
+            "destruction delays independently from runtime authority."
+        ),
+        tags=("gcp", "cloud-run", "secret-manager", "iam", "public-access", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-gcs-mutation-access",
         title="Public Cloud Run service can modify GCS object storage",
         category=StrideCategory.TAMPERING,

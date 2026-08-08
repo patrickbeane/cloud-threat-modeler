@@ -10,6 +10,7 @@ from tfstride.providers.gcp.cloud_run_firestore_rules import GcpCloudRunFirestor
 from tfstride.providers.gcp.cloud_run_gcs_rules import GcpCloudRunGcsAccessRuleDetectors
 from tfstride.providers.gcp.cloud_run_kms_rules import GcpCloudRunKmsOperationRuleDetectors
 from tfstride.providers.gcp.cloud_run_pubsub_rules import GcpCloudRunPubsubAccessRuleDetectors
+from tfstride.providers.gcp.cloud_run_secret_management_rules import GcpCloudRunSecretManagementRuleDetectors
 from tfstride.providers.gcp.detectors import GcpRuleDetectors
 from tfstride.providers.gcp.iam_assignment_rules import GcpIamAssignmentRuleDetectors
 from tfstride.providers.gcp.network_telemetry_rules import GcpNetworkTelemetryRuleDetectors
@@ -89,6 +90,8 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-kms-signing-access",
         "gcp-public-cloud-run-kms-key-disruption",
         "gcp-public-cloud-run-kms-authorization-delegation",
+        "gcp-public-cloud-run-secret-tampering",
+        "gcp-public-cloud-run-secret-disruption",
         "gcp-public-cloud-run-gcs-mutation-access",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
@@ -124,6 +127,7 @@ def build_gcp_rule_contribution(
     audit_detectors = GcpAuditRuleDetectors(finding_factory)
     cloud_run_firestore_detectors = GcpCloudRunFirestoreAccessRuleDetectors(finding_factory)
     cloud_run_kms_detectors = GcpCloudRunKmsOperationRuleDetectors(finding_factory)
+    cloud_run_secret_management_detectors = GcpCloudRunSecretManagementRuleDetectors(finding_factory)
     cloud_run_gcs_detectors = GcpCloudRunGcsAccessRuleDetectors(finding_factory)
     cloud_run_pubsub_detectors = GcpCloudRunPubsubAccessRuleDetectors(finding_factory)
     network_telemetry_detectors = GcpNetworkTelemetryRuleDetectors(finding_factory)
@@ -255,6 +259,12 @@ def build_gcp_rule_contribution(
         "gcp-public-cloud-run-kms-key-disruption": (cloud_run_kms_detectors.detect_public_cloud_run_kms_key_disruption),
         "gcp-public-cloud-run-kms-authorization-delegation": (
             cloud_run_kms_detectors.detect_public_cloud_run_kms_authorization_delegation
+        ),
+        "gcp-public-cloud-run-secret-tampering": (
+            cloud_run_secret_management_detectors.detect_public_cloud_run_secret_tampering
+        ),
+        "gcp-public-cloud-run-secret-disruption": (
+            cloud_run_secret_management_detectors.detect_public_cloud_run_secret_disruption
         ),
         "gcp-public-cloud-run-gcs-mutation-access": (
             cloud_run_gcs_detectors.detect_public_cloud_run_gcs_mutation_access

@@ -93,6 +93,7 @@ include = [
   "src/tfstride/providers/gcp/secret_manager_normalizers.py",
   "src/tfstride/providers/gcp/resource_facts/secret_manager.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_secret_management_paths.py",
+  "src/tfstride/providers/gcp/cloud_run_secret_management_rules.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
