@@ -86,6 +86,7 @@ include = [
   "src/tfstride/providers/aws/rule_catalog.py",
   "src/tfstride/providers/aws/kms_rules.py",
   "src/tfstride/providers/aws/ecs_kms_rules.py",
+  "src/tfstride/providers/aws/ecs_secret_management_rules.py",
 
   # GCP secret-management evidence contracts.
   "src/tfstride/providers/gcp/secret_management_evidence.py",

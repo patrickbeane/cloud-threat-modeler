@@ -17,6 +17,9 @@ from tfstride.providers.aws.ecs_dynamodb_rules import (
 from tfstride.providers.aws.ecs_kms_rules import AwsEcsKmsOperationRuleDetectors
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
 from tfstride.providers.aws.ecs_s3_rules import AwsEcsS3AccessRuleDetectors
+from tfstride.providers.aws.ecs_secret_management_rules import (
+    AwsEcsSecretManagementRuleDetectors,
+)
 from tfstride.providers.aws.ecs_secret_rules import AwsEcsSecretDeliveryRuleDetectors
 from tfstride.providers.aws.edge_protection_rules import AwsEdgeProtectionRuleDetectors
 from tfstride.providers.aws.eks_rules import AwsEksRuleDetectors
@@ -89,6 +92,8 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-ecs-sensitive-environment-value-inline",
         "aws-ecs-secret-access-blast-radius",
         "aws-public-ecs-secret-access",
+        "aws-public-ecs-secret-tampering",
+        "aws-public-ecs-secret-disruption",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-read-access",
@@ -165,6 +170,7 @@ def build_aws_rule_contribution(
     ecr_detectors = AwsEcrRuleDetectors(finding_factory)
     container_deployment_detectors = AwsContainerDeploymentRuleDetectors(finding_factory)
     ecs_secret_detectors = AwsEcsSecretDeliveryRuleDetectors(finding_factory)
+    ecs_secret_management_detectors = AwsEcsSecretManagementRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
     ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
     ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
@@ -243,6 +249,8 @@ def build_aws_rule_contribution(
         "aws-ecs-sensitive-environment-value-inline": (ecs_secret_detectors.detect_inline_sensitive_environment_value),
         "aws-ecs-secret-access-blast-radius": ecs_secret_detectors.detect_secret_access_blast_radius,
         "aws-public-ecs-secret-access": ecs_secret_detectors.detect_public_service_secret_access,
+        "aws-public-ecs-secret-tampering": (ecs_secret_management_detectors.detect_public_service_tampering),
+        "aws-public-ecs-secret-disruption": (ecs_secret_management_detectors.detect_public_service_disruption),
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
         "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-dynamodb-read-access": (ecs_dynamodb_detectors.detect_public_service_read_access),

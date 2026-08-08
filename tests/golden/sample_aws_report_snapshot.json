@@ -38,7 +38,7 @@
       }
     },
     "rules": {
-      "registered_rule_count": 95,
+      "registered_rule_count": 97,
       "enabled_rules": [
         "aws-public-compute-broad-ingress",
         "aws-lambda-public-invocation",
@@ -91,6 +91,8 @@
         "aws-ecs-sensitive-environment-value-inline",
         "aws-ecs-secret-access-blast-radius",
         "aws-public-ecs-secret-access",
+        "aws-public-ecs-secret-tampering",
+        "aws-public-ecs-secret-disruption",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-read-access",
@@ -190,6 +192,8 @@
         "aws-ecs-sensitive-environment-value-inline": 0,
         "aws-ecs-secret-access-blast-radius": 0,
         "aws-public-ecs-secret-access": 0,
+        "aws-public-ecs-secret-tampering": 0,
+        "aws-public-ecs-secret-disruption": 0,
         "aws-public-ecs-s3-mutation-access": 0,
         "aws-public-ecs-dynamodb-mutation-access": 0,
         "aws-public-ecs-dynamodb-read-access": 0,

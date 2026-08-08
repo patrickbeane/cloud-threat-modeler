@@ -596,6 +596,43 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-secret-tampering",
+        title="Internet-facing ECS service can tamper with Secrets Manager secrets",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact Secrets Manager "
+            "mutation actions and secret ARNs required at runtime. Keep secret-value and version-stage changes with "
+            "separate operational identities, and preserve explicit deny and conditional policy boundaries."
+        ),
+        tags=("aws", "ecs", "secrets-manager", "iam", "public-access", "tampering"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="aws-public-ecs-secret-disruption",
+        title="Internet-facing ECS service can disrupt Secrets Manager secrets",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact "
+            "`secretsmanager:DeleteSecret` action and secret ARNs required at runtime. Keep secret deletion with a "
+            "separate operational identity, and treat Terraform recovery-window settings as distinct from runtime "
+            "recovery authority."
+        ),
+        tags=("aws", "ecs", "secrets-manager", "iam", "public-access", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-s3-mutation-access",
         title="Internet-facing ECS service can modify S3 object storage",
         category=StrideCategory.TAMPERING,
