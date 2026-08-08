@@ -104,6 +104,7 @@ class GcpResourceType:
     PUBSUB_TOPIC_IAM_MEMBER = "google_pubsub_topic_iam_member"
     PUBSUB_TOPIC_IAM_POLICY = "google_pubsub_topic_iam_policy"
     SECRET_MANAGER_SECRET = "google_secret_manager_secret"
+    SECRET_MANAGER_SECRET_VERSION = "google_secret_manager_secret_version"
     SECRET_MANAGER_SECRET_IAM_BINDING = "google_secret_manager_secret_iam_binding"
     SECRET_MANAGER_SECRET_IAM_MEMBER = "google_secret_manager_secret_iam_member"
     SECRET_MANAGER_SECRET_IAM_POLICY = "google_secret_manager_secret_iam_policy"
@@ -469,6 +470,7 @@ GCP_NORMALIZED_RESOURCE_TYPES = frozenset(
         GcpResourceType.PUBSUB_TOPIC_IAM_MEMBER,
         GcpResourceType.PUBSUB_TOPIC_IAM_POLICY,
         GcpResourceType.SECRET_MANAGER_SECRET,
+        GcpResourceType.SECRET_MANAGER_SECRET_VERSION,
         GcpResourceType.SECRET_MANAGER_SECRET_IAM_BINDING,
         GcpResourceType.SECRET_MANAGER_SECRET_IAM_MEMBER,
         GcpResourceType.SECRET_MANAGER_SECRET_IAM_POLICY,

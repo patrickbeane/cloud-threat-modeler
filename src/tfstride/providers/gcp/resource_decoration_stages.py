@@ -25,6 +25,11 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_access_paths im
 from tfstride.providers.gcp.resource_decoration.cloud_run_secret_access_paths import (
     ModelCloudRunSecretAccessPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_secret_management_paths import (
+    ModelCloudRunSecretManagementPathsStage,
+    NormalizeSecretManagerIamPostureStage,
+    NormalizeSecretManagerVersionPostureStage,
+)
 from tfstride.providers.gcp.resource_decoration.firestore_iam import NormalizeFirestoreIamPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_assignment import NormalizeIamAssignmentPostureStage
 from tfstride.providers.gcp.resource_decoration.iam_bindings import DecorateSensitiveIamBindingsStage
@@ -58,6 +63,8 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         DeriveNetworkPostureStage(),
         DerivePublicExposureStage(),
         DecorateSensitiveIamBindingsStage(),
+        NormalizeSecretManagerVersionPostureStage(),
+        NormalizeSecretManagerIamPostureStage(),
         NormalizeKmsIamPostureStage(),
         NormalizeKmsCryptoKeyVersionPostureStage(),
         ResolveGcpKmsEncryptionDependenciesStage(),
@@ -69,6 +76,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         ModelCloudRunGcsProtectedDataConvergenceStage(),
         ModelCloudRunPubsubAccessPathsStage(),
         ModelCloudRunSecretAccessPathsStage(),
+        ModelCloudRunSecretManagementPathsStage(),
         ModelCloudRunArtifactRegistryWritePathsStage(),
         ModelWorkloadIdentityFederationTrustPathsStage(),
         NormalizeIamAssignmentPostureStage(),

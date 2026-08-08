@@ -202,6 +202,8 @@ def gcp_resource_references(resource: NormalizedResource) -> tuple[str, ...]:
         resource.get_metadata_field(GcpResourceMetadata.BUCKET_NAME),
         resource.get_metadata_field(GcpResourceMetadata.SECRET_ID),
         resource.get_metadata_field(GcpResourceMetadata.SECRET_REFERENCE),
+        resource.get_metadata_field(GcpResourceMetadata.SECRET_MANAGER_VERSION_REFERENCE),
+        resource.get_metadata_field(GcpResourceMetadata.SECRET_MANAGER_VERSION_SECRET_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.PUBSUB_TOPIC_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_REFERENCE),
         resource.get_metadata_field(GcpResourceMetadata.BIGQUERY_DATASET_ID),

@@ -37,6 +37,8 @@ _PROJECT_REFERENCE_SUFFIXES = (".id", ".name", ".project_id")
 _SERVICE_ACCOUNT_REFERENCE_SUFFIXES = (".email", ".id", ".member", ".name")
 _CLOUD_RUN_SERVICE_ACCOUNT_REFERENCE_SUFFIXES = (".email",)
 _IAM_MEMBER_REFERENCE_SUFFIXES = (".email", ".member")
+_SECRET_IAM_REFERENCE_SUFFIXES = (".secret_id",)
+_SECRET_VERSION_PARENT_SUFFIXES = (".id",)
 _KMS_VERSION_KEY_SUFFIXES = (".id",)
 _KMS_KEY_RING_PARENT_SUFFIXES = (".id",)
 _KMS_CRYPTO_KEY_IAM_SUFFIXES = (".id",)
@@ -82,8 +84,8 @@ _IAM_TARGET_RELATIONSHIPS = (
         GCP_SECRET_MANAGER_SECRET_IAM_RESOURCE_TYPES,
         GcpResourceMetadata.SECRET_REFERENCE,
         {GcpResourceType.SECRET_MANAGER_SECRET},
-        {("secret",), ("secret_id",)},
-        _GENERIC_REFERENCE_SUFFIXES,
+        {("secret_id",)},
+        _SECRET_IAM_REFERENCE_SUFFIXES,
     ),
     _relationship(
         GCP_PUBSUB_TOPIC_IAM_RESOURCE_TYPES,
@@ -166,6 +168,8 @@ class ResolveGcpSymbolicRelationshipsStage:
                 self._resolve_cloud_run_service_account(resource, context)
             elif resource.resource_type == GcpResourceType.PUBSUB_SUBSCRIPTION:
                 self._resolve_pubsub_topic(resource, context)
+            elif resource.resource_type == GcpResourceType.SECRET_MANAGER_SECRET_VERSION:
+                self._resolve_secret_version_parent(resource, context)
             elif resource.resource_type == GcpResourceType.KMS_CRYPTO_KEY_VERSION:
                 self._resolve_kms_version_key(resource, context)
             elif resource.resource_type == GcpResourceType.KMS_CRYPTO_KEY:
@@ -218,6 +222,27 @@ class ResolveGcpSymbolicRelationshipsStage:
             facts.set(
                 GcpResourceMetadata.PUBSUB_TOPIC_REFERENCE,
                 _canonical_reference(target),
+            )
+
+    def _resolve_secret_version_parent(
+        self,
+        resource: NormalizedResource,
+        context: GcpDecorationContext,
+    ) -> None:
+        facts = gcp_facts(resource)
+        if facts.secret_manager_version_resolved_secret_address:
+            return
+        target = _symbolic_target(
+            resource,
+            context,
+            allowed_paths={("secret",)},
+            expected_resource_types={GcpResourceType.SECRET_MANAGER_SECRET},
+            expected_reference_suffixes=_SECRET_VERSION_PARENT_SUFFIXES,
+        )
+        if target is not None:
+            facts.set(
+                GcpResourceMetadata.SECRET_MANAGER_VERSION_RESOLVED_SECRET_ADDRESS,
+                target.address,
             )
 
     def _resolve_kms_version_key(

@@ -40,6 +40,34 @@ class GcpSecretManagerFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_DESTROY_TTL)
 
     @property
+    def secret_manager_version_reference(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_REFERENCE)
+
+    @property
+    def secret_manager_version_number(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_NUMBER)
+
+    @property
+    def secret_manager_version_secret_reference(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_SECRET_REFERENCE)
+
+    @property
+    def secret_manager_version_resolved_secret_address(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_RESOLVED_SECRET_ADDRESS)
+
+    @property
+    def secret_manager_version_lifecycle_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_LIFECYCLE_STATE)
+
+    @property
+    def secret_manager_version_deletion_policy(self) -> str | None:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_DELETION_POLICY)
+
+    @property
+    def secret_manager_version_posture_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.SECRET_MANAGER_VERSION_POSTURE_UNCERTAINTIES)
+
+    @property
     def secret_manager_posture_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.SECRET_MANAGER_POSTURE_UNCERTAINTIES)
 

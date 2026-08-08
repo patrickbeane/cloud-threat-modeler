@@ -196,6 +196,76 @@ class GcpSymbolicRelationshipTests(unittest.TestCase):
         self.assertIsNone(gcp_facts(id_reference).service_account_email)
         self.assertIsNone(gcp_facts(member_reference).service_account_email)
 
+    def test_secret_version_parent_requires_exact_id_reference(self) -> None:
+        secret = _resource(
+            "google_secret_manager_secret.orders",
+            GcpResourceType.SECRET_MANAGER_SECRET,
+            ResourceCategory.DATA,
+            identifier="projects/tfstride-demo/secrets/orders",
+            metadata={
+                GcpResourceMetadata.NAME: "projects/tfstride-demo/secrets/orders",
+                GcpResourceMetadata.PROJECT: "tfstride-demo",
+                GcpResourceMetadata.SECRET_ID: "orders",
+            },
+        )
+        exact = _resource(
+            "google_secret_manager_secret_version.exact",
+            GcpResourceType.SECRET_MANAGER_SECRET_VERSION,
+            ResourceCategory.DATA,
+            reference_resolutions=(_symbolic_resolution(("secret",), secret.address, ".id"),),
+        )
+        wrong_suffix = _resource(
+            "google_secret_manager_secret_version.wrong",
+            GcpResourceType.SECRET_MANAGER_SECRET_VERSION,
+            ResourceCategory.DATA,
+            reference_resolutions=(_symbolic_resolution(("secret",), secret.address, ".name"),),
+        )
+
+        GcpResourceDecorator(stages=[ResolveGcpSymbolicRelationshipsStage()]).decorate([secret, exact, wrong_suffix])
+
+        self.assertEqual(
+            gcp_facts(exact).secret_manager_version_resolved_secret_address,
+            secret.address,
+        )
+        self.assertIsNone(gcp_facts(wrong_suffix).secret_manager_version_resolved_secret_address)
+
+    def test_secret_iam_target_requires_exact_secret_id_reference(self) -> None:
+        secret = _resource(
+            "google_secret_manager_secret.orders",
+            GcpResourceType.SECRET_MANAGER_SECRET,
+            ResourceCategory.DATA,
+            identifier="projects/tfstride-demo/secrets/orders",
+            metadata={
+                GcpResourceMetadata.NAME: "projects/tfstride-demo/secrets/orders",
+                GcpResourceMetadata.PROJECT: "tfstride-demo",
+                GcpResourceMetadata.SECRET_ID: "orders",
+            },
+        )
+        exact = _resource(
+            "google_secret_manager_secret_iam_member.exact",
+            GcpResourceType.SECRET_MANAGER_SECRET_IAM_MEMBER,
+            ResourceCategory.IAM,
+            metadata={GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE: "unknown"},
+            reference_resolutions=(_symbolic_resolution(("secret_id",), secret.address, ".secret_id"),),
+        )
+        wrong_suffix = _resource(
+            "google_secret_manager_secret_iam_member.wrong",
+            GcpResourceType.SECRET_MANAGER_SECRET_IAM_MEMBER,
+            ResourceCategory.IAM,
+            metadata={GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE: "unknown"},
+            reference_resolutions=(_symbolic_resolution(("secret_id",), secret.address, ".id"),),
+        )
+
+        GcpResourceDecorator(stages=[ResolveGcpSymbolicRelationshipsStage()]).decorate([secret, exact, wrong_suffix])
+
+        self.assertEqual(gcp_facts(exact).target_reference, secret.address)
+        self.assertEqual(gcp_facts(exact).iam_scope_reference_state, "configured")
+        self.assertIsNone(gcp_facts(wrong_suffix).target_reference)
+        self.assertEqual(
+            gcp_facts(wrong_suffix).iam_scope_reference_state,
+            "unknown",
+        )
+
     def test_kms_version_and_key_resolve_symbolic_parents(self) -> None:
         ring = _resource(
             "google_kms_key_ring.application",

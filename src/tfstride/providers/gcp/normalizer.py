@@ -119,6 +119,9 @@ from tfstride.providers.gcp.org_policy_normalizers import (
 )
 from tfstride.providers.gcp.resource_decorator import GcpResourceDecorator
 from tfstride.providers.gcp.resource_types import GcpResourceType
+from tfstride.providers.gcp.secret_manager_normalizers import (
+    normalize_secret_manager_secret_version,
+)
 from tfstride.providers.gcp.serverless_normalizers import (
     normalize_cloud_run_service,
     normalize_cloud_run_service_iam_binding,
@@ -243,6 +246,7 @@ _GCP_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     GcpResourceType.PUBSUB_TOPIC_IAM_MEMBER: normalize_pubsub_topic_iam_member,
     GcpResourceType.PUBSUB_TOPIC_IAM_POLICY: normalize_pubsub_topic_iam_policy,
     GcpResourceType.SECRET_MANAGER_SECRET: normalize_secret_manager_secret,
+    GcpResourceType.SECRET_MANAGER_SECRET_VERSION: normalize_secret_manager_secret_version,
     GcpResourceType.SECRET_MANAGER_SECRET_IAM_BINDING: normalize_secret_manager_secret_iam_binding,
     GcpResourceType.SECRET_MANAGER_SECRET_IAM_MEMBER: normalize_secret_manager_secret_iam_member,
     GcpResourceType.SECRET_MANAGER_SECRET_IAM_POLICY: normalize_secret_manager_secret_iam_policy,

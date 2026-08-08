@@ -120,6 +120,17 @@ class GcpResourceMetadata:
     SECRET_MANAGER_TTL = OptionalStringMetadataField("secret_manager_ttl")
     SECRET_MANAGER_EXPIRE_TIME = OptionalStringMetadataField("secret_manager_expire_time")
     SECRET_MANAGER_VERSION_DESTROY_TTL = OptionalStringMetadataField("secret_manager_version_destroy_ttl")
+    SECRET_MANAGER_VERSION_REFERENCE = OptionalStringMetadataField("secret_manager_version_reference")
+    SECRET_MANAGER_VERSION_NUMBER = OptionalStringMetadataField("secret_manager_version_number")
+    SECRET_MANAGER_VERSION_SECRET_REFERENCE = OptionalStringMetadataField("secret_manager_version_secret_reference")
+    SECRET_MANAGER_VERSION_RESOLVED_SECRET_ADDRESS = OptionalStringMetadataField(
+        "secret_manager_version_resolved_secret_address"
+    )
+    SECRET_MANAGER_VERSION_LIFECYCLE_STATE = OptionalStringMetadataField("secret_manager_version_lifecycle_state")
+    SECRET_MANAGER_VERSION_DELETION_POLICY = OptionalStringMetadataField("secret_manager_version_deletion_policy")
+    SECRET_MANAGER_VERSION_POSTURE_UNCERTAINTIES = StringListMetadataField(
+        "secret_manager_version_posture_uncertainties"
+    )
     SECRET_MANAGER_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("secret_manager_iam_posture_uncertainties")
     PUBSUB_TOPIC_REFERENCE = OptionalStringMetadataField("pubsub_topic_reference")
     PUBSUB_SUBSCRIPTION_REFERENCE = OptionalStringMetadataField("pubsub_subscription_reference")
