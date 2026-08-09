@@ -92,10 +92,11 @@ This is a concise coverage map. Reports identify unsupported AWS resource types 
 * ECR mutable tags, customer-managed encryption, and repository scanning posture
 
 ### Workload-to-data paths
-* Public ECS secret-retrieval and DynamoDB read paths, plus S3, SNS/SQS, and DynamoDB mutation paths
+* Public ECS service-to-Secrets Manager, S3, SNS/SQS, and DynamoDB mutation paths
 * Exact public ECS-to-SQS receive paths
+* Public ECS secret-value tampering and secret-deletion disruption paths for task-role authority
 * Execution/task-role access broader than consumed references
-* Native Secrets Manager or SSM delivery references are not treated as literal secret values; secret-access paths require exact modeled grants, explicitly denied paths stay quiet, and condition-dependent, incomplete, or unresolved expected paths remain uncertainty where modeled
+* Native Secrets Manager or SSM delivery references and explicitly denied paths stay quiet; condition-dependent, incomplete, or unresolved expected management paths remain uncertainty where modeled
 
 ### Kubernetes (EKS)
 * Secrets encryption, authentication mode, control-plane logging, and VPC CNI network-policy posture
@@ -128,6 +129,8 @@ This is a concise coverage map. Reports identify unsupported AWS resource types 
 * OIDC provider resolution and federated trust narrowing
 * Workload-role sensitive permissions, resource-policy exposure, and tier segmentation
 * Transitive private-data exposure, control-plane-to-sensitive-workload chains, and role-trust narrowing
+
+KMS and secret-management posture, public workload cryptographic-operation paths, and public workload key or secret administration paths are plan-local and require modeled authorization. See [Public Workload Secret Integrity and Availability Paths](../analysis/secret-management-paths.md).
 
 ## Scope & Limitations
 

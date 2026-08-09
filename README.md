@@ -136,8 +136,9 @@ Beyond per-resource posture checks, `tfstride` models multi-resource security pa
 * **Managed-key authority** - distinguishes cryptographic operations from disruptive or delegating administration while preserving provider-native authorization and recovery semantics. → [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)
 * **Managed-key dependencies** - resolves supported encrypted resources to their exact provider-native keys and enriches key-disruption findings with modeled downstream blast radius. → [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)
 * **Protected-data convergence** - flags when a public workload has both read/receive access to protected data and decrypt/unwrap authority over that data's exact customer-managed key. → [docs/analysis/protected-data-convergence.md](docs/analysis/protected-data-convergence.md)
+* **Secret integrity & availability** - distinguishes runtime authority to modify a secret from authority to disable, destroy, delete, or purge it. → [docs/analysis/secret-management-paths.md](docs/analysis/secret-management-paths.md)
 
-These findings and enrichments require deterministic modeled evidence. Exact symbolic first-apply references may qualify when resolution is unambiguous. Denied or incompatible evidence stays quiet; condition-dependent, ambiguous, unresolved, unsupported, or incomplete expected relationships remain visible as uncertainty where applicable. For how trust boundaries, evidence, and this "quiet vs. promoted" vocabulary work across providers, see [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md).
+Findings and enrichment across all four require deterministic modeled evidence. Exact symbolic first-apply references may qualify when resolution is unambiguous. Denied or incompatible evidence stays quiet; condition-dependent, ambiguous, unresolved, unsupported, or incomplete expected relationships remain visible as uncertainty where applicable. For how trust boundaries, evidence, and this "quiet vs. promoted" vocabulary work across providers, see [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md).
 
 ## Output Formats
 
@@ -413,7 +414,7 @@ ruff format --check .
 vulture src tests --min-confidence 100
 ```
 
-The scoped basedpyright gate protects provider/plugin contracts, configuration-reference and symbolic relationship resolution, metadata ownership, and the typed managed-key and protected-data convergence pipelines; it is intentionally not full-repository strict mode yet.
+The scoped basedpyright gate protects provider/plugin contracts, configuration-reference and symbolic relationship resolution, metadata ownership, and the typed managed-key, protected-data convergence, and secret-management pipelines; it is intentionally not full-repository strict mode yet.
 
 The suite is also compatible with stdlib discovery:
 

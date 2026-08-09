@@ -62,6 +62,7 @@ This is a concise coverage map. Repetitive IAM variants are grouped, and reports
 * `google_firestore_database`
 * Firestore database IAM member, binding, and policy resources
 * `google_secret_manager_secret`
+* `google_secret_manager_secret_version`
 * Secret Manager secret IAM member, binding, and policy resources
 * `google_kms_key_ring`
 * `google_kms_crypto_key`
@@ -93,10 +94,11 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 * Artifact Registry mutable Docker tags, customer-managed encryption, and vulnerability-scanning posture
 
 ### Workload-to-data paths
-* Exact public Cloud Run Secret Manager/GCS/Firestore read paths, plus GCS, Pub/Sub, and Firestore mutation paths
+* Exact public Cloud Run-to-Secret Manager, GCS, Pub/Sub, and Firestore read and mutation paths
 * Exact public Cloud Run-to-Pub/Sub subscription consume paths
+* Public Cloud Run secret-version tampering and secret/version disruption paths for runtime IAM authority
 * Service-account access broader than consumed references
-* External or explicitly denied Secret Manager access paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected access paths remain uncertainty where modeled
+* External or explicitly denied Secret Manager paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected paths remain uncertainty where modeled
 
 ### Kubernetes (GKE)
 * GKE Workload Identity posture
@@ -130,6 +132,8 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 * Federated privileged service-account access
 * Internet-exposed workloads with sensitive data access
 * Broad organization/folder/project IAM principals, service-account key hygiene, and custom-role permission expansion
+
+Cloud KMS and Secret Manager lifecycle posture, public workload cryptographic-operation paths, and public workload key or secret administration paths are plan-local and require modeled authorization. See [Public Workload Secret Integrity and Availability Paths](../analysis/secret-management-paths.md).
 
 ## Scope & Limitations
 
