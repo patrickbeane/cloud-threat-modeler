@@ -79,6 +79,7 @@ _AZURE_SECRET_VERSION = "version-0001"
 _AZURE_SECRET_VERSIONLESS_URI = f"{_AZURE_VAULT_URI}/secrets/orders"
 _AZURE_SECRET_URI = f"{_AZURE_SECRET_VERSIONLESS_URI}/{_AZURE_SECRET_VERSION}"
 _AZURE_SECRET_RESOURCE_ID = f"{_AZURE_VAULT_ID}/secrets/orders"
+_AZURE_SECRET_VERSIONED_RESOURCE_ID = f"{_AZURE_SECRET_RESOURCE_ID}/{_AZURE_SECRET_VERSION}"
 _AZURE_SECRET_ADMIN_ROLE_ID = (
     f"/subscriptions/{_AZURE_SUBSCRIPTION_ID}/providers/Microsoft.Authorization/roleDefinitions/orders-secret-integrity"
 )
@@ -419,7 +420,8 @@ def _azure_secret() -> TerraformResource:
         {
             "id": _AZURE_SECRET_URI,
             "versionless_id": _AZURE_SECRET_VERSIONLESS_URI,
-            "resource_id": _AZURE_SECRET_RESOURCE_ID,
+            "resource_id": _AZURE_SECRET_VERSIONED_RESOURCE_ID,
+            "resource_versionless_id": _AZURE_SECRET_RESOURCE_ID,
             "name": "orders",
             "version": _AZURE_SECRET_VERSION,
             "key_vault_id": "azurerm_key_vault.orders.id",

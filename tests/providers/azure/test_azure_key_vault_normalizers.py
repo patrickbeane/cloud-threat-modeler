@@ -221,6 +221,11 @@ class AzureKeyVaultNormalizerTests(unittest.TestCase):
                     "versionless_id": "https://application.vault.azure.net/secrets/api-key",
                     "resource_id": (
                         "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/application/secrets/api-key/"
+                        "secret-version"
+                    ),
+                    "resource_versionless_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
                         "Microsoft.KeyVault/vaults/application/secrets/api-key"
                     ),
                     "name": "api-key",
@@ -245,6 +250,30 @@ class AzureKeyVaultNormalizerTests(unittest.TestCase):
             facts.key_vault_secret_resource_id,
             "/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/application/secrets/api-key",
         )
+        self.assertEqual(facts.key_vault_identity_uncertainties, [])
+
+    def test_secret_versioned_resource_id_does_not_supply_versionless_arm_identity(
+        self,
+    ) -> None:
+        secret = normalize_key_vault_secret(
+            _resource(
+                AzureResourceType.KEY_VAULT_SECRET,
+                {
+                    "id": ("https://application.vault.azure.net/secrets/api-key/secret-version"),
+                    "versionless_id": ("https://application.vault.azure.net/secrets/api-key"),
+                    "resource_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.KeyVault/vaults/application/secrets/api-key/"
+                        "secret-version"
+                    ),
+                    "name": "api-key",
+                    "version": "secret-version",
+                },
+            )
+        )
+
+        facts = azure_facts(secret)
+        self.assertIsNone(facts.key_vault_secret_resource_id)
         self.assertEqual(facts.key_vault_identity_uncertainties, [])
 
     def test_key_vault_key_preserves_exact_versioned_and_versionless_identities(self) -> None:

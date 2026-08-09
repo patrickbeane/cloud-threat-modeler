@@ -11,8 +11,21 @@ AzureKeyVaultGrantBasis = Literal["key_vault_access_policy", "azure_rbac_assignm
 AzureKeyVaultAuthorizationModel = Literal["access_policy", "azure_rbac"]
 AzureKeyVaultAuthorizationModelState = Literal["active", "unknown"]
 AzureKeyVaultAuthorizationState = Literal["granted", "conditional", "ambiguous", "unknown"]
-AzureKeyVaultGrantScopeType = Literal["management_group", "subscription", "resource_group", "vault", "key"]
-AzureKeyVaultPathScopeType = Literal["subscription", "resource_group", "vault", "key"]
+AzureKeyVaultGrantScopeType = Literal[
+    "management_group",
+    "subscription",
+    "resource_group",
+    "vault",
+    "key",
+    "secret",
+]
+AzureKeyVaultPathScopeType = Literal[
+    "subscription",
+    "resource_group",
+    "vault",
+    "key",
+    "secret",
+]
 AzureKeyVaultRuntimeIdentityKind = Literal["system_assigned", "user_assigned"]
 AzureKeyVaultManagementOperation = Literal[
     "update",

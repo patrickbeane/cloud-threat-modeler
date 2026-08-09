@@ -140,7 +140,10 @@ class ResolveAzureSymbolicRelationshipsStage:
             assignment,
             context,
             allowed_paths={("scope",)},
-            expected_reference_suffixes=(".id", ".resource_versionless_id"),
+            expected_reference_suffixes=(
+                ".id",
+                ".resource_versionless_id",
+            ),
             reference_validator=_valid_role_assignment_scope_reference,
         )
         if scope_target is None:
@@ -443,12 +446,17 @@ def _valid_role_assignment_scope_reference(
     normalized = reference.casefold()
     if target.resource_type == AzureResourceType.KEY_VAULT_KEY:
         return normalized.endswith(".resource_versionless_id")
+    if target.resource_type == AzureResourceType.KEY_VAULT_SECRET:
+        return normalized.endswith(".resource_versionless_id")
     return normalized.endswith(".id")
 
 
 def _canonical_role_assignment_scope(target: NormalizedResource) -> str | None:
     if target.resource_type == AzureResourceType.KEY_VAULT_KEY:
         value = azure_facts(target).key_vault_key_versionless_resource_id
+        return value if _is_arm_id(value) else None
+    if target.resource_type == AzureResourceType.KEY_VAULT_SECRET:
+        value = azure_facts(target).key_vault_secret_resource_id
         return value if _is_arm_id(value) else None
     return _canonical_arm_id(target)
 

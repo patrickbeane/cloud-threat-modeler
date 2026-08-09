@@ -15,6 +15,7 @@ _VAULT_URI = "https://orders.vault.azure.net"
 _SECRET_URI = f"{_VAULT_URI}/secrets/database-password/secret-version"
 _SECRET_VERSIONLESS_URI = f"{_VAULT_URI}/secrets/database-password"
 _SECRET_RESOURCE_ID = f"{_VAULT_ID}/secrets/database-password"
+_SECRET_VERSIONED_RESOURCE_ID = f"{_SECRET_RESOURCE_ID}/secret-version"
 _SYSTEM_PRINCIPAL_ID = "system-principal-id"
 _USER_PRINCIPAL_ID = "user-principal-id"
 _USER_IDENTITY_ID = (
@@ -59,7 +60,8 @@ def _secret() -> TerraformResource:
         {
             "id": _SECRET_URI,
             "versionless_id": _SECRET_VERSIONLESS_URI,
-            "resource_id": _SECRET_RESOURCE_ID,
+            "resource_id": _SECRET_VERSIONED_RESOURCE_ID,
+            "resource_versionless_id": _SECRET_RESOURCE_ID,
             "name": "database-password",
             "version": "secret-version",
             "key_vault_id": "azurerm_key_vault.orders.id",

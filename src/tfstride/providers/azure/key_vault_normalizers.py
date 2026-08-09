@@ -230,15 +230,31 @@ def _key_vault_secret_identity_metadata(
         metadata[AzureResourceMetadata.KEY_VAULT_SECRET_VERSION] = version
 
     raw_identifiers = {
-        key: _known_exact_identifier(resource, key, uncertainties) for key in ("id", "versionless_id", "resource_id")
+        key: _known_exact_identifier(resource, key, uncertainties)
+        for key in (
+            "id",
+            "versionless_id",
+            "resource_id",
+            "resource_versionless_id",
+        )
     }
+    versionless_resource_id = raw_identifiers["resource_versionless_id"]
+    if versionless_resource_id is not None:
+        parsed_resource_id = _normalize_key_vault_secret_resource_id(versionless_resource_id)
+        if parsed_resource_id is None or parsed_resource_id[1] is not None:
+            uncertainties.append("resource_versionless_id must be a versionless Key Vault secret resource ID")
+        else:
+            metadata[AzureResourceMetadata.KEY_VAULT_SECRET_RESOURCE_ID] = parsed_resource_id[0]
+
     resource_id = raw_identifiers["resource_id"]
-    if resource_id is not None and _is_key_vault_secret_resource_id(resource_id):
-        metadata[AzureResourceMetadata.KEY_VAULT_SECRET_RESOURCE_ID] = resource_id
+    if resource_id is not None:
+        parsed_resource_id = _normalize_key_vault_secret_resource_id(resource_id)
+        if parsed_resource_id is None or parsed_resource_id[1] is None:
+            uncertainties.append("resource_id must be a versioned Key Vault secret resource ID")
 
     versionless_uri: str | None = None
     secret_uri: str | None = None
-    for key in ("versionless_id", "id", "resource_id"):
+    for key in ("versionless_id", "id"):
         value = raw_identifiers[key]
         if value is None:
             continue
@@ -252,10 +268,7 @@ def _key_vault_secret_identity_metadata(
                 secret_uri = parsed_versionless
             version = version or parsed_version
             continue
-        if key != "resource_id" and not _is_key_vault_secret_resource_id(value):
-            uncertainties.append(f"{key} has an unrecognized value shape")
-        elif resource_id is None and _is_key_vault_secret_resource_id(value):
-            metadata[AzureResourceMetadata.KEY_VAULT_SECRET_RESOURCE_ID] = value
+        uncertainties.append(f"{key} has an unrecognized value shape")
 
     if versionless_uri is None and vault_uri is not None and known_name is not None:
         if _valid_secret_path_segment(known_name):
@@ -652,6 +665,34 @@ def _normalize_key_vault_key_resource_id(
     return versionless_resource_id, resource_id, segments[7], segments[9], segments[10] if len(segments) == 11 else None
 
 
+def _normalize_key_vault_secret_resource_id(
+    value: str,
+) -> tuple[str, str | None, str, str, str | None] | None:
+    segments = [segment for segment in value.strip().split("/") if segment]
+    if (
+        len(segments) not in {10, 11}
+        or segments[0].casefold() != "subscriptions"
+        or segments[2].casefold() != "resourcegroups"
+        or segments[4].casefold() != "providers"
+        or segments[5].casefold() != "microsoft.keyvault"
+        or segments[6].casefold() != "vaults"
+        or segments[8].casefold() != "secrets"
+        or not all(segments[index] for index in (1, 3, 7, 9))
+        or not _valid_secret_path_segment(segments[9])
+        or (len(segments) == 11 and not _valid_secret_path_segment(segments[10]))
+    ):
+        return None
+    versionless_resource_id = "/" + "/".join(segments[:10])
+    resource_id = "/" + "/".join(segments) if len(segments) == 11 else None
+    return (
+        versionless_resource_id,
+        resource_id,
+        segments[7],
+        segments[9],
+        segments[10] if len(segments) == 11 else None,
+    )
+
+
 def _key_vault_host_name(host: str | None) -> str | None:
     if host is None:
         return None
@@ -672,21 +713,17 @@ def _valid_secret_path_segment(value: str) -> bool:
     return bool(value) and all(character.isalnum() or character == "-" for character in value)
 
 
-def _is_key_vault_secret_resource_id(value: str) -> bool:
-    normalized = value.lower()
-    return (
-        normalized.startswith("/subscriptions/")
-        and "/providers/microsoft.keyvault/vaults/" in normalized
-        and "/secrets/" in normalized
-    )
-
-
 def _looks_unresolved_reference(value: str) -> bool:
     normalized = value.strip().lower()
     if any(marker in normalized for marker in ("${", "known after apply", "<known")):
         return True
     return normalized.startswith(("azurerm_", "data.azurerm_")) and normalized.endswith(
-        (".id", ".resource_id", ".versionless_id")
+        (
+            ".id",
+            ".resource_id",
+            ".versionless_id",
+            ".resource_versionless_id",
+        )
     )
 
 

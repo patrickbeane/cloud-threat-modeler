@@ -18,6 +18,9 @@ from tfstride.providers.azure.resource_decoration.app_service_key_vault_operatio
 from tfstride.providers.azure.resource_decoration.app_service_key_vault_protected_data_convergence import (
     ModelAppServiceKeyVaultProtectedDataConvergenceStage,
 )
+from tfstride.providers.azure.resource_decoration.app_service_key_vault_secret_management_paths import (
+    ModelAppServiceKeyVaultSecretManagementPathsStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_service_bus_access_paths import (
     ModelAppServiceServiceBusAccessPathsStage,
 )
@@ -41,6 +44,9 @@ from tfstride.providers.azure.resource_decoration.key_vault_encryption_dependenc
 )
 from tfstride.providers.azure.resource_decoration.key_vault_key_authorization import (
     NormalizeKeyVaultKeyAuthorizationPostureStage,
+)
+from tfstride.providers.azure.resource_decoration.key_vault_secret_authorization import (
+    NormalizeKeyVaultSecretAuthorizationPostureStage,
 )
 from tfstride.providers.azure.resource_decoration.network_posture import (
     ResolveNetworkInterfaceRelationshipsStage,
@@ -87,8 +93,10 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         ResolveAzureKeyVaultEncryptionDependenciesStage(),
         DecorateManagedIdentityRoleAssignmentsStage(),
         NormalizeKeyVaultKeyAuthorizationPostureStage(),
+        NormalizeKeyVaultSecretAuthorizationPostureStage(),
         ModelAppServiceKeyVaultOperationPathsStage(),
         ModelAppServiceKeyVaultManagementPathsStage(),
+        ModelAppServiceKeyVaultSecretManagementPathsStage(),
         ModelAppServiceCosmosDbAccessPathsStage(),
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),
