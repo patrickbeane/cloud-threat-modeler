@@ -196,6 +196,8 @@ EXPECTED_AZURE_RULE_GROUP_IDS = (
         "azure-app-service-sensitive-app-setting-inline",
         "azure-app-service-key-vault-reference-identity-not-configured",
         "azure-app-service-key-vault-secret-access-overprivileged",
+        "azure-public-app-service-secret-tampering",
+        "azure-public-app-service-secret-disruption",
         "azure-public-app-service-key-vault-decrypt-access",
         "azure-public-app-service-key-vault-signing-access",
         "azure-public-app-service-key-vault-key-disruption",
@@ -463,12 +465,12 @@ class DefaultRuleRegistrationContractTests(unittest.TestCase):
     def test_default_rule_group_count_and_lengths_are_stable(self) -> None:
         self.assertEqual(len(EXPECTED_DEFAULT_RULE_GROUP_IDS), 6)
         self.assertEqual(
-            tuple(len(rule_group) for rule_group in EXPECTED_DEFAULT_RULE_GROUP_IDS), (268, 2, 2, 17, 3, 2)
+            tuple(len(rule_group) for rule_group in EXPECTED_DEFAULT_RULE_GROUP_IDS), (270, 2, 2, 17, 3, 2)
         )
         self.assertEqual(tuple(len(rule_group) for rule_group in aws_rules.AWS_RULE_GROUP_IDS), (86, 2, 2, 3, 2, 2))
         self.assertEqual(tuple(len(rule_group) for rule_group in gcp_rules.GCP_RULE_GROUP_IDS), (75, 0, 0, 14, 1, 0))
         self.assertEqual(
-            tuple(len(rule_group) for rule_group in azure_rules.AZURE_RULE_GROUP_IDS), (107, 0, 0, 0, 0, 0)
+            tuple(len(rule_group) for rule_group in azure_rules.AZURE_RULE_GROUP_IDS), (109, 0, 0, 0, 0, 0)
         )
 
     def test_default_rule_ids_are_unique(self) -> None:

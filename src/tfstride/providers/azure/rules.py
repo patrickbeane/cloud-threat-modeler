@@ -21,6 +21,9 @@ from tfstride.providers.azure.app_service_key_vault_operation_rules import (
 from tfstride.providers.azure.app_service_key_vault_rules import AzureAppServiceKeyVaultRuleDetectors
 from tfstride.providers.azure.app_service_messaging_rules import AzureAppServiceMessagingRuleDetectors
 from tfstride.providers.azure.app_service_rules import AzureAppServiceRuleDetectors
+from tfstride.providers.azure.app_service_secret_management_rules import (
+    AzureAppServiceSecretManagementRuleDetectors,
+)
 from tfstride.providers.azure.app_service_secret_rules import AzureAppServiceSecretDeliveryRuleDetectors
 from tfstride.providers.azure.app_service_storage_rules import AzureAppServiceStorageRuleDetectors
 from tfstride.providers.azure.audit_rules import AzureAuditRuleDetectors
@@ -110,6 +113,8 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-app-service-sensitive-app-setting-inline",
         "azure-app-service-key-vault-reference-identity-not-configured",
         "azure-app-service-key-vault-secret-access-overprivileged",
+        "azure-public-app-service-secret-tampering",
+        "azure-public-app-service-secret-disruption",
         "azure-public-app-service-key-vault-decrypt-access",
         "azure-public-app-service-key-vault-signing-access",
         "azure-public-app-service-key-vault-key-disruption",
@@ -174,6 +179,7 @@ def build_azure_rule_contribution(
     app_service_key_vault_detectors = AzureAppServiceKeyVaultRuleDetectors(finding_factory)
     app_service_key_vault_operation_detectors = AzureAppServiceKeyVaultOperationRuleDetectors(finding_factory)
     app_service_key_vault_management_detectors = AzureAppServiceKeyVaultManagementRuleDetectors(finding_factory)
+    app_service_secret_management_detectors = AzureAppServiceSecretManagementRuleDetectors(finding_factory)
     audit_detectors = AzureAuditRuleDetectors(finding_factory)
     aks_detectors = AzureAksRuleDetectors(finding_factory)
     storage_detectors = AzureStorageRuleDetectors(finding_factory)
@@ -314,6 +320,12 @@ def build_azure_rule_contribution(
         ),
         "azure-app-service-key-vault-secret-access-overprivileged": (
             app_service_key_vault_detectors.detect_secret_access_overprivileged
+        ),
+        "azure-public-app-service-secret-tampering": (
+            app_service_secret_management_detectors.detect_public_app_service_secret_tampering
+        ),
+        "azure-public-app-service-secret-disruption": (
+            app_service_secret_management_detectors.detect_public_app_service_secret_disruption
         ),
         "azure-public-app-service-key-vault-decrypt-access": (
             app_service_key_vault_operation_detectors.detect_public_app_service_key_vault_decrypt_access

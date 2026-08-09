@@ -848,6 +848,58 @@ AZURE_RULE_METADATA = (
         severity_factors=("privilege_breadth", "data_sensitivity", "lateral_movement", "blast_radius"),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-secret-tampering",
+        title="Public Azure App Service identity has Key Vault secret-tampering authority",
+        category=StrideCategory.TAMPERING,
+        recommended_mitigation=(
+            "Restrict public App Service ingress and grant its runtime identity only the exact Key Vault secret "
+            "set authority and scopes required. Keep secret-value mutation on a narrowly scoped identity."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "key-vault",
+            "managed-identity",
+            "public-access",
+            "secrets",
+            "tampering",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
+        rule_id="azure-public-app-service-secret-disruption",
+        title="Public Azure App Service identity has Key Vault secret-disruption authority",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public App Service ingress and grant its runtime identity only the exact Key Vault secret "
+            "delete or purge authority and scopes required. Enable purge protection to prevent permanent deletion."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "key-vault",
+            "managed-identity",
+            "public-access",
+            "secrets",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-key-vault-decrypt-access",
         title="Public Azure App Service identity has Key Vault decrypt authority",
         category=StrideCategory.INFORMATION_DISCLOSURE,
