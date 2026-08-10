@@ -66,6 +66,9 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/secrets_manager_operation_authorization.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_secret_management_paths.py",
 
+  # AWS object-storage deletion and recovery evidence.
+  "src/tfstride/providers/aws/object_storage_deletion_evidence.py",
+
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",
   "src/tfstride/providers/aws/protected_data_evidence.py",
@@ -94,6 +97,9 @@ include = [
   "src/tfstride/providers/gcp/resource_facts/secret_manager.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_secret_management_paths.py",
   "src/tfstride/providers/gcp/cloud_run_secret_management_rules.py",
+
+  # GCP object-storage deletion and recovery evidence.
+  "src/tfstride/providers/gcp/object_storage_deletion_evidence.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
@@ -125,6 +131,9 @@ include = [
   "src/tfstride/providers/azure/resource_decoration/key_vault_secret_authorization.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_key_vault_secret_management_paths.py",
   "src/tfstride/providers/azure/app_service_secret_management_rules.py",
+
+  # Azure object-storage deletion and recovery evidence.
+  "src/tfstride/providers/azure/object_storage_deletion_evidence.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",
