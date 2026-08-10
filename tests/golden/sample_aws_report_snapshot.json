@@ -38,7 +38,7 @@
       }
     },
     "rules": {
-      "registered_rule_count": 97,
+      "registered_rule_count": 98,
       "enabled_rules": [
         "aws-public-compute-broad-ingress",
         "aws-lambda-public-invocation",
@@ -94,6 +94,7 @@
         "aws-public-ecs-secret-tampering",
         "aws-public-ecs-secret-disruption",
         "aws-public-ecs-s3-mutation-access",
+        "aws-public-ecs-s3-object-disruption",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-read-access",
         "aws-public-ecs-kms-decrypt-access",
@@ -195,6 +196,7 @@
         "aws-public-ecs-secret-tampering": 0,
         "aws-public-ecs-secret-disruption": 0,
         "aws-public-ecs-s3-mutation-access": 0,
+        "aws-public-ecs-s3-object-disruption": 0,
         "aws-public-ecs-dynamodb-mutation-access": 0,
         "aws-public-ecs-dynamodb-read-access": 0,
         "aws-public-ecs-kms-decrypt-access": 0,

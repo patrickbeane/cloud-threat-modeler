@@ -16,6 +16,9 @@ from tfstride.providers.aws.ecs_dynamodb_rules import (
 )
 from tfstride.providers.aws.ecs_kms_rules import AwsEcsKmsOperationRuleDetectors
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
+from tfstride.providers.aws.ecs_s3_object_disruption_rules import (
+    AwsEcsS3ObjectDisruptionRuleDetectors,
+)
 from tfstride.providers.aws.ecs_s3_rules import AwsEcsS3AccessRuleDetectors
 from tfstride.providers.aws.ecs_secret_management_rules import (
     AwsEcsSecretManagementRuleDetectors,
@@ -95,6 +98,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-secret-tampering",
         "aws-public-ecs-secret-disruption",
         "aws-public-ecs-s3-mutation-access",
+        "aws-public-ecs-s3-object-disruption",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-read-access",
         "aws-public-ecs-kms-decrypt-access",
@@ -172,6 +176,7 @@ def build_aws_rule_contribution(
     ecs_secret_detectors = AwsEcsSecretDeliveryRuleDetectors(finding_factory)
     ecs_secret_management_detectors = AwsEcsSecretManagementRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
+    ecs_s3_object_disruption_detectors = AwsEcsS3ObjectDisruptionRuleDetectors(finding_factory)
     ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
     ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
     ecs_messaging_detectors = AwsEcsMessagingAccessRuleDetectors(finding_factory)
@@ -252,6 +257,7 @@ def build_aws_rule_contribution(
         "aws-public-ecs-secret-tampering": (ecs_secret_management_detectors.detect_public_service_tampering),
         "aws-public-ecs-secret-disruption": (ecs_secret_management_detectors.detect_public_service_disruption),
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
+        "aws-public-ecs-s3-object-disruption": (ecs_s3_object_disruption_detectors.detect_public_service_disruption),
         "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-dynamodb-read-access": (ecs_dynamodb_detectors.detect_public_service_read_access),
         "aws-public-ecs-kms-decrypt-access": (ecs_kms_detectors.detect_public_service_decrypt_access),

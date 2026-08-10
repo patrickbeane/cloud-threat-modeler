@@ -17,6 +17,8 @@ from tfstride.providers.aws.resource_facts import aws_facts
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
 _MUTATION_ACCESS_CLASSES = frozenset({"write", "delete", "administrative"})
+_OBJECT_DELETION_ACTIONS = frozenset({"s3:DeleteObject", "s3:DeleteObjectVersion"})
+_TAGGING_DELETION_ACTIONS = frozenset({"s3:DeleteObjectTagging", "s3:DeleteObjectVersionTagging"})
 
 
 class AwsEcsS3AccessRuleDetectors:
@@ -118,14 +120,18 @@ def _mutation_classes(paths: list[dict[str, Any]]) -> list[str]:
 
 
 def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
-    return [value for value in _string_values(path.get("access_classes")) if value in _MUTATION_ACCESS_CLASSES]
+    classes = {value for value in _string_values(path.get("access_classes")) if value in _MUTATION_ACCESS_CLASSES}
+    actions = set(_mutation_actions(path))
+    if "delete" in classes and not actions & _TAGGING_DELETION_ACTIONS:
+        classes.remove("delete")
+    return [value for value in ("write", "delete", "administrative") if value in classes]
 
 
 def _mutation_actions(path: Mapping[str, Any]) -> list[str]:
     return [
         action
         for action in _string_values(path.get("matched_actions"))
-        if not action.lower().startswith(("s3:get", "s3:list"))
+        if not action.lower().startswith(("s3:get", "s3:list")) and action not in _OBJECT_DELETION_ACTIONS
     ]
 
 

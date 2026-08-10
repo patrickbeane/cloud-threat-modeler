@@ -652,6 +652,25 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-s3-object-disruption",
+        title="Internet-facing ECS service can disrupt S3 object storage",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact S3 object "
+            "deletion actions and bucket/object scopes required at runtime. Keep object deletion with a separate "
+            "data-management identity, retain versioning and Object Lock controls, and do not treat bucket defaults "
+            "as proof of effective protection for a specific object version."
+        ),
+        tags=("aws", "ecs", "s3", "iam", "public-access", "object-storage", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-dynamodb-mutation-access",
         title="Internet-facing ECS service task role has a DynamoDB mutation allow",
         category=StrideCategory.TAMPERING,
