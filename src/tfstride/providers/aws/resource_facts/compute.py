@@ -5,6 +5,7 @@ from typing import Any
 
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
+from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
     AwsEcsS3ProtectedDataConvergence,
@@ -118,6 +119,14 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_s3_access_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_S3_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_s3_object_deletion_paths(self) -> list[AwsEcsS3ObjectDeletionPath]:
+        return self.get(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATHS)
+
+    @property
+    def ecs_s3_object_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES)
 
     @property
     def ecs_s3_protected_data_convergences(
@@ -582,6 +591,18 @@ class AwsComputeFacts(AwsBaseFacts):
 
     def extend_ecs_s3_access_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECS_S3_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_ecs_s3_object_deletion_paths(
+        self,
+        values: list[AwsEcsS3ObjectDeletionPath],
+    ) -> None:
+        self.set(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATHS, values)
+
+    def extend_ecs_s3_object_deletion_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES, values)
 
     def set_ecs_s3_protected_data_convergences(
         self,

@@ -9,6 +9,7 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsKeyPolicyEvidence,
     AwsKmsOperationAuthorization,
 )
+from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
     AwsEcsS3ProtectedDataConvergence,
@@ -82,6 +83,7 @@ class AwsResourceMetadata:
     ECS_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_access_path_uncertainties")
     ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_management_path_uncertainties")
     ECS_S3_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_access_path_uncertainties")
+    ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_object_deletion_path_uncertainties")
     ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "ecs_s3_protected_data_convergence_uncertainties"
     )
@@ -467,6 +469,7 @@ class AwsResourceMetadata:
         "ecs_secret_management_paths"
     )
     ECS_S3_ACCESS_PATHS = RecordListMetadataField[AwsEcsS3AccessPath]("ecs_s3_access_paths")
+    ECS_S3_OBJECT_DELETION_PATHS = RecordListMetadataField[AwsEcsS3ObjectDeletionPath]("ecs_s3_object_deletion_paths")
     ECS_S3_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[AwsEcsS3ProtectedDataConvergence](
         "ecs_s3_protected_data_convergences"
     )

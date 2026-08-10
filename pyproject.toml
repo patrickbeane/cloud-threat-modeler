@@ -68,6 +68,7 @@ include = [
 
   # AWS object-storage deletion and recovery evidence.
   "src/tfstride/providers/aws/object_storage_deletion_evidence.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_s3_object_deletion_paths.py",
 
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",

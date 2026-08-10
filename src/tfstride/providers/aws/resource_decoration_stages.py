@@ -27,6 +27,10 @@ from tfstride.providers.aws.resource_decoration.ecs_s3_access_paths import (
     ModelEcsS3AccessPathsStage,
     ProjectEcsS3AccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_s3_object_deletion_paths import (
+    ModelEcsS3ObjectDeletionPathsStage,
+    ProjectEcsS3ObjectDeletionPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_s3_protected_data_convergence import (
     ModelEcsS3ProtectedDataConvergenceStage,
 )
@@ -107,6 +111,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         MergeResourcePolicyResourcesStage(),
         ApplyS3PublicAccessBlocksStage(),
         ApplyS3PostureResourcesStage(),
+        ModelEcsS3ObjectDeletionPathsStage(),
         ApplySecretsManagerPostureResourcesStage(),
         ModelSecretsManagerOperationAuthorizationStage(),
         ModelEcsSecretsManagerManagementPathsStage(),
@@ -121,6 +126,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsSecretsManagerManagementPathsOntoServicesStage(),
         ProjectEcsSecretAccessPathsOntoServicesStage(),
         ProjectEcsS3AccessPathsOntoServicesStage(),
+        ProjectEcsS3ObjectDeletionPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
         ModelEcsS3ProtectedDataConvergenceStage(),
