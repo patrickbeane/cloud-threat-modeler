@@ -10,6 +10,7 @@ from tfstride.analysis.rule_definitions import (
 )
 from tfstride.analysis.rule_registry import RuleRegistry, default_rule_registry
 from tfstride.providers.azure.aks_rules import AzureAksRuleDetectors
+from tfstride.providers.azure.app_service_blob_rules import AzureAppServiceBlobRuleDetectors
 from tfstride.providers.azure.app_service_container_rules import AzureAppServiceContainerRuleDetectors
 from tfstride.providers.azure.app_service_cosmosdb_rules import AzureAppServiceCosmosDbRuleDetectors
 from tfstride.providers.azure.app_service_key_vault_management_rules import (
@@ -106,6 +107,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-app-service-image-not-digest-pinned",
         "azure-app-service-can-modify-image-repository",
         "azure-public-app-service-storage-mutation-access",
+        "azure-public-app-service-storage-blob-disruption",
         "azure-public-app-service-cosmosdb-mutation-access",
         "azure-public-app-service-cosmosdb-read-access",
         "azure-public-app-service-service-bus-mutation-access",
@@ -176,6 +178,7 @@ def build_azure_rule_contribution(
     app_service_secret_detectors = AzureAppServiceSecretDeliveryRuleDetectors(finding_factory)
     app_service_messaging_detectors = AzureAppServiceMessagingRuleDetectors(finding_factory)
     app_service_storage_detectors = AzureAppServiceStorageRuleDetectors(finding_factory)
+    app_service_blob_detectors = AzureAppServiceBlobRuleDetectors(finding_factory)
     app_service_key_vault_detectors = AzureAppServiceKeyVaultRuleDetectors(finding_factory)
     app_service_key_vault_operation_detectors = AzureAppServiceKeyVaultOperationRuleDetectors(finding_factory)
     app_service_key_vault_management_detectors = AzureAppServiceKeyVaultManagementRuleDetectors(finding_factory)
@@ -299,6 +302,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-storage-mutation-access": (
             app_service_storage_detectors.detect_public_app_service_storage_mutation_access
+        ),
+        "azure-public-app-service-storage-blob-disruption": (
+            app_service_blob_detectors.detect_public_app_service_blob_disruption
         ),
         "azure-public-app-service-cosmosdb-mutation-access": (
             app_service_cosmosdb_detectors.detect_public_app_service_cosmosdb_mutation_access

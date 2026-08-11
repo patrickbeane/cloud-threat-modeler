@@ -107,7 +107,7 @@ def _app_service_blob_deletion_paths(
     )
 
     for access_path in facts.app_service_storage_access_paths:
-        operations = _deletion_operations(access_path)
+        operations = storage_access_path_deletion_operations(access_path)
         if not operations:
             continue
         if not _access_path_identity_is_current(access_path, current_identities):
@@ -231,7 +231,7 @@ def _access_path_identity_is_current(
     )
 
 
-def _deletion_operations(
+def storage_access_path_deletion_operations(
     access_path: AzureAppServiceStorageAccessPath,
 ) -> tuple[AzureBlobDeletionOperation, ...]:
     if access_path["role_kind"] != "custom":

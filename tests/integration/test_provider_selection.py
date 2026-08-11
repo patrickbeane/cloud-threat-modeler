@@ -269,8 +269,8 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
         self.assertEqual(result.analysis_coverage.resources.unsupported_resource_types, {})
         self.assertEqual(result.trust_boundaries, [])
         self.assertEqual(result.findings, [])
-        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 109)
-        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 109)
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 110)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 110)
         self.assertTrue(all(rule_id.startswith("azure-") for rule_id in result.analysis_coverage.rules.enabled_rules))
         self.assertIn("Azure support covers a curated AzureRM set", result.limitations[0])
 

@@ -144,6 +144,7 @@ include = [
 
   # Azure object-storage deletion and recovery evidence.
   "src/tfstride/providers/azure/object_storage_deletion_evidence.py",
+  "src/tfstride/providers/azure/app_service_blob_rules.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_blob_deletion_paths.py",
 
   # Azure managed-key evidence, authorization, and workload paths.

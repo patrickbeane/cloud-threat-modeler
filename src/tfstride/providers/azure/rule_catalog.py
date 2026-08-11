@@ -706,6 +706,32 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-storage-blob-disruption",
+        title="Public Azure App Service identity can disrupt Blob Storage",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Remove Storage Blob Data Contributor, Storage Blob Data Owner, and equivalent custom-role deletion "
+            "permissions from public App Service runtime identities; scope required deletion access to exact "
+            "accounts or containers, keep recovery controls explicit, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "storage",
+            "managed-identity",
+            "public-access",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-cosmosdb-mutation-access",
         title="Public Azure App Service identity can mutate Cosmos DB for NoSQL data",
         category=StrideCategory.TAMPERING,

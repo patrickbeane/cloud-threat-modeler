@@ -18,7 +18,7 @@ from tfstride.providers.azure.resource_types import (
     AzureResourceType,
 )
 
-_MUTATION_ACCESS_CLASSES = frozenset({"write", "delete", "administrative"})
+_MUTATION_ACCESS_CLASSES = frozenset({"write", "administrative"})
 _MUTATING_ROLE_KINDS = frozenset({"blob_data_contributor", "blob_data_owner", "custom"})
 _STORAGE_TARGET_TYPES = (
     AzureResourceType.STORAGE_ACCOUNT,
@@ -70,7 +70,7 @@ class AzureAppServiceStorageRuleDetectors:
             )
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
-                privilege_breadth=2 if {"delete", "administrative"} & set(mutation_classes) else 1,
+                privilege_breadth=2 if "administrative" in mutation_classes else 1,
                 data_sensitivity=2,
                 lateral_movement=1,
                 blast_radius=2 if len(storage_targets) > 1 else 1,
@@ -242,7 +242,6 @@ def _mutation_rationale(
 def _mutation_impact(mutation_classes: list[str]) -> str:
     impacts = {
         "write": "writing blobs",
-        "delete": "deleting blobs or blob versions",
         "administrative": "changing blob ownership or permissions",
     }
     values = [impacts[access_class] for access_class in mutation_classes]
@@ -266,7 +265,7 @@ def _has_deterministic_read_access(
 
 def _mutation_classes(paths: list[dict[str, Any]]) -> list[str]:
     classes = {access_class for path in paths for access_class in _path_mutation_classes(path)}
-    return [access_class for access_class in ("write", "delete", "administrative") if access_class in classes]
+    return [access_class for access_class in ("write", "administrative") if access_class in classes]
 
 
 def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:

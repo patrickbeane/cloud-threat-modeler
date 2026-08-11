@@ -74,7 +74,7 @@ class AzurePublicAppServiceStorageMutationRuleTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "storage_resource_address=azurerm_storage_account.orders" in value
-                and "mutation_classes=write,delete" in value
+                and "mutation_classes=write" in value
                 and "resource_scope=exact_storage_account" in value
                 and "condition_state=not_configured" in value
                 for value in evidence["storage_mutation_paths"]
@@ -124,7 +124,7 @@ class AzurePublicAppServiceStorageMutationRuleTests(unittest.TestCase):
             any(
                 "storage_resource_address=azurerm_storage_container.orders" in value
                 and "resource_scope=exact_storage_container" in value
-                and "mutation_classes=write,delete,administrative" in value
+                and "mutation_classes=write,administrative" in value
                 for value in evidence["storage_mutation_paths"]
             )
         )
