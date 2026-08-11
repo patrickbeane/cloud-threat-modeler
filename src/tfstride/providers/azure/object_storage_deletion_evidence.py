@@ -57,7 +57,7 @@ class AzureBlobDeletionRecoveryEvidence(TypedDict):
     uncertainties: list[str]
 
 
-class _AzureAppServiceBlobDeletionPathCommon(TypedDict):
+class AzureAppServiceBlobDeletionPathCommon(TypedDict):
     workload_address: str
     workload_type: str
     identity_address: str
@@ -88,7 +88,7 @@ class _AzureAppServiceBlobDeletionPathCommon(TypedDict):
     posture_uncertainties: list[str]
 
 
-class AzureAppServiceExactBlobDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceExactBlobDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: Literal["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete"]
     operation_class: Literal["logical_blob_deletion"]
     management_effect: AzureBlobDeletionManagementEffect
@@ -99,7 +99,7 @@ class AzureAppServiceExactBlobDeletionPath(_AzureAppServiceBlobDeletionPathCommo
     lifecycle_compatibility_state: AzureBlobDeletionLifecycleCompatibilityState
 
 
-class AzureAppServiceBlobPrefixDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceBlobPrefixDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: Literal["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete"]
     operation_class: Literal["logical_blob_deletion"]
     management_effect: AzureBlobDeletionManagementEffect
@@ -110,7 +110,7 @@ class AzureAppServiceBlobPrefixDeletionPath(_AzureAppServiceBlobDeletionPathComm
     lifecycle_compatibility_state: AzureBlobDeletionLifecycleCompatibilityState
 
 
-class AzureAppServiceContainerBlobNamespaceDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceContainerBlobNamespaceDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: Literal["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete"]
     operation_class: Literal["logical_blob_deletion"]
     management_effect: AzureBlobDeletionManagementEffect
@@ -121,7 +121,7 @@ class AzureAppServiceContainerBlobNamespaceDeletionPath(_AzureAppServiceBlobDele
     lifecycle_compatibility_state: AzureBlobDeletionLifecycleCompatibilityState
 
 
-class AzureAppServiceBlobVersionDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceBlobVersionDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: Literal["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/deleteBlobVersion/action"]
     operation_class: Literal["blob_version_deletion"]
     management_effect: AzureBlobDeletionManagementEffect
@@ -132,7 +132,7 @@ class AzureAppServiceBlobVersionDeletionPath(_AzureAppServiceBlobDeletionPathCom
     lifecycle_compatibility_state: AzureBlobDeletionLifecycleCompatibilityState
 
 
-class AzureAppServiceBlobVersionNamespaceDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceBlobVersionNamespaceDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: Literal["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/deleteBlobVersion/action"]
     operation_class: Literal["blob_version_deletion"]
     management_effect: AzureBlobDeletionManagementEffect
@@ -143,7 +143,7 @@ class AzureAppServiceBlobVersionNamespaceDeletionPath(_AzureAppServiceBlobDeleti
     lifecycle_compatibility_state: AzureBlobDeletionLifecycleCompatibilityState
 
 
-class AzureAppServiceBlobPermanentVersionDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceBlobPermanentVersionDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: AzureBlobPermanentDeletionOperation
     operation_class: AzureBlobPermanentDeletionOperationClass
     management_effect: AzureBlobDeletionManagementEffect
@@ -156,7 +156,7 @@ class AzureAppServiceBlobPermanentVersionDeletionPath(_AzureAppServiceBlobDeleti
     lifecycle_compatibility_state: Literal["compatible"]
 
 
-class AzureAppServiceBlobPermanentSnapshotDeletionPath(_AzureAppServiceBlobDeletionPathCommon):
+class AzureAppServiceBlobPermanentSnapshotDeletionPath(AzureAppServiceBlobDeletionPathCommon):
     operation: AzureBlobPermanentDeletionOperation
     operation_class: AzureBlobPermanentDeletionOperationClass
     management_effect: AzureBlobDeletionManagementEffect

@@ -6,6 +6,9 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
 )
+from tfstride.providers.azure.object_storage_deletion_evidence import (
+    AzureAppServiceBlobDeletionPath,
+)
 from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceServiceBusAccessPath,
     AzureAppServiceServiceBusProtectedDataConvergence,
@@ -32,6 +35,7 @@ class AzureResourceMetadata:
 
     NAME = OptionalStringMetadataField("name")
     STORAGE_ACCOUNT_ID = OptionalStringMetadataField("storage_account_id")
+    STORAGE_CONTAINER_RESOURCE_MANAGER_ID = OptionalStringMetadataField("storage_container_resource_manager_id")
     SERVICE_BUS_NAMESPACE_ID = OptionalStringMetadataField("service_bus_namespace_id")
     SERVICE_BUS_NAMESPACE_REFERENCE = OptionalStringMetadataField("service_bus_namespace_reference")
     RESOLVED_SERVICE_BUS_NAMESPACE_ADDRESS = OptionalStringMetadataField("resolved_service_bus_namespace_address")
@@ -341,6 +345,8 @@ class AzureResourceMetadata:
     SHARED_ACCESS_KEY_ENABLED = BoolMetadataField("shared_access_key_enabled")
     STORAGE_INFRASTRUCTURE_ENCRYPTION_ENABLED = BoolMetadataField("storage_infrastructure_encryption_enabled")
     STORAGE_BLOB_VERSIONING_ENABLED = BoolMetadataField("storage_blob_versioning_enabled")
+    STORAGE_BLOB_PERMANENT_DELETE_ENABLED = BoolMetadataField("storage_blob_permanent_delete_enabled")
+    STORAGE_HIERARCHICAL_NAMESPACE_ENABLED = BoolMetadataField("storage_hierarchical_namespace_enabled")
     PUBLIC_NETWORK_ACCESS_ENABLED = BoolMetadataField("public_network_access_enabled")
     DEFAULT_OUTBOUND_ACCESS_ENABLED = BoolMetadataField("default_outbound_access_enabled", default=True)
     IP_FORWARDING_ENABLED = BoolMetadataField("ip_forwarding_enabled")
@@ -392,6 +398,9 @@ class AzureResourceMetadata:
     APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_access_path_uncertainties"
     )
+    APP_SERVICE_BLOB_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_blob_deletion_path_uncertainties"
+    )
     APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_protected_data_convergence_uncertainties"
     )
@@ -419,6 +428,9 @@ class AzureResourceMetadata:
     ]("app_service_key_vault_secret_management_paths")
     APP_SERVICE_STORAGE_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceStorageAccessPath](
         "app_service_storage_access_paths"
+    )
+    APP_SERVICE_BLOB_DELETION_PATHS = RecordListMetadataField[AzureAppServiceBlobDeletionPath](
+        "app_service_blob_deletion_paths"
     )
     APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
         AzureAppServiceStorageProtectedDataConvergence

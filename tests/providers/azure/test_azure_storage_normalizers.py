@@ -71,6 +71,7 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                 AzureResourceType.STORAGE_ACCOUNT,
                 {
                     "name": "tfstridelogs",
+                    "is_hns_enabled": False,
                     "infrastructure_encryption_enabled": True,
                     "customer_managed_key": [
                         {
@@ -81,7 +82,12 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                     "blob_properties": [
                         {
                             "versioning_enabled": True,
-                            "delete_retention_policy": [{"days": 30}],
+                            "delete_retention_policy": [
+                                {
+                                    "days": 30,
+                                    "permanent_delete_enabled": True,
+                                }
+                            ],
                             "container_delete_retention_policy": [{"days": 14}],
                             "restore_policy": [{"days": 7}],
                         }
@@ -98,6 +104,8 @@ class AzureStorageNormalizerTests(unittest.TestCase):
             "azurerm_user_assigned_identity.storage.id",
         )
         self.assertTrue(facts.storage_blob_versioning_enabled)
+        self.assertTrue(facts.storage_blob_permanent_delete_enabled)
+        self.assertFalse(facts.storage_hierarchical_namespace_enabled)
         self.assertEqual(facts.storage_blob_delete_retention_days, 30)
         self.assertEqual(facts.storage_container_delete_retention_days, 14)
         self.assertEqual(facts.storage_blob_restore_policy_days, 7)
@@ -120,9 +128,32 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertIsNone(facts.storage_customer_managed_key_id)
         self.assertIsNone(facts.storage_customer_managed_key_identity_id)
         self.assertFalse(facts.storage_blob_versioning_enabled)
+        self.assertFalse(facts.storage_blob_permanent_delete_enabled)
+        self.assertFalse(facts.storage_hierarchical_namespace_enabled)
         self.assertIsNone(facts.storage_blob_delete_retention_days)
         self.assertIsNone(facts.storage_container_delete_retention_days)
         self.assertIsNone(facts.storage_blob_restore_policy_days)
+        self.assertEqual(facts.storage_posture_uncertainties, [])
+
+    def test_storage_account_defaults_omitted_permanent_delete_field_to_false(
+        self,
+    ) -> None:
+        normalized = normalize_storage_account(
+            _resource(
+                AzureResourceType.STORAGE_ACCOUNT,
+                {
+                    "name": "tfstridelogs",
+                    "blob_properties": [
+                        {
+                            "delete_retention_policy": [{"days": 30}],
+                        }
+                    ],
+                },
+            )
+        )
+        facts = azure_facts(normalized)
+
+        self.assertFalse(facts.storage_blob_permanent_delete_enabled)
         self.assertEqual(facts.storage_posture_uncertainties, [])
 
     def test_storage_account_preserves_computed_recovery_and_encryption_posture_as_unknown(self) -> None:
@@ -131,6 +162,7 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                 AzureResourceType.STORAGE_ACCOUNT,
                 {
                     "name": "tfstridelogs",
+                    "is_hns_enabled": None,
                     "infrastructure_encryption_enabled": None,
                     "customer_managed_key": [
                         {
@@ -141,13 +173,19 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                     "blob_properties": [
                         {
                             "versioning_enabled": None,
-                            "delete_retention_policy": [{"days": None}],
+                            "delete_retention_policy": [
+                                {
+                                    "days": None,
+                                    "permanent_delete_enabled": None,
+                                }
+                            ],
                             "container_delete_retention_policy": [{"days": None}],
                             "restore_policy": [{"days": None}],
                         }
                     ],
                 },
                 unknown_values={
+                    "is_hns_enabled": True,
                     "infrastructure_encryption_enabled": True,
                     "customer_managed_key": [
                         {
@@ -158,7 +196,12 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                     "blob_properties": [
                         {
                             "versioning_enabled": True,
-                            "delete_retention_policy": [{"days": True}],
+                            "delete_retention_policy": [
+                                {
+                                    "days": True,
+                                    "permanent_delete_enabled": True,
+                                }
+                            ],
                             "container_delete_retention_policy": [{"days": True}],
                             "restore_policy": [{"days": True}],
                         }
@@ -172,6 +215,8 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertIsNone(facts.storage_customer_managed_key_id)
         self.assertIsNone(facts.storage_customer_managed_key_identity_id)
         self.assertIsNone(facts.storage_blob_versioning_enabled)
+        self.assertIsNone(facts.storage_blob_permanent_delete_enabled)
+        self.assertIsNone(facts.storage_hierarchical_namespace_enabled)
         self.assertIsNone(facts.storage_blob_delete_retention_days)
         self.assertIsNone(facts.storage_container_delete_retention_days)
         self.assertIsNone(facts.storage_blob_restore_policy_days)
@@ -183,8 +228,10 @@ class AzureStorageNormalizerTests(unittest.TestCase):
                 "customer_managed_key.user_assigned_identity_id is unknown after planning",
                 "blob_properties.versioning_enabled is unknown after planning",
                 "blob_properties.delete_retention_policy.days is unknown after planning",
+                "blob_properties.delete_retention_policy.permanent_delete_enabled is unknown after planning",
                 "blob_properties.container_delete_retention_policy.days is unknown after planning",
                 "blob_properties.restore_policy.days is unknown after planning",
+                "is_hns_enabled is unknown after planning",
             ],
         )
 
@@ -194,6 +241,7 @@ class AzureStorageNormalizerTests(unittest.TestCase):
 
         self.assertTrue(facts.allow_nested_items_to_be_public)
         self.assertTrue(facts.shared_access_key_enabled)
+        self.assertFalse(facts.storage_blob_permanent_delete_enabled)
         self.assertEqual(facts.min_tls_version, "TLS1_2")
         self.assertIsNone(facts.public_network_access_enabled)
         self.assertEqual(facts.public_network_fallback_state, "unknown")
@@ -260,6 +308,12 @@ class AzureStorageNormalizerTests(unittest.TestCase):
             _resource(
                 AzureResourceType.STORAGE_CONTAINER,
                 {
+                    "id": "https://tfstridelogs.blob.core.windows.net/private",
+                    "resource_manager_id": (
+                        "/subscriptions/example/resourceGroups/app/providers/"
+                        "Microsoft.Storage/storageAccounts/tfstridelogs/"
+                        "blobServices/default/containers/private"
+                    ),
                     "name": "private",
                     "storage_account_id": "azurerm_storage_account.logs.id",
                 },
@@ -271,6 +325,16 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertEqual(normalized.category, ResourceCategory.DATA)
         self.assertEqual(facts.bucket_name, "private")
         self.assertEqual(facts.storage_account_reference, "azurerm_storage_account.logs.id")
+        self.assertEqual(
+            facts.storage_container_resource_manager_id,
+            "/subscriptions/example/resourceGroups/app/providers/"
+            "Microsoft.Storage/storageAccounts/tfstridelogs/"
+            "blobServices/default/containers/private",
+        )
+        self.assertEqual(
+            normalized.identifier,
+            "https://tfstridelogs.blob.core.windows.net/private",
+        )
         self.assertEqual(facts.container_access_type, "private")
         self.assertTrue(normalized.storage_encrypted)
 
@@ -292,6 +356,27 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertEqual(
             facts.storage_posture_uncertainties,
             ["container_access_type is unknown after planning"],
+        )
+
+    def test_storage_container_preserves_unknown_resource_manager_id(self) -> None:
+        normalized = normalize_storage_container(
+            _resource(
+                AzureResourceType.STORAGE_CONTAINER,
+                {
+                    "id": "https://tfstridelogs.blob.core.windows.net/pending",
+                    "resource_manager_id": None,
+                    "name": "pending",
+                    "storage_account_id": "azurerm_storage_account.logs.id",
+                },
+                unknown_values={"resource_manager_id": True},
+            )
+        )
+        facts = azure_facts(normalized)
+
+        self.assertIsNone(facts.storage_container_resource_manager_id)
+        self.assertIn(
+            "resource_manager_id is unknown after planning",
+            facts.storage_posture_uncertainties,
         )
 
     def test_storage_container_accepts_deprecated_account_name_reference(self) -> None:

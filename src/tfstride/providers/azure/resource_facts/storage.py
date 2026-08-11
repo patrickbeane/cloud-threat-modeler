@@ -22,6 +22,10 @@ class AzureStorageFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.STORAGE_ACCOUNT_REFERENCE)
 
     @property
+    def storage_container_resource_manager_id(self) -> str | None:
+        return self.get(AzureResourceMetadata.STORAGE_CONTAINER_RESOURCE_MANAGER_ID)
+
+    @property
     def resolved_storage_account_address(self) -> str | None:
         return self.get(AzureResourceMetadata.RESOLVED_STORAGE_ACCOUNT_ADDRESS)
 
@@ -60,6 +64,14 @@ class AzureStorageFacts(AzureBaseFacts):
     @property
     def storage_blob_versioning_enabled(self) -> bool | None:
         return self.optional_bool(AzureResourceMetadata.STORAGE_BLOB_VERSIONING_ENABLED)
+
+    @property
+    def storage_blob_permanent_delete_enabled(self) -> bool | None:
+        return self.optional_bool(AzureResourceMetadata.STORAGE_BLOB_PERMANENT_DELETE_ENABLED)
+
+    @property
+    def storage_hierarchical_namespace_enabled(self) -> bool | None:
+        return self.optional_bool(AzureResourceMetadata.STORAGE_HIERARCHICAL_NAMESPACE_ENABLED)
 
     @property
     def storage_blob_delete_retention_days(self) -> int | None:

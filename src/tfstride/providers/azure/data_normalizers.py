@@ -70,6 +70,15 @@ def normalize_storage_account(resource: TerraformResource) -> NormalizedResource
     )
     _set_storage_encryption_posture(metadata, resource, values, uncertainties)
     _set_storage_blob_recovery_posture(metadata, resource, values, uncertainties)
+    _set_bool_posture(
+        metadata,
+        resource,
+        values,
+        key="is_hns_enabled",
+        field=AzureResourceMetadata.STORAGE_HIERARCHICAL_NAMESPACE_ENABLED,
+        default=False,
+        uncertainties=uncertainties,
+    )
     public_network_access_enabled = known_bool(
         values, resource.unknown_values, "public_network_access_enabled", uncertainties
     )
@@ -103,8 +112,15 @@ def normalize_storage_container(resource: TerraformResource) -> NormalizedResour
     values = resource.values
     name = _optional_string(values.get("name")) or resource.name
     uncertainties: list[str] = []
+    container_id = _optional_string(values.get("id"))
+    if attribute_unknown(resource.unknown_values, "resource_manager_id"):
+        resource_manager_id = None
+        uncertainties.append("resource_manager_id is unknown after planning")
+    else:
+        resource_manager_id = _optional_string(values.get("resource_manager_id")) or container_id
     metadata: dict[Any, Any] = {
         AzureResourceMetadata.NAME: name,
+        AzureResourceMetadata.STORAGE_CONTAINER_RESOURCE_MANAGER_ID: resource_manager_id,
         AzureResourceMetadata.STORAGE_ACCOUNT_REFERENCE: first_non_empty(
             values.get("storage_account_id"),
             values.get("storage_account_name"),
@@ -126,7 +142,7 @@ def normalize_storage_container(resource: TerraformResource) -> NormalizedResour
             resource_type=resource.resource_type,
             name=resource.name,
             category=ResourceCategory.DATA,
-            identifier=_optional_string(values.get("id")) or name or resource.address,
+            identifier=container_id or resource_manager_id or name or resource.address,
             data_sensitivity="sensitive",
             metadata=metadata,
         )
@@ -258,6 +274,25 @@ def _set_storage_blob_recovery_posture(
         field=AzureResourceMetadata.STORAGE_BLOB_DELETE_RETENTION_DAYS,
         uncertainties=uncertainties,
     )
+    delete_retention_policy = (
+        first_mapping(blob_properties.get("delete_retention_policy")) if blob_properties is not None else None
+    )
+    delete_retention_unknown = _unknown_child_block(
+        blob_unknown,
+        "delete_retention_policy",
+    )
+    uncertainty_count = len(uncertainties)
+    permanent_delete_enabled = known_block_bool(
+        delete_retention_policy,
+        delete_retention_unknown,
+        "permanent_delete_enabled",
+        uncertainties,
+        path="blob_properties.delete_retention_policy",
+    )
+    if permanent_delete_enabled is None and len(uncertainties) == uncertainty_count:
+        permanent_delete_enabled = False
+    if permanent_delete_enabled is not None:
+        metadata[AzureResourceMetadata.STORAGE_BLOB_PERMANENT_DELETE_ENABLED] = permanent_delete_enabled
     _set_storage_blob_policy_days(
         metadata,
         blob_properties,

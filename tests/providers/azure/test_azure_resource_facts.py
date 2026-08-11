@@ -50,6 +50,8 @@ class AzureResourceFactsTests(unittest.TestCase):
                     "rotation_policy.expire_after is unknown after planning"
                 ],
                 AzureResourceMetadata.STORAGE_BLOB_VERSIONING_ENABLED: True,
+                AzureResourceMetadata.STORAGE_BLOB_PERMANENT_DELETE_ENABLED: True,
+                AzureResourceMetadata.STORAGE_HIERARCHICAL_NAMESPACE_ENABLED: False,
                 AzureResourceMetadata.STORAGE_BLOB_DELETE_RETENTION_DAYS: 30,
                 AzureResourceMetadata.STORAGE_CONTAINER_DELETE_RETENTION_DAYS: 14,
                 AzureResourceMetadata.STORAGE_BLOB_RESTORE_POLICY_DAYS: 7,
@@ -120,6 +122,8 @@ class AzureResourceFactsTests(unittest.TestCase):
             ["rotation_policy.expire_after is unknown after planning"],
         )
         self.assertTrue(facts.storage_blob_versioning_enabled)
+        self.assertTrue(facts.storage_blob_permanent_delete_enabled)
+        self.assertFalse(facts.storage_hierarchical_namespace_enabled)
         self.assertEqual(facts.storage_blob_delete_retention_days, 30)
         self.assertEqual(facts.storage_container_delete_retention_days, 14)
         self.assertEqual(facts.storage_blob_restore_policy_days, 7)

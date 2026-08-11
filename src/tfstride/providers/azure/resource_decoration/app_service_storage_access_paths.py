@@ -253,6 +253,23 @@ def _storage_data_grant(
     )
 
 
+def storage_assignment_may_grant_blob_deletion(
+    assignment: Mapping[str, object],
+    assignment_resource: NormalizedResource,
+    context: AzureDecorationContext,
+) -> bool:
+    """Return whether an exact or unresolved role may include Blob deletion."""
+
+    grant, grant_uncertainty = _storage_data_grant(
+        assignment,
+        assignment_resource,
+        context,
+    )
+    if grant is not None:
+        return "delete" in grant.access_classes
+    return grant_uncertainty is not None
+
+
 def _built_in_role(
     role_name: str | None,
     role_definition_id: str | None,

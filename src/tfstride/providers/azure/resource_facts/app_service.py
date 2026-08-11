@@ -7,6 +7,9 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
 )
 from tfstride.providers.azure.metadata import AzureResourceMetadata
+from tfstride.providers.azure.object_storage_deletion_evidence import (
+    AzureAppServiceBlobDeletionPath,
+)
 from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceServiceBusAccessPath,
     AzureAppServiceServiceBusProtectedDataConvergence,
@@ -133,6 +136,31 @@ class AzureAppServiceFacts(AzureBaseFacts):
 
     def extend_app_service_storage_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(AzureResourceMetadata.APP_SERVICE_STORAGE_ACCESS_PATH_UNCERTAINTIES, values)
+
+    @property
+    def app_service_blob_deletion_paths(
+        self,
+    ) -> list[AzureAppServiceBlobDeletionPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_BLOB_DELETION_PATHS)
+
+    @property
+    def app_service_blob_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_BLOB_DELETION_PATH_UNCERTAINTIES)
+
+    def set_app_service_blob_deletion_paths(
+        self,
+        values: list[AzureAppServiceBlobDeletionPath],
+    ) -> None:
+        self.set(AzureResourceMetadata.APP_SERVICE_BLOB_DELETION_PATHS, values)
+
+    def extend_app_service_blob_deletion_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_BLOB_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     @property
     def app_service_storage_protected_data_convergences(

@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Protocol
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.resource_decoration.app_service_blob_deletion_paths import (
+    ModelAppServiceBlobDeletionPathsStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_cosmosdb_access_paths import (
     ModelAppServiceCosmosDbAccessPathsStage,
 )
@@ -100,6 +103,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         ModelAppServiceCosmosDbAccessPathsStage(),
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),
+        ModelAppServiceBlobDeletionPathsStage(),
         ModelAppServiceServiceBusAccessPathsStage(),
         ModelAppServiceKeyVaultProtectedDataConvergenceStage(),
         ModelFederatedManagedIdentityTrustPathsStage(),
