@@ -103,11 +103,13 @@ include = [
   # GCP object-storage normalization, deletion, and recovery evidence.
   "src/tfstride/providers/gcp/attributes.py",
   "src/tfstride/providers/gcp/iam_custom_role_normalizers.py",
+  "src/tfstride/providers/gcp/iam_reference_utils.py",
   "src/tfstride/providers/gcp/storage_normalizers.py",
   "src/tfstride/providers/gcp/resource_facts/iam.py",
   "src/tfstride/providers/gcp/resource_facts/storage.py",
   "src/tfstride/providers/gcp/object_storage_deletion_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_gcs_object_deletion_paths.py",
+  "src/tfstride/providers/gcp/cloud_run_gcs_rules.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",

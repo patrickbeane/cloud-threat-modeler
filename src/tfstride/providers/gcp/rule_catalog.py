@@ -903,6 +903,25 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-gcs-object-disruption",
+        title="Public Cloud Run service can disrupt GCS objects",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only the "
+            "exact GCS object-deletion permissions and bucket scope required. Separate object deletion from "
+            "public workload identities, and retain versioning, soft-delete, and retention controls where "
+            "recovery is required."
+        ),
+        tags=("gcp", "cloud-run", "gcs", "iam", "public-access", "object-storage", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-pubsub-mutation-access",
         title="Public Cloud Run service has Pub/Sub publish, deletion, or administrative access",
         category=StrideCategory.TAMPERING,

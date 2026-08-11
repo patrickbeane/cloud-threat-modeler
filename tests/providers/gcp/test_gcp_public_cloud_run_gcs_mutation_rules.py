@@ -142,13 +142,13 @@ class GcpPublicCloudRunGcsMutationRuleTests(unittest.TestCase):
 
     def test_user_admin_and_deterministic_custom_mutation_roles_are_detected(self) -> None:
         role_cases = (
-            ("roles/storage.objectUser", [], "user", "write,delete"),
-            ("roles/storage.objectAdmin", [], "admin", "write,delete"),
+            ("roles/storage.objectUser", [], "user", "write"),
+            ("roles/storage.objectAdmin", [], "admin", "write"),
             (
                 f"projects/{_PROJECT}/roles/cloudRunStorage",
                 [_custom_role()],
                 "custom",
-                "write,delete",
+                "write",
             ),
         )
 

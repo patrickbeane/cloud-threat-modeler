@@ -12,6 +12,12 @@ from tfstride.providers.coercion import (
     dedupe,
     dedupe_strings,
 )
+from tfstride.providers.gcp.iam_reference_utils import (
+    custom_role_reference_keys,
+    gcs_bucket_scope_name,
+    gcs_bucket_target_matches,
+    normalize_gcp_project,
+)
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsBucketObjectNamespaceDeletionPath,
     GcpCloudRunGcsGenerationNamespaceDeletionPath,
@@ -174,7 +180,7 @@ def _cloud_run_gcs_object_deletion_paths(
     uncertainties: list[str] = []
     for bucket in buckets:
         bucket_name = _bucket_name(bucket)
-        bucket_project = _normalize_project(gcp_facts(bucket).project)
+        bucket_project = normalize_gcp_project(gcp_facts(bucket).project)
         if bucket_name is None or bucket_project is None:
             uncertainties.append(f"{workload.address}: GCS bucket {bucket.address} has unresolved exact ancestry")
             continue
@@ -484,7 +490,7 @@ def _applicable_scope(
         scope = bucket_project
         if facts.iam_scope_reference_state in {"unknown", "not_configured"}:
             return "unresolved", "project", scope
-        source_project = _normalize_project(facts.project)
+        source_project = normalize_gcp_project(facts.project)
         if source_project is None:
             return "unresolved", "project", scope
         return ("applicable", "project", scope) if source_project == bucket_project else ("unrelated", None, None)
@@ -497,6 +503,8 @@ def _applicable_scope(
         return "unresolved", "bucket", bucket_scope
 
     reference = _unwrap_reference(target_reference)
+    if gcs_bucket_target_matches(reference, bucket.address, bucket_name):
+        return "applicable", "bucket", bucket_scope
     if reference.startswith("google_storage_bucket."):
         parts = reference.rsplit(".", 1)
         if len(parts) != 2:
@@ -509,11 +517,9 @@ def _applicable_scope(
             return "unresolved", "bucket", bucket_scope
         return "applicable", "bucket", bucket_scope
 
-    exact_name = _bucket_name_from_scope(reference)
+    exact_name = gcs_bucket_scope_name(reference)
     if exact_name is not None:
         return ("applicable", "bucket", bucket_scope) if exact_name == bucket_name else ("unrelated", None, None)
-    if reference == bucket_name:
-        return "applicable", "bucket", bucket_scope
     if "${" not in reference and "/" not in reference:
         return "unrelated", None, None
     return "unresolved", "bucket", bucket_scope
@@ -716,25 +722,8 @@ def _custom_roles_by_reference(
             facts.custom_role_stage,
             facts.custom_role_deleted,
         )
-        references: set[str | None] = {
-            resource.address,
-            f"{resource.address}.id",
-            f"{resource.address}.name",
-            f"{resource.address}.role_id",
-            resource.identifier,
-            facts.resource_name,
-            facts.custom_role_id,
-        }
-        if facts.project and facts.custom_role_id:
-            references.add(f"projects/{facts.project}/roles/{facts.custom_role_id}")
-        if facts.organization_id and facts.custom_role_id:
-            references.add(f"organizations/{facts.organization_id}/roles/{facts.custom_role_id}")
-        for reference in references:
-            if reference:
-                result.setdefault(
-                    gcp_reference_key(reference.strip(), GCP_ROLE_REFERENCE_SUFFIXES),
-                    custom,
-                )
+        for reference in custom_role_reference_keys(resource):
+            result.setdefault(reference, custom)
     return result
 
 
@@ -772,14 +761,6 @@ def _bucket_scope(bucket_name: str) -> str:
     return f"projects/_/buckets/{bucket_name}"
 
 
-def _bucket_name_from_scope(value: str) -> str | None:
-    prefix = "projects/_/buckets/"
-    if not value.startswith(prefix):
-        return None
-    name = value[len(prefix) :].rstrip("/")
-    return name if name and "/" not in name else None
-
-
 def _unwrap_reference(value: str) -> str:
     text = value.strip()
     if text.startswith("${") and text.endswith("}"):
@@ -810,18 +791,6 @@ def _is_exact_service_account_identity(email: str | None, member: str | None) ->
 
 def _looks_like_custom_role(role: str) -> bool:
     return role.startswith(("projects/", "organizations/")) or "iam_custom_role." in role
-
-
-def _normalize_project(value: object) -> str | None:
-    text = _known_string(value)
-    if text is None:
-        return None
-    parts = [part for part in text.split("/") if part]
-    if len(parts) == 2 and parts[0] == "projects":
-        return parts[1]
-    if len(parts) == 1 and "${" not in text and not text.startswith("google_"):
-        return parts[0]
-    return None
 
 
 def _known_string(value: object) -> str | None:

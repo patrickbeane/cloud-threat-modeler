@@ -93,6 +93,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-secret-tampering",
         "gcp-public-cloud-run-secret-disruption",
         "gcp-public-cloud-run-gcs-mutation-access",
+        "gcp-public-cloud-run-gcs-object-disruption",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
     ),
@@ -268,6 +269,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-gcs-mutation-access": (
             cloud_run_gcs_detectors.detect_public_cloud_run_gcs_mutation_access
+        ),
+        "gcp-public-cloud-run-gcs-object-disruption": (
+            cloud_run_gcs_detectors.detect_public_cloud_run_gcs_object_disruption
         ),
         "gcp-public-cloud-run-pubsub-mutation-access": (
             cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_mutation_access
