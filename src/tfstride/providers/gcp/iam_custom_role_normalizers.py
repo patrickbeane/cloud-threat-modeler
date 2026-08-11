@@ -56,6 +56,27 @@ def _normalize_custom_role(
     permissions_state = (
         STATE_UNKNOWN if permissions_unknown else STATE_CONFIGURED if permissions else STATE_NOT_CONFIGURED
     )
+    stage_unknown = attribute_unknown(
+        resource.unknown_values,
+        GcpAttr.STAGE.key,
+    )
+    if stage_unknown:
+        stage = None
+    elif values.has(GcpAttr.STAGE):
+        stage = values.get(GcpAttr.STAGE)
+    else:
+        stage = "GA"
+
+    deleted_unknown = attribute_unknown(
+        resource.unknown_values,
+        GcpAttr.DELETED.key,
+    )
+    if deleted_unknown:
+        deleted = None
+        deleted_uncertainties = ["deleted is unknown after planning"]
+    else:
+        deleted = values.get(GcpAttr.DELETED) if values.has(GcpAttr.DELETED) else False
+        deleted_uncertainties = []
     return NormalizedResource(
         address=resource.address,
         provider=GCP_PROVIDER,
@@ -70,10 +91,11 @@ def _normalize_custom_role(
             GcpResourceMetadata.CUSTOM_ROLE_ID: role_id,
             GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS: permissions,
             GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS_STATE: permissions_state,
-            GcpResourceMetadata.CUSTOM_ROLE_STAGE: values.get(GcpAttr.STAGE),
+            GcpResourceMetadata.CUSTOM_ROLE_STAGE: stage,
+            GcpResourceMetadata.CUSTOM_ROLE_DELETED: deleted,
+            GcpResourceMetadata.CUSTOM_ROLE_DELETED_UNCERTAINTIES: deleted_uncertainties,
             "title": values.get(GcpAttr.TITLE),
             "description": values.get(GcpAttr.DESCRIPTION),
-            "deleted": values.get(GcpAttr.DELETED),
         },
     )
 

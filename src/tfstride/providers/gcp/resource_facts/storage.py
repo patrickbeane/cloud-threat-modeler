@@ -26,6 +26,22 @@ class GcpStorageFacts(GcpBaseFacts):
         return self.optional_bool(GcpResourceMetadata.GCS_VERSIONING_ENABLED)
 
     @property
+    def gcs_versioning_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.GCS_VERSIONING_UNCERTAINTIES)
+
+    @property
+    def gcs_soft_delete_retention_duration_seconds(self) -> int | None:
+        return self.get(GcpResourceMetadata.GCS_SOFT_DELETE_RETENTION_DURATION_SECONDS)
+
+    @property
+    def gcs_soft_delete_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.GCS_SOFT_DELETE_STATE)
+
+    @property
+    def gcs_soft_delete_policy_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.GCS_SOFT_DELETE_POLICY_UNCERTAINTIES)
+
+    @property
     def gcs_retention_period_seconds(self) -> int | None:
         return self.get(GcpResourceMetadata.GCS_RETENTION_PERIOD_SECONDS)
 

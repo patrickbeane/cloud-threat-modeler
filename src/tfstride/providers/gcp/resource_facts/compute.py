@@ -7,6 +7,9 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsOperationPath,
 )
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
+from tfstride.providers.gcp.object_storage_deletion_evidence import (
+    GcpCloudRunGcsObjectDeletionPath,
+)
 from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsAccessPath,
     GcpCloudRunGcsProtectedDataConvergence,
@@ -91,6 +94,16 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_gcs_object_deletion_paths(
+        self,
+    ) -> list[GcpCloudRunGcsObjectDeletionPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATHS)
+
+    @property
+    def cloud_run_gcs_object_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES)
+
+    @property
     def cloud_run_gcs_protected_data_convergences(
         self,
     ) -> list[GcpCloudRunGcsProtectedDataConvergence]:
@@ -168,6 +181,21 @@ class GcpComputeFacts(GcpBaseFacts):
 
     def extend_cloud_run_gcs_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_gcs_object_deletion_paths(
+        self,
+        values: list[GcpCloudRunGcsObjectDeletionPath],
+    ) -> None:
+        self.set(GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATHS, values)
+
+    def extend_cloud_run_gcs_object_deletion_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def set_cloud_run_gcs_protected_data_convergences(
         self,

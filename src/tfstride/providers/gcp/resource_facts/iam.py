@@ -42,6 +42,18 @@ class GcpIamFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CUSTOM_ROLE_PERMISSIONS_STATE)
 
     @property
+    def custom_role_stage(self) -> str | None:
+        return self.get(GcpResourceMetadata.CUSTOM_ROLE_STAGE)
+
+    @property
+    def custom_role_deleted(self) -> bool | None:
+        return self.optional_bool(GcpResourceMetadata.CUSTOM_ROLE_DELETED)
+
+    @property
+    def custom_role_deleted_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CUSTOM_ROLE_DELETED_UNCERTAINTIES)
+
+    @property
     def organization_id(self) -> str | None:
         return self.get(GcpResourceMetadata.ORGANIZATION_ID)
 

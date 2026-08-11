@@ -27,55 +27,6 @@ from tfstride.providers.gcp.resource_utils import first_non_empty, resource_iden
 from tfstride.providers.kubernetes import block_value, first_unknown_block
 
 
-def normalize_storage_bucket(resource: TerraformResource) -> NormalizedResource:
-    values = GcpValues(resource.values)
-    versioning_values = _first_block(values, GcpAttr.VERSIONING)
-    encryption_values = _first_block(values, GcpAttr.ENCRYPTION)
-    retention_policy_values = _first_block(values, GcpAttr.RETENTION_POLICY)
-    versioning = GcpValues(versioning_values)
-    encryption = GcpValues(encryption_values)
-    retention_policy = GcpValues(retention_policy_values)
-    default_kms_key_name = first_non_empty(encryption.get(GcpAttr.DEFAULT_KMS_KEY_NAME))
-    retention_period_seconds = retention_policy.get(GcpAttr.RETENTION_PERIOD)
-    retention_policy_locked = _optional_raw_bool(retention_policy_values, GcpAttr.IS_LOCKED.key)
-    return _with_storage_encrypted(
-        NormalizedResource(
-            address=resource.address,
-            provider=GCP_PROVIDER,
-            resource_type=resource.resource_type,
-            name=resource.name,
-            category=ResourceCategory.DATA,
-            identifier=resource_identifier(resource),
-            data_sensitivity="sensitive",
-            metadata={
-                GcpResourceMetadata.NAME: resource_name(resource),
-                GcpResourceMetadata.BUCKET_NAME: resource_name(resource),
-                GcpResourceMetadata.SELF_LINK: values.get(GcpAttr.SELF_LINK),
-                GcpResourceMetadata.PROJECT: values.get(GcpAttr.PROJECT),
-                GcpResourceMetadata.LABELS: values.get(GcpAttr.LABELS),
-                GcpResourceMetadata.UNIFORM_BUCKET_LEVEL_ACCESS: as_bool(
-                    values.get(GcpAttr.UNIFORM_BUCKET_LEVEL_ACCESS)
-                ),
-                GcpResourceMetadata.PUBLIC_ACCESS_PREVENTION: values.get(GcpAttr.PUBLIC_ACCESS_PREVENTION),
-                GcpResourceMetadata.GCS_VERSIONING_ENABLED: as_bool(versioning.get(GcpAttr.ENABLED)),
-                GcpResourceMetadata.GCS_VERSIONING_CONFIGURATION: versioning_values,
-                GcpResourceMetadata.GCS_DEFAULT_KMS_KEY_NAME: default_kms_key_name,
-                GcpResourceMetadata.GCS_ENCRYPTION_CONFIGURATION: encryption_values,
-                GcpResourceMetadata.GCS_RETENTION_PERIOD_SECONDS: retention_period_seconds,
-                GcpResourceMetadata.GCS_RETENTION_POLICY_LOCKED: retention_policy_locked,
-                GcpResourceMetadata.GCS_RETENTION_POLICY_CONFIGURATION: retention_policy_values,
-                GcpResourceMetadata.GCS_RETENTION_POLICY_UNCERTAINTIES: _retention_policy_uncertainties(
-                    resource.unknown_values
-                ),
-                "location": values.get(GcpAttr.LOCATION),
-                "storage_class": values.get(GcpAttr.STORAGE_CLASS),
-                "force_destroy": as_bool(values.get(GcpAttr.FORCE_DESTROY)),
-                GcpResourceMetadata.CUSTOMER_MANAGED_ENCRYPTION: bool(default_kms_key_name),
-            },
-        )
-    )
-
-
 def normalize_secret_manager_secret(resource: TerraformResource) -> NormalizedResource:
     values = GcpValues(resource.values)
     secret_id = first_non_empty(values.get(GcpAttr.SECRET_ID), values.get(GcpAttr.NAME), resource.name)
@@ -528,27 +479,6 @@ def _bool_with_default(values: GcpValues, attribute: GcpAttribute[Any], default:
     if not values.has(attribute):
         return default
     return as_bool(values.raw(attribute))
-
-
-def _optional_raw_bool(values: Mapping[str, Any], key: str) -> bool | None:
-    if key not in values:
-        return None
-    return as_bool(values.get(key))
-
-
-def _retention_policy_uncertainties(unknown_values: Mapping[str, Any]) -> list[str]:
-    retention_unknown = unknown_values.get(GcpAttr.RETENTION_POLICY.key)
-    if retention_unknown is True:
-        return ["retention_policy is unknown after planning"]
-    retention_block = first_item(retention_unknown)
-    if not isinstance(retention_block, Mapping):
-        return []
-
-    uncertainties: list[str] = []
-    for field_name in (GcpAttr.RETENTION_PERIOD.key, GcpAttr.IS_LOCKED.key):
-        if retention_block.get(field_name) is True:
-            uncertainties.append(f"retention_policy.{field_name} is unknown after planning")
-    return uncertainties
 
 
 def _secret_manager_lifecycle_value(

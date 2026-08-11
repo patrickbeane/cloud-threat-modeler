@@ -46,7 +46,7 @@ class GcpGcsObjectDeletionRecoveryEvidence(TypedDict):
     uncertainties: list[str]
 
 
-class _GcpCloudRunGcsObjectDeletionPathCommon(TypedDict):
+class GcpCloudRunGcsObjectDeletionPathCommon(TypedDict):
     workload_address: str
     workload_type: str
     service_account_email: str
@@ -78,7 +78,7 @@ class _GcpCloudRunGcsObjectDeletionPathCommon(TypedDict):
     posture_uncertainties: list[str]
 
 
-class GcpCloudRunGcsExactObjectDeletionPath(_GcpCloudRunGcsObjectDeletionPathCommon):
+class GcpCloudRunGcsExactObjectDeletionPath(GcpCloudRunGcsObjectDeletionPathCommon):
     operation: Literal["storage.objects.delete"]
     operation_class: Literal["logical_object_deletion"]
     target_granularity: Literal["object"]
@@ -86,7 +86,7 @@ class GcpCloudRunGcsExactObjectDeletionPath(_GcpCloudRunGcsObjectDeletionPathCom
     generation: None
 
 
-class GcpCloudRunGcsObjectPrefixDeletionPath(_GcpCloudRunGcsObjectDeletionPathCommon):
+class GcpCloudRunGcsObjectPrefixDeletionPath(GcpCloudRunGcsObjectDeletionPathCommon):
     operation: Literal["storage.objects.delete"]
     operation_class: Literal["logical_object_deletion"]
     target_granularity: Literal["object_prefix"]
@@ -94,7 +94,7 @@ class GcpCloudRunGcsObjectPrefixDeletionPath(_GcpCloudRunGcsObjectDeletionPathCo
     generation: None
 
 
-class GcpCloudRunGcsBucketObjectNamespaceDeletionPath(_GcpCloudRunGcsObjectDeletionPathCommon):
+class GcpCloudRunGcsBucketObjectNamespaceDeletionPath(GcpCloudRunGcsObjectDeletionPathCommon):
     operation: Literal["storage.objects.delete"]
     operation_class: Literal["logical_object_deletion"]
     target_granularity: Literal["bucket_object_namespace"]
@@ -102,7 +102,7 @@ class GcpCloudRunGcsBucketObjectNamespaceDeletionPath(_GcpCloudRunGcsObjectDelet
     generation: None
 
 
-class GcpCloudRunGcsGenerationDeletionPath(_GcpCloudRunGcsObjectDeletionPathCommon):
+class GcpCloudRunGcsGenerationDeletionPath(GcpCloudRunGcsObjectDeletionPathCommon):
     operation: Literal["storage.objects.delete"]
     operation_class: Literal["generation_deletion"]
     target_granularity: Literal["generation"]
@@ -110,7 +110,7 @@ class GcpCloudRunGcsGenerationDeletionPath(_GcpCloudRunGcsObjectDeletionPathComm
     generation: str
 
 
-class GcpCloudRunGcsGenerationNamespaceDeletionPath(_GcpCloudRunGcsObjectDeletionPathCommon):
+class GcpCloudRunGcsGenerationNamespaceDeletionPath(GcpCloudRunGcsObjectDeletionPathCommon):
     operation: Literal["storage.objects.delete"]
     operation_class: Literal["generation_deletion"]
     target_granularity: Literal["bucket_generation_namespace"]

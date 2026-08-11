@@ -26,7 +26,6 @@ from tfstride.providers.gcp.data_normalizers import (
     normalize_pubsub_topic,
     normalize_secret_manager_secret,
     normalize_sql_database_instance,
-    normalize_storage_bucket,
 )
 from tfstride.providers.gcp.firestore_normalizers import normalize_firestore_database
 from tfstride.providers.gcp.iam_normalizers import (
@@ -140,6 +139,7 @@ from tfstride.providers.gcp.serverless_normalizers import (
     normalize_cloudfunctions_function_iam_member,
     normalize_cloudfunctions_function_iam_policy,
 )
+from tfstride.providers.gcp.storage_normalizers import normalize_storage_bucket
 from tfstride.resource_metadata import InventoryMetadata
 
 ResourceNormalizer = Callable[[TerraformResource], NormalizedResource]

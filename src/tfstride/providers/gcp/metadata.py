@@ -7,6 +7,9 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpKmsIamGrant,
     GcpKmsKeyRingIamGrant,
 )
+from tfstride.providers.gcp.object_storage_deletion_evidence import (
+    GcpCloudRunGcsObjectDeletionPath,
+)
 from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsAccessPath,
     GcpCloudRunGcsProtectedDataConvergence,
@@ -77,6 +80,7 @@ class GcpResourceMetadata:
     CUSTOM_ROLE_ID = OptionalStringMetadataField("custom_role_id")
     CUSTOM_ROLE_STAGE = OptionalStringMetadataField("custom_role_stage")
     CUSTOM_ROLE_PERMISSIONS_STATE = OptionalStringMetadataField("custom_role_permissions_state")
+    CUSTOM_ROLE_DELETED = BoolMetadataField("custom_role_deleted")
     ORGANIZATION_ID = OptionalStringMetadataField("organization_id")
     FOLDER_ID = OptionalStringMetadataField("folder_id")
     ORG_POLICY_CONSTRAINT = OptionalStringMetadataField("org_policy_constraint")
@@ -95,6 +99,9 @@ class GcpResourceMetadata:
         "cloud_run_secret_management_path_uncertainties"
     )
     CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_gcs_access_path_uncertainties")
+    CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_gcs_object_deletion_path_uncertainties"
+    )
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_gcs_protected_data_convergence_uncertainties"
     )
@@ -221,6 +228,8 @@ class GcpResourceMetadata:
     ARTIFACT_REGISTRY_DELETION_POLICY = OptionalStringMetadataField("artifact_registry_deletion_policy")
     ARTIFACT_REGISTRY_DELETION_POLICY_STATE = OptionalStringMetadataField("artifact_registry_deletion_policy_state")
     GCS_RETENTION_PERIOD_SECONDS = OptionalIntMetadataField("gcs_retention_period_seconds")
+    GCS_SOFT_DELETE_RETENTION_DURATION_SECONDS = OptionalIntMetadataField("gcs_soft_delete_retention_duration_seconds")
+    GCS_SOFT_DELETE_STATE = OptionalStringMetadataField("gcs_soft_delete_state")
     PUBSUB_TOPIC_MESSAGE_RETENTION_SECONDS = OptionalIntMetadataField("pubsub_topic_message_retention_seconds")
     PUBSUB_SUBSCRIPTION_ACK_DEADLINE_SECONDS = OptionalIntMetadataField("pubsub_subscription_ack_deadline_seconds")
     PUBSUB_SUBSCRIPTION_DEAD_LETTER_MAX_DELIVERY_ATTEMPTS = OptionalIntMetadataField(
@@ -370,8 +379,11 @@ class GcpResourceMetadata:
     IAM_MEMBERS = StringListMetadataField("iam_members")
     IAM_ASSIGNMENT_POSTURE_UNCERTAINTIES = StringListMetadataField("iam_assignment_posture_uncertainties")
     CUSTOM_ROLE_PERMISSIONS = StringListMetadataField("custom_role_permissions")
+    CUSTOM_ROLE_DELETED_UNCERTAINTIES = StringListMetadataField("custom_role_deleted_uncertainties")
     RESOURCE_POLICY_SOURCE_ADDRESSES = StringListMetadataField("gcp_resource_policy_source_addresses")
     GCS_RETENTION_POLICY_UNCERTAINTIES = StringListMetadataField("gcs_retention_policy_uncertainties")
+    GCS_SOFT_DELETE_POLICY_UNCERTAINTIES = StringListMetadataField("gcs_soft_delete_policy_uncertainties")
+    GCS_VERSIONING_UNCERTAINTIES = StringListMetadataField("gcs_versioning_uncertainties")
     ARTIFACT_REGISTRY_POSTURE_UNCERTAINTIES = StringListMetadataField("artifact_registry_posture_uncertainties")
     ARTIFACT_REGISTRY_IAM_POSTURE_UNCERTAINTIES = StringListMetadataField("artifact_registry_iam_posture_uncertainties")
     ARTIFACT_REGISTRY_WRITE_PATH_UNCERTAINTIES = StringListMetadataField("artifact_registry_write_path_uncertainties")
@@ -499,6 +511,9 @@ class GcpResourceMetadata:
         "cloud_run_secret_management_paths"
     )
     CLOUD_RUN_GCS_ACCESS_PATHS = RecordListMetadataField[GcpCloudRunGcsAccessPath]("cloud_run_gcs_access_paths")
+    CLOUD_RUN_GCS_OBJECT_DELETION_PATHS = RecordListMetadataField[GcpCloudRunGcsObjectDeletionPath](
+        "cloud_run_gcs_object_deletion_paths"
+    )
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[GcpCloudRunGcsProtectedDataConvergence](
         "cloud_run_gcs_protected_data_convergences"
     )

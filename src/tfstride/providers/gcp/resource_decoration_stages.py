@@ -12,6 +12,9 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_firestore_access_paths
 from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_access_paths import (
     ModelCloudRunGcsAccessPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_object_deletion_paths import (
+    ModelCloudRunGcsObjectDeletionPathsStage,
+)
 from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_protected_data_convergence import (
     ModelCloudRunGcsProtectedDataConvergenceStage,
 )
@@ -73,6 +76,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         NormalizeFirestoreIamPostureStage(),
         ModelCloudRunFirestoreAccessPathsStage(),
         ModelCloudRunGcsAccessPathsStage(),
+        ModelCloudRunGcsObjectDeletionPathsStage(),
         ModelCloudRunGcsProtectedDataConvergenceStage(),
         ModelCloudRunPubsubAccessPathsStage(),
         ModelCloudRunSecretAccessPathsStage(),
