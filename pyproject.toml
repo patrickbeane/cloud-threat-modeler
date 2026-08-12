@@ -71,6 +71,9 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/ecs_s3_object_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_s3_object_disruption_rules.py",
 
+  # AWS structured-data deletion and recovery evidence.
+  "src/tfstride/providers/aws/structured_data_deletion_evidence.py",
+
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",
   "src/tfstride/providers/aws/protected_data_evidence.py",
@@ -111,6 +114,9 @@ include = [
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_gcs_object_deletion_paths.py",
   "src/tfstride/providers/gcp/cloud_run_gcs_rules.py",
 
+  # GCP structured-data deletion and recovery evidence.
+  "src/tfstride/providers/gcp/structured_data_deletion_evidence.py",
+
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
   "src/tfstride/providers/gcp/protected_data_evidence.py",
@@ -146,6 +152,9 @@ include = [
   "src/tfstride/providers/azure/object_storage_deletion_evidence.py",
   "src/tfstride/providers/azure/app_service_blob_rules.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_blob_deletion_paths.py",
+
+  # Azure structured-data deletion and recovery evidence.
+  "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",
