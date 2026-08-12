@@ -94,6 +94,7 @@ This is a concise coverage map. Reports identify unsupported AWS resource types 
 ### Workload-to-data paths
 * Public ECS service-to-Secrets Manager, S3, SNS/SQS, and DynamoDB mutation paths
 * Exact public ECS-to-SQS receive paths
+* Public ECS S3 `DeleteObject` and `DeleteObjectVersion` disruption paths with exact object, prefix, bucket-namespace, and version/Object Lock evidence
 * Public ECS secret-value tampering and secret-deletion disruption paths for task-role authority
 * Execution/task-role access broader than consumed references
 * Native Secrets Manager or SSM delivery references and explicitly denied paths stay quiet; condition-dependent, incomplete, or unresolved expected management paths remain uncertainty where modeled

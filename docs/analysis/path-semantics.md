@@ -9,8 +9,11 @@ A relationship only becomes a finding when it is backed by deterministic modeled
 * Workload-to-data mutation and read paths (e.g., an ECS task role, Cloud Run service account, or App Service managed identity reaching a data store)
 * Cryptographic-operation paths (decrypt, unwrap, sign, MAC-generate), which additionally require compatible key capabilities and effective operation authorization
 * Managed-key administration paths (disruption, authorization delegation), which additionally require exact modeled key or management-target resolution
+* Object-storage deletion paths, which distinguish object writes and metadata mutation from logical, version, or generation deletion while retaining provider-native recovery uncertainty
 * Messaging read paths, which require the corresponding exact receive/consume grant - modeled identity and provider-native receive or consume authority is not a guarantee of effective message retrieval after provider deny, network, or encryption controls
 * Secret values themselves, which are never retained in evidence or reports
+
+For object-storage paths, recovery uncertainty affects impact evidence, not deterministic deletion authority. Explicitly denied or incompatible deletion paths stay quiet; conditional, incomplete, ambiguous, or unresolved paths remain uncertainty where modeled. See [Object-Storage Paths](object-storage-paths.md) for the provider-native target and recovery boundaries.
 
 ## Identity and workload data-plane paths are provider-local
 

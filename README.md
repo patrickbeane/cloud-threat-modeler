@@ -123,9 +123,9 @@ tfstride --list-rules --json
 
 | Provider | Status | Highlights | Coverage details |
 | --- | --- | --- | --- |
-| **AWS** | Deepest support | EC2/ECS/Lambda edge & data-plane paths, ECR image integrity, RDS/DynamoDB/S3/Secrets Manager posture, KMS-backed crypto & key-disruption paths, IAM/OIDC trust, CloudTrail/GuardDuty/Config/Security Hub/Access Analyzer/Macie posture | [docs/providers/aws.md](docs/providers/aws.md) |
-| **GCP** | Active support | Compute/Cloud Run/Functions edge & data-plane paths, Artifact Registry image integrity, Cloud SQL/Firestore/GCS/Pub-Sub posture, Cloud KMS CMEK paths, IAM & Workload Identity Federation, Security Command Center & logging posture | [docs/providers/gcp.md](docs/providers/gcp.md) |
-| **Azure** | Active support | VM/App Service/Function App edge & data-plane paths, ACR image integrity, Storage/SQL/PostgreSQL/Cosmos DB/Service Bus posture, Key Vault CMK paths, managed identity & RBAC, Defender & diagnostic posture | [docs/providers/azure.md](docs/providers/azure.md) |
+| **AWS** | Deepest support | EC2/ECS/Lambda edge & data-plane paths, ECR image integrity, RDS/DynamoDB/S3/Secrets Manager posture and S3 deletion/recovery paths, KMS/key-disruption paths, IAM/OIDC trust, audit & detection posture | [docs/providers/aws.md](docs/providers/aws.md) |
+| **GCP** | Active support | Compute/Cloud Run/Functions edge & data-plane paths, Artifact Registry image integrity, Cloud SQL/Firestore/GCS/Pub/Sub posture and GCS deletion/recovery paths, KMS CMEK paths, IAM & Workload Identity Federation, SCC & logging posture | [docs/providers/gcp.md](docs/providers/gcp.md) |
+| **Azure** | Active support | VM/App Service/Function App edge & data-plane paths, ACR image integrity, Storage/SQL/PostgreSQL/Cosmos DB/Service Bus posture and Blob deletion/recovery paths, Key Vault CMK paths, managed identity & RBAC, Defender & diagnostic posture | [docs/providers/azure.md](docs/providers/azure.md) |
 
 Unsupported resources are skipped and called out in the report rather than silently treated as analyzed.
 
@@ -137,6 +137,7 @@ Beyond per-resource posture checks, `tfstride` models multi-resource security pa
 * **Managed-key dependencies** - resolves supported encrypted resources to their exact provider-native keys and enriches key-disruption findings with modeled downstream blast radius. → [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)
 * **Protected-data convergence** - flags when a public workload has both read/receive access to protected data and decrypt/unwrap authority over that data's exact customer-managed key. → [docs/analysis/protected-data-convergence.md](docs/analysis/protected-data-convergence.md)
 * **Secret integrity & availability** - distinguishes runtime authority to modify a secret from authority to disable, destroy, delete, or purge it. → [docs/analysis/secret-management-paths.md](docs/analysis/secret-management-paths.md)
+* **Object-storage disruption and recovery** - distinguishes writes and metadata mutation from logical, version, and generation deletion while preserving provider-native scope and recovery evidence. → [docs/analysis/object-storage-paths.md](docs/analysis/object-storage-paths.md)
 
 Findings and enrichment across all four require deterministic modeled evidence. Exact symbolic first-apply references may qualify when resolution is unambiguous. Denied or incompatible evidence stays quiet; condition-dependent, ambiguous, unresolved, unsupported, or incomplete expected relationships remain visible as uncertainty where applicable. For how trust boundaries, evidence, and this "quiet vs. promoted" vocabulary work across providers, see [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md).
 
@@ -426,6 +427,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 * AWS is currently the deepest provider implementation; GCP and Azure are both under active/broad support but intentionally scoped - see each provider doc for current coverage and provider-specific limits.
 * Managed-key blast-radius evidence counts exact in-plan dependency relationships; it does not claim coverage of external consumers or prove which key version protects runtime data unless the provider model establishes that relationship (details in [docs/analysis/managed-key-paths.md](docs/analysis/managed-key-paths.md)).
+* Object-storage recovery evidence is provider-native and plan-local. It does not prove successful deletion, that a targeted object or version remains recoverable, or that runtime recovery will occur (details in [docs/analysis/object-storage-paths.md](docs/analysis/object-storage-paths.md)).
 * Public workload messaging read findings establish modeled identity and provider-native authorization to receive or consume messages, not guaranteed effective message retrieval after provider deny, network, or encryption controls (details in [docs/analysis/path-semantics.md](docs/analysis/path-semantics.md)).
 * Audit, detection, and private-connectivity checks are based on modeled Terraform resources. They do not prove runtime log delivery, DNS resolution, endpoint routing, or cloud-control state outside the plan.
 * Terraform resource coverage is scoped to security-relevant resources, relationships, and trust paths rather than exhaustive provider parity.
