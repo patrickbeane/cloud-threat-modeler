@@ -7,6 +7,10 @@ from types import MappingProxyType
 from typing import Any, Literal
 
 from tfstride.models import IAMPolicyCondition, IAMPolicyStatement, NormalizedResource
+from tfstride.providers.aws.reference_resolution import (
+    SymbolicReferenceAssessment,
+    assess_symbolic_reference,
+)
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import dedupe
@@ -25,6 +29,7 @@ TargetKind = Literal["table", "index"]
 
 _ECS_TASK_DEFINITION = "aws_ecs_task_definition"
 _ECS_SERVICE = "aws_ecs_service"
+_DYNAMODB_TABLE = "aws_dynamodb_table"
 _ACCESS_CLASS_ORDER: tuple[AccessClass, ...] = (
     "read",
     "return_value_read",
@@ -54,6 +59,7 @@ class _DynamoDbTarget:
     table: NormalizedResource
     target_arn: str
     target_kind: TargetKind
+    authorization_references: tuple[str, ...]
     index_name: str | None = None
 
 
@@ -315,7 +321,8 @@ def _target_tables(
     role: NormalizedResource,
     context: AwsDecorationContext,
 ) -> tuple[list[_DynamoDbTarget], list[str]]:
-    targets: dict[str, _DynamoDbTarget] = {}
+    references_by_table: dict[str, set[str]] = {}
+    tables_by_address: dict[str, NormalizedResource] = {}
     uncertainties: list[str] = []
     for statement in role.policy_statements:
         if not _has_modeled_action_pattern(statement):
@@ -332,17 +339,95 @@ def _target_tables(
                         f"{reference.table_arn}, which is not modeled in the plan"
                     )
                     continue
-                targets[table.address] = _DynamoDbTarget(
-                    table,
-                    reference.table_arn,
-                    "table",
+                tables_by_address[table.address] = table
+                references_by_table.setdefault(table.address, set()).add(reference.table_arn)
+                continue
+
+            symbolic = _symbolic_table_assessment(
+                role,
+                resource,
+                context,
+            )
+            if symbolic.state == "resolved" and symbolic.target is not None:
+                table = symbolic.target
+                tables_by_address[table.address] = table
+                references_by_table.setdefault(table.address, set()).add(resource)
+                continue
+            if symbolic.state == "uncertain":
+                uncertainties.append(
+                    f"{role.address} DynamoDB policy resource {resource!r} "
+                    "has ambiguous or unresolved exact table ancestry"
                 )
+                continue
+            if _looks_like_symbolic_table_arn_reference(resource):
                 continue
             if _could_target_dynamodb(resource):
                 uncertainties.append(
                     f"{role.address} DynamoDB policy resource {resource!r} does not identify an exact table"
                 )
-    return [targets[address] for address in sorted(targets)], dedupe(uncertainties)
+
+    targets: list[_DynamoDbTarget] = []
+    for address in sorted(tables_by_address):
+        table = tables_by_address[address]
+        references = references_by_table[address]
+        native_arn = aws_facts(table).dynamodb_table_arn or table.arn
+        if native_arn is not None:
+            references.add(native_arn)
+        target_reference = native_arn or min(references)
+        targets.append(
+            _DynamoDbTarget(
+                table,
+                target_reference,
+                "table",
+                tuple(sorted(references)),
+            )
+        )
+    return targets, dedupe(uncertainties)
+
+
+def _symbolic_table_assessment(
+    role: NormalizedResource,
+    reference: str,
+    context: AwsDecorationContext,
+) -> SymbolicReferenceAssessment:
+    candidates: dict[str, NormalizedResource] = {}
+    uncertain = False
+    for source in _identity_policy_resources(role, context):
+        assessment = assess_symbolic_reference(
+            source,
+            context.index,
+            reference,
+            expected_resource_types={_DYNAMODB_TABLE},
+            expected_reference_suffixes={".arn"},
+        )
+        if assessment.state == "resolved" and assessment.target is not None:
+            candidates[assessment.target.address] = assessment.target
+        elif assessment.state == "uncertain":
+            uncertain = True
+    if uncertain or len(candidates) > 1:
+        return SymbolicReferenceAssessment("uncertain")
+    if len(candidates) == 1:
+        return SymbolicReferenceAssessment(
+            "resolved",
+            next(iter(candidates.values())),
+        )
+    return SymbolicReferenceAssessment("not_observed")
+
+
+def _identity_policy_resources(
+    role: NormalizedResource,
+    context: AwsDecorationContext,
+) -> list[NormalizedResource]:
+    facts = aws_facts(role)
+    resources = [role]
+    for address in (
+        *facts.inline_policy_resource_addresses,
+        *facts.attached_policy_addresses,
+    ):
+        source = context.index.resources_by_address.get(address)
+        if source is not None:
+            resources.append(source)
+    return resources
 
 
 def _target_indexes(
@@ -379,6 +464,7 @@ def _target_indexes(
                     table,
                     index_arn,
                     "index",
+                    (index_arn,),
                     index_name=index_name,
                 )
 
@@ -510,6 +596,13 @@ def _dynamodb_resource_reference(
     return None
 
 
+def _looks_like_symbolic_table_arn_reference(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    segments = value.split(".")
+    return bool(len(segments) >= 3 and segments[-3] == "aws_dynamodb_table" and segments[-1] == "arn")
+
+
 def _could_target_dynamodb(value: object) -> bool:
     if not isinstance(value, str):
         return False
@@ -593,7 +686,11 @@ def _matching_target_resources(
     resources = {resource for resource in statement.resources if isinstance(resource, str)}
     if effect == "allow":
         return {resource for resource in resources if _allow_resource_matches_target(resource, target)}
-    return {resource for resource in resources if fnmatchcase(target.target_arn, resource)}
+    return {
+        resource
+        for resource in resources
+        if any(fnmatchcase(reference, resource) for reference in target.authorization_references)
+    }
 
 
 def _allow_resource_matches_target(
@@ -601,7 +698,7 @@ def _allow_resource_matches_target(
     target: _DynamoDbTarget,
 ) -> bool:
     if target.target_kind == "table":
-        return resource == target.target_arn
+        return resource in target.authorization_references
 
     reference = _dynamodb_resource_reference(resource)
     return bool(
@@ -797,7 +894,7 @@ def _resource_scope(
     resource: str,
     target: _DynamoDbTarget,
 ) -> str:
-    if resource == target.target_arn:
+    if resource in target.authorization_references:
         return f"exact_{target.target_kind}"
     if resource == "*":
         return "all_resources"

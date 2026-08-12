@@ -106,11 +106,13 @@ class AwsEcsDynamoDbItemDeletionPathCommon(TypedDict):
     role_kind: Literal["ecs_task_role"]
     credential_context: Literal["workload_runtime"]
     role_address: str
-    role_arn: str
+    role_reference: str
+    role_arn: str | None
     dynamodb_table_address: str
     dynamodb_table_resource_type: str
     dynamodb_table_name: str
-    dynamodb_table_arn: str
+    dynamodb_table_reference: str
+    dynamodb_table_arn: str | None
     target_granularity: Literal["table_item_namespace"]
     target_scope: Literal["exact_table_item_namespace"]
     target_model_evidence_addresses: list[str]

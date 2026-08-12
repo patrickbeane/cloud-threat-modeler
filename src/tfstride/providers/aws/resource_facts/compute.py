@@ -14,6 +14,9 @@ from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_
 from tfstride.providers.aws.secret_management_evidence import (
     AwsEcsSecretsManagerManagementPath,
 )
+from tfstride.providers.aws.structured_data_deletion_evidence import (
+    AwsEcsDynamoDbItemDeletionPath,
+)
 from tfstride.resource_metadata import DictListMetadataField
 
 
@@ -151,6 +154,12 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATHS)
 
     @property
+    def ecs_dynamodb_item_deletion_paths(
+        self,
+    ) -> list[AwsEcsDynamoDbItemDeletionPath]:
+        return self.get(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATHS)
+
+    @property
     def ecs_kms_operation_paths(self) -> list[AwsEcsKmsOperationPath]:
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS)
 
@@ -165,6 +174,10 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_dynamodb_access_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_dynamodb_item_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES)
 
     @property
     def ecs_kms_operation_path_uncertainties(self) -> list[str]:
@@ -628,6 +641,12 @@ class AwsComputeFacts(AwsBaseFacts):
     def set_ecs_dynamodb_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATHS, values)
 
+    def set_ecs_dynamodb_item_deletion_paths(
+        self,
+        values: list[AwsEcsDynamoDbItemDeletionPath],
+    ) -> None:
+        self.set(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATHS, values)
+
     def set_ecs_kms_operation_paths(self, values: list[AwsEcsKmsOperationPath]) -> None:
         self.set(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS, values)
 
@@ -645,6 +664,15 @@ class AwsComputeFacts(AwsBaseFacts):
         values: Sequence[str | None],
     ) -> None:
         self.extend(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def extend_ecs_dynamodb_item_deletion_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def extend_ecs_kms_operation_path_uncertainties(
         self,

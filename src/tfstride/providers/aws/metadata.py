@@ -18,6 +18,9 @@ from tfstride.providers.aws.secret_management_evidence import (
     AwsEcsSecretsManagerManagementPath,
     AwsSecretsManagerOperationAuthorization,
 )
+from tfstride.providers.aws.structured_data_deletion_evidence import (
+    AwsEcsDynamoDbItemDeletionPath,
+)
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -89,6 +92,9 @@ class AwsResourceMetadata:
     )
     ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_messaging_access_path_uncertainties")
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
+    ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "ecs_dynamodb_item_deletion_path_uncertainties"
+    )
     ECS_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_operation_path_uncertainties")
     ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_management_path_uncertainties")
     S3_POSTURE_UNCERTAINTIES = StringListMetadataField("s3_posture_uncertainties")
@@ -475,6 +481,9 @@ class AwsResourceMetadata:
     )
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
+    ECS_DYNAMODB_ITEM_DELETION_PATHS = RecordListMetadataField[AwsEcsDynamoDbItemDeletionPath](
+        "ecs_dynamodb_item_deletion_paths"
+    )
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
     ECS_KMS_MANAGEMENT_PATHS = RecordListMetadataField[AwsEcsKmsManagementPath]("ecs_kms_management_paths")
     ECS_DYNAMODB_INDEX_RELATIONSHIPS = DictListMetadataField("ecs_dynamodb_index_relationships")

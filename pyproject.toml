@@ -73,6 +73,7 @@ include = [
 
   # AWS structured-data deletion and recovery evidence.
   "src/tfstride/providers/aws/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_item_deletion_paths.py",
 
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",

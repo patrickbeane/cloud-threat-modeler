@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable
+from dataclasses import dataclass
+from typing import Literal
 
 from tfstride.models import (
     NormalizedResource,
@@ -9,6 +11,78 @@ from tfstride.models import (
     TerraformReferenceResolutionState,
 )
 from tfstride.providers.aws.resource_index import AwsResourceIndex
+
+SymbolicReferenceAssessmentState = Literal[
+    "resolved",
+    "uncertain",
+    "not_observed",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolicReferenceAssessment:
+    state: SymbolicReferenceAssessmentState
+    target: NormalizedResource | None = None
+
+
+def assess_symbolic_reference(
+    resource: NormalizedResource,
+    index: AwsResourceIndex,
+    reference: str,
+    *,
+    expected_resource_types: Collection[str],
+    expected_reference_suffixes: Collection[str],
+) -> SymbolicReferenceAssessment:
+    expected_types = set(expected_resource_types)
+    suffixes = tuple(expected_reference_suffixes)
+    if not reference.endswith(suffixes):
+        return SymbolicReferenceAssessment("not_observed")
+
+    candidates: dict[str, NormalizedResource] = {}
+    uncertain = False
+    observed = False
+    for resolution in resource.reference_resolutions:
+        if resolution.provenance != TerraformReferenceProvenance.CONFIGURATION_REFERENCE:
+            continue
+        mentioned = reference in resolution.references or any(
+            target.reference == reference for target in resolution.targets
+        )
+        if not mentioned:
+            continue
+        observed = True
+        if resolution.state != TerraformReferenceResolutionState.SYMBOLIC:
+            if resolution.state in {
+                TerraformReferenceResolutionState.AMBIGUOUS,
+                TerraformReferenceResolutionState.UNRESOLVED,
+                TerraformReferenceResolutionState.UNSUPPORTED,
+            }:
+                uncertain = True
+            continue
+
+        matching_targets = [
+            target
+            for target in resolution.targets
+            if target.reference == reference and target.reference.endswith(suffixes)
+        ]
+        if len(matching_targets) != 1:
+            uncertain = True
+            continue
+        candidate = index.resources_by_address.get(
+            matching_targets[0].address,
+        )
+        if candidate is None or candidate.resource_type not in expected_types:
+            uncertain = True
+            continue
+        candidates[candidate.address] = candidate
+
+    if uncertain or len(candidates) > 1:
+        return SymbolicReferenceAssessment("uncertain")
+    if len(candidates) == 1:
+        return SymbolicReferenceAssessment(
+            "resolved",
+            next(iter(candidates.values())),
+        )
+    return SymbolicReferenceAssessment("uncertain" if observed else "not_observed")
 
 
 def symbolic_reference_target(
