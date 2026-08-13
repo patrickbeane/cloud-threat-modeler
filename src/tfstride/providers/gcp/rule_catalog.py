@@ -757,6 +757,25 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-firestore-entity-disruption",
+        title="Public Cloud Run identity can disrupt Firestore entities",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Firestore entity-deletion permissions and database scope required. Keep bulk-delete "
+            "and database administration on separate operational identities, and retain point-in-time "
+            "recovery where historical recovery is required."
+        ),
+        tags=("gcp", "cloud-run", "firestore", "iam", "public-access", "nosql", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-firestore-read-access",
         title="Public Cloud Run identity has Firestore entity read grants",
         category=StrideCategory.INFORMATION_DISCLOSURE,

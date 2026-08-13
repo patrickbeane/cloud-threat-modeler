@@ -117,7 +117,7 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         self.assertEqual(finding.severity_reasoning.blast_radius, 2)
         self.assertEqual(finding.severity_reasoning.privilege_breadth, 1)
         self.assertIn(
-            "Firestore entity create, update, delete operations",
+            "Firestore entity create, update operations",
             finding.rationale,
         )
         self.assertIn("grant is project-applicable", finding.rationale)
@@ -137,7 +137,7 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         path_evidence = evidence["firestore_mutation_paths"][0]
         self.assertIn(f"database_address={_DATABASE_ADDRESS}", path_evidence)
         self.assertIn(
-            "entity_mutation_operations=create,update,delete",
+            "entity_mutation_operations=create,update",
             path_evidence,
         )
         self.assertIn("database_administration_classes=none", path_evidence)
@@ -232,10 +232,10 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         cases = {
             "create": (["datastore.entities.create"], "create"),
             "update": (["datastore.entities.update"], "update"),
-            "delete": (["datastore.entities.delete"], "delete"),
+            "delete": (["datastore.entities.delete"], None),
             "entity wildcard": (
                 ["datastore.entities.*"],
-                "create,update,delete",
+                "create,update",
             ),
         }
 
@@ -251,6 +251,10 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
                         _as_resource(_project_iam_member(role=role)),
                     ]
                 )
+
+                if operations is None:
+                    self.assertEqual(findings, [])
+                    continue
 
                 self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
                 path_evidence = _evidence(findings[0])["firestore_mutation_paths"][0]
@@ -280,7 +284,7 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         )
         path_evidence = _evidence(finding)["firestore_mutation_paths"][0]
         self.assertIn(
-            "entity_mutation_operations=create,update,delete",
+            "entity_mutation_operations=create,update",
             path_evidence,
         )
         self.assertIn(
