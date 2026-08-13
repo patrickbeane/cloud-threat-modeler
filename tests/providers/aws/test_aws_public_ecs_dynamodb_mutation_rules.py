@@ -146,13 +146,6 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
                 7,
                 "create or update items in the modeled table",
             ),
-            "dynamodb:DeleteItem": (
-                "entity_delete",
-                2,
-                1,
-                8,
-                "delete items from the modeled table",
-            ),
             "dynamodb:UpdateTable": (
                 "configuration_administration",
                 2,
@@ -329,11 +322,11 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
         )
         self.assertIn(f"table_arn={_TABLE_ARN}", mutation_path)
         self.assertIn(
-            ("mutation_classes=entity_write,entity_delete,destructive_administration,configuration_administration"),
+            ("mutation_classes=entity_write,destructive_administration,configuration_administration"),
             mutation_path,
         )
         self.assertIn(
-            ("actions=dynamodb:PutItem,dynamodb:DeleteItem,dynamodb:DeleteTable,dynamodb:UpdateTable"),
+            ("actions=dynamodb:PutItem,dynamodb:DeleteTable,dynamodb:UpdateTable"),
             mutation_path,
         )
         self.assertIn("resource_scopes=exact_table", mutation_path)

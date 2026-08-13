@@ -19,7 +19,6 @@ from tfstride.providers.aws.ecs_path_rule_helpers import (
 )
 from tfstride.providers.aws.resource_decoration.ecs_dynamodb_access_paths import (
     DYNAMODB_ACCESS_CLASSES_BY_ACTION,
-    DYNAMODB_NON_MUTATION_ACTION_NAMES,
 )
 from tfstride.providers.aws.resource_facts import aws_facts
 
@@ -27,7 +26,6 @@ _AWS_DYNAMODB_TABLE = "aws_dynamodb_table"
 _AWS_ECS_SERVICE = "aws_ecs_service"
 _MUTATION_CLASS_ORDER = (
     "entity_write",
-    "entity_delete",
     "destructive_administration",
     "configuration_administration",
 )
@@ -37,13 +35,11 @@ _DISCLOSURE_ACCESS_CLASSES = frozenset(_DISCLOSURE_CLASS_ORDER)
 _TABLE_SCAN_ACTIONS = frozenset({"dynamodb:scan", "dynamodb:partiqlselect"})
 _CLASS_PRIVILEGE_BREADTH = {
     "entity_write": 1,
-    "entity_delete": 2,
     "configuration_administration": 2,
     "destructive_administration": 3,
 }
 _CLASS_CAPABILITIES = {
     "entity_write": "create or update items in the modeled table",
-    "entity_delete": "delete items from the modeled table",
     "destructive_administration": ("delete complete DynamoDB tables or replicas and their stored data"),
     "configuration_administration": (
         "change DynamoDB table configuration or controls without directly modifying item contents"
@@ -586,16 +582,32 @@ def _mutation_classes(paths: list[dict[str, Any]]) -> list[str]:
 
 
 def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
-    classes = {value for value in _string_values(path.get("access_classes")) if value in _MUTATION_ACCESS_CLASSES}
+    classes = {
+        access_class
+        for action in _mutation_actions(path)
+        for access_class in DYNAMODB_ACCESS_CLASSES_BY_ACTION.get(
+            action.casefold(),
+            (),
+        )
+        if access_class in _MUTATION_ACCESS_CLASSES
+    }
     return [access_class for access_class in _MUTATION_CLASS_ORDER if access_class in classes]
 
 
 def _mutation_actions(path: Mapping[str, Any]) -> list[str]:
-    return [
-        action
-        for action in _string_values(path.get("matched_actions"))
-        if action.lower().startswith("dynamodb:") and action.lower() not in DYNAMODB_NON_MUTATION_ACTION_NAMES
-    ]
+    return [action for action in _string_values(path.get("matched_actions")) if _action_has_mutation_effect(action)]
+
+
+def _action_has_mutation_effect(action: str) -> bool:
+    return bool(
+        _MUTATION_ACCESS_CLASSES
+        & set(
+            DYNAMODB_ACCESS_CLASSES_BY_ACTION.get(
+                action.casefold(),
+                (),
+            )
+        )
+    )
 
 
 def _mutation_severity(

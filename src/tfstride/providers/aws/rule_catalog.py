@@ -700,6 +700,34 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-dynamodb-item-disruption",
+        title="Internet-facing ECS service can disrupt DynamoDB items",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact DynamoDB item "
+            "operations and table scopes required at runtime. Separate item-deletion authority from public request "
+            "handling where possible, enable point-in-time recovery, and test restoration procedures without "
+            "treating recovery configuration as proof that deleted items will be restored."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "dynamodb",
+            "iam",
+            "public-access",
+            "nosql",
+            "structured-data",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-dynamodb-read-access",
         title="Internet-facing ECS service task role has a DynamoDB read allow",
         category=StrideCategory.INFORMATION_DISCLOSURE,
