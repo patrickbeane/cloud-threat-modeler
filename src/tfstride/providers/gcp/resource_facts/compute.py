@@ -18,6 +18,9 @@ from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
 from tfstride.providers.gcp.secret_management_evidence import (
     GcpCloudRunSecretManagementPath,
 )
+from tfstride.providers.gcp.structured_data_deletion_evidence import (
+    GcpCloudRunFirestoreDeletionPath,
+)
 
 
 class GcpComputeFacts(GcpBaseFacts):
@@ -132,6 +135,14 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_firestore_entity_deletion_paths(self) -> list[GcpCloudRunFirestoreDeletionPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATHS)
+
+    @property
+    def cloud_run_firestore_entity_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATH_UNCERTAINTIES)
+
+    @property
     def cloud_run_kms_operation_paths(self) -> list[GcpCloudRunKmsOperationPath]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_KMS_OPERATION_PATHS)
 
@@ -226,6 +237,18 @@ class GcpComputeFacts(GcpBaseFacts):
 
     def extend_cloud_run_firestore_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_firestore_entity_deletion_paths(
+        self,
+        values: list[GcpCloudRunFirestoreDeletionPath],
+    ) -> None:
+        self.set(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATHS, values)
+
+    def extend_cloud_run_firestore_entity_deletion_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATH_UNCERTAINTIES, values)
 
     def set_cloud_run_kms_operation_paths(self, values: list[GcpCloudRunKmsOperationPath]) -> None:
         self.set(GcpResourceMetadata.CLOUD_RUN_KMS_OPERATION_PATHS, values)

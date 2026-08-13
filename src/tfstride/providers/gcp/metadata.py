@@ -18,6 +18,9 @@ from tfstride.providers.gcp.secret_management_evidence import (
     GcpCloudRunSecretManagementPath,
     GcpSecretManagerIamGrant,
 )
+from tfstride.providers.gcp.structured_data_deletion_evidence import (
+    GcpCloudRunFirestoreDeletionPath,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -108,6 +111,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_pubsub_access_path_uncertainties")
     CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_access_path_uncertainties"
+    )
+    CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_firestore_entity_deletion_path_uncertainties"
     )
     CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_operation_path_uncertainties")
     CLOUD_RUN_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_management_path_uncertainties")
@@ -519,6 +525,9 @@ class GcpResourceMetadata:
     )
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
+    CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATHS = RecordListMetadataField[GcpCloudRunFirestoreDeletionPath](
+        "cloud_run_firestore_entity_deletion_paths"
+    )
     CLOUD_RUN_KMS_OPERATION_PATHS = RecordListMetadataField[GcpCloudRunKmsOperationPath](
         "cloud_run_kms_operation_paths"
     )

@@ -9,6 +9,9 @@ from tfstride.providers.gcp.resource_decoration.artifact_registry_write_paths im
 from tfstride.providers.gcp.resource_decoration.cloud_run_firestore_access_paths import (
     ModelCloudRunFirestoreAccessPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_firestore_entity_deletion_paths import (
+    ModelCloudRunFirestoreEntityDeletionPathsStage,
+)
 from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_access_paths import (
     ModelCloudRunGcsAccessPathsStage,
 )
@@ -75,6 +78,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         ModelCloudRunKmsManagementPathsStage(),
         NormalizeFirestoreIamPostureStage(),
         ModelCloudRunFirestoreAccessPathsStage(),
+        ModelCloudRunFirestoreEntityDeletionPathsStage(),
         ModelCloudRunGcsAccessPathsStage(),
         ModelCloudRunGcsObjectDeletionPathsStage(),
         ModelCloudRunGcsProtectedDataConvergenceStage(),

@@ -118,6 +118,7 @@ include = [
 
   # GCP structured-data deletion and recovery evidence.
   "src/tfstride/providers/gcp/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/gcp/resource_decoration/cloud_run_firestore_entity_deletion_paths.py",
 
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
