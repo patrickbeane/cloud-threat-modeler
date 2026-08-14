@@ -263,6 +263,38 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
                     path_evidence,
                 )
 
+    def test_mixed_mutation_and_deletion_permissions_render_only_mutation_evidence(
+        self,
+    ) -> None:
+        role = f"projects/{_PROJECT}/roles/cloudRunFirestore"
+        findings = _evaluate(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_database()),
+                _as_resource(
+                    _custom_role(
+                        permissions=[
+                            "datastore.entities.create",
+                            "datastore.entities.delete",
+                            "datastore.databases.bulkDelete",
+                        ]
+                    )
+                ),
+                _as_resource(_project_iam_member(role=role)),
+            ]
+        )
+
+        self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
+        path_evidence = _evidence(findings[0])["firestore_mutation_paths"][0]
+        self.assertIn("entity_mutation_operations=create", path_evidence)
+        self.assertIn(
+            "matched_permissions=datastore.entities.create",
+            path_evidence,
+        )
+        self.assertNotIn("datastore.entities.delete", path_evidence)
+        self.assertNotIn("datastore.databases.bulkDelete", path_evidence)
+
     def test_database_administration_remains_separate_from_entity_mutation(self) -> None:
         findings = _evaluate(
             [

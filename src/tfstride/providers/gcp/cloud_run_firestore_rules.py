@@ -1071,6 +1071,15 @@ def _path_entity_mutation_operations(path: Mapping[str, Any]) -> list[str]:
     return [operation for operation in ("create", "update") if operation in operations]
 
 
+def _path_entity_mutation_permissions(path: Mapping[str, Any]) -> list[str]:
+    return [
+        permission
+        for permission in _string_values(path.get("matched_permissions"))
+        if permission.strip().lower() in _ENTITY_MUTATION_WILDCARDS
+        or permission.strip().lower() in _ENTITY_MUTATION_PERMISSION_OPERATIONS
+    ]
+
+
 def _database_administration_classes(
     paths: list[dict[str, Any]],
 ) -> list[str]:
@@ -1169,7 +1178,7 @@ def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
                         "database_administration_classes="
                         f"{','.join(_path_database_administration_classes(path)) or 'none'}"
                     ),
-                    (f"matched_permissions={','.join(_string_values(path.get('matched_permissions')))}"),
+                    (f"matched_permissions={','.join(_path_entity_mutation_permissions(path))}"),
                     f"scope_type={path['scope_type']}",
                     f"scope={path['scope']}",
                     f"resource_scope={path['resource_scope']}",
