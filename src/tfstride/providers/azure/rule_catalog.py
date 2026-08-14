@@ -759,6 +759,33 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-cosmosdb-item-disruption",
+        title="Public Azure App Service identity can disrupt Cosmos DB for NoSQL items",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Remove Cosmos DB Built-in Data Contributor and equivalent custom-role item-delete DataActions "
+            "from public App Service runtime identities. Scope required deletion authority to the exact database "
+            "or container, keep backup and restore controls explicit, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "cosmosdb",
+            "nosql",
+            "managed-identity",
+            "public-access",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-cosmosdb-read-access",
         title="Public Azure App Service identity can read Cosmos DB for NoSQL data",
         category=StrideCategory.INFORMATION_DISCLOSURE,

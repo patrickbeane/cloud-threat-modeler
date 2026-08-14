@@ -76,7 +76,7 @@ class AzurePublicAppServiceCosmosDbMutationRuleTests(unittest.TestCase):
         reasoning = finding.severity_reasoning
         assert reasoning is not None
         self.assertEqual(reasoning.blast_radius, 3)
-        self.assertEqual(reasoning.privilege_breadth, 2)
+        self.assertEqual(reasoning.privilege_breadth, 1)
 
         evidence = _evidence(finding)
         self.assertIn("public_network_access_enabled=true", evidence["public_endpoint"])
@@ -89,7 +89,7 @@ class AzurePublicAppServiceCosmosDbMutationRuleTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "target_address=azurerm_cosmosdb_account.orders" in value
-                and "mutation_operations=create,update,delete" in value
+                and "mutation_operations=create,update" in value
                 and "scope_type=account" in value
                 and "resource_scope=exact_cosmosdb_for_nosql_account" in value
                 for value in evidence["cosmosdb_mutation_paths"]
@@ -160,7 +160,7 @@ class AzurePublicAppServiceCosmosDbMutationRuleTests(unittest.TestCase):
             )
         )
 
-    def test_public_custom_container_delete_preserves_exact_ancestry(self) -> None:
+    def test_public_custom_container_delete_stays_out_of_tampering(self) -> None:
         findings = _evaluate(
             [
                 _account(),
@@ -178,25 +178,7 @@ class AzurePublicAppServiceCosmosDbMutationRuleTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
-        finding = findings[0]
-        reasoning = finding.severity_reasoning
-        assert reasoning is not None
-        self.assertEqual(reasoning.blast_radius, 1)
-        self.assertEqual(reasoning.privilege_breadth, 2)
-        self.assertIn("limited to exact container scopes", finding.rationale)
-        evidence = _evidence(finding)
-        self.assertTrue(
-            any(
-                "target_address=azurerm_cosmosdb_sql_container.events" in value
-                and "account_address=azurerm_cosmosdb_account.orders" in value
-                and "database_address=azurerm_cosmosdb_sql_database.app" in value
-                and "container_address=azurerm_cosmosdb_sql_container.events" in value
-                and "mutation_operations=delete" in value
-                and "scope_type=container" in value
-                for value in evidence["cosmosdb_mutation_paths"]
-            )
-        )
+        self.assertEqual(findings, [])
 
     def test_item_wildcard_expands_but_container_wildcard_stays_quiet(self) -> None:
         item_findings = _evaluate(
@@ -229,7 +211,7 @@ class AzurePublicAppServiceCosmosDbMutationRuleTests(unittest.TestCase):
         self.assertEqual([finding.rule_id for finding in item_findings], [_RULE_ID])
         evidence = _evidence(item_findings[0])
         self.assertTrue(
-            any("mutation_operations=create,update,delete" in value for value in evidence["cosmosdb_mutation_paths"])
+            any("mutation_operations=create,update" in value for value in evidence["cosmosdb_mutation_paths"])
         )
         self.assertEqual(container_findings, [])
 
