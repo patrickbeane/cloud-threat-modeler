@@ -20,6 +20,9 @@ from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
 from tfstride.providers.azure.secret_management_evidence import (
     AzureAppServiceKeyVaultSecretManagementPath,
 )
+from tfstride.providers.azure.structured_data_deletion_evidence import (
+    AzureAppServiceCosmosDbItemDeletionPath,
+)
 
 
 class AzureAppServiceFacts(AzureBaseFacts):
@@ -242,6 +245,34 @@ class AzureAppServiceFacts(AzureBaseFacts):
 
     def extend_app_service_cosmosdb_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(AzureResourceMetadata.APP_SERVICE_COSMOSDB_ACCESS_PATH_UNCERTAINTIES, values)
+
+    @property
+    def app_service_cosmosdb_item_deletion_paths(
+        self,
+    ) -> list[AzureAppServiceCosmosDbItemDeletionPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_COSMOSDB_ITEM_DELETION_PATHS)
+
+    @property
+    def app_service_cosmosdb_item_deletion_path_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_COSMOSDB_ITEM_DELETION_PATH_UNCERTAINTIES)
+
+    def set_app_service_cosmosdb_item_deletion_paths(
+        self,
+        values: list[AzureAppServiceCosmosDbItemDeletionPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_COSMOSDB_ITEM_DELETION_PATHS,
+            values,
+        )
+
+    def extend_app_service_cosmosdb_item_deletion_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_COSMOSDB_ITEM_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     @property
     def app_service_vnet_integration_subnet_id(self) -> str | None:

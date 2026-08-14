@@ -158,6 +158,7 @@ include = [
 
   # Azure structured-data deletion and recovery evidence.
   "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_item_deletion_paths.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",

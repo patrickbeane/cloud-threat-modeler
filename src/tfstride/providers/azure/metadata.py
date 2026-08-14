@@ -19,6 +19,9 @@ from tfstride.providers.azure.secret_management_evidence import (
     AzureAppServiceKeyVaultSecretManagementPath,
     AzureKeyVaultSecretAuthorizationGrant,
 )
+from tfstride.providers.azure.structured_data_deletion_evidence import (
+    AzureAppServiceCosmosDbItemDeletionPath,
+)
 from tfstride.resource_metadata import (
     BoolMetadataField,
     DictListMetadataField,
@@ -413,6 +416,9 @@ class AzureResourceMetadata:
     APP_SERVICE_COSMOSDB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_cosmosdb_access_path_uncertainties"
     )
+    APP_SERVICE_COSMOSDB_ITEM_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_cosmosdb_item_deletion_path_uncertainties"
+    )
     APP_SERVICE_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_access_restrictions")
     APP_SERVICE_SCM_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_scm_access_restrictions")
     APP_SERVICE_SECRET_REFERENCES = DictListMetadataField("app_service_secret_references")
@@ -442,6 +448,9 @@ class AzureResourceMetadata:
         AzureAppServiceServiceBusProtectedDataConvergence
     ]("app_service_service_bus_protected_data_convergences")
     APP_SERVICE_COSMOSDB_ACCESS_PATHS = DictListMetadataField("app_service_cosmosdb_access_paths")
+    APP_SERVICE_COSMOSDB_ITEM_DELETION_PATHS = RecordListMetadataField[AzureAppServiceCosmosDbItemDeletionPath](
+        "app_service_cosmosdb_item_deletion_paths"
+    )
     APP_SERVICE_AUTH_SETTINGS = DictMetadataField("app_service_auth_settings")
     APP_SERVICE_AUTH_SETTINGS_V2 = DictMetadataField("app_service_auth_settings_v2")
     CONTAINER_IMAGE_REFERENCES = DictListMetadataField("container_image_references")
