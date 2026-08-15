@@ -10,10 +10,13 @@ A relationship only becomes a finding when it is backed by deterministic modeled
 * Cryptographic-operation paths (decrypt, unwrap, sign, MAC-generate), which additionally require compatible key capabilities and effective operation authorization
 * Managed-key administration paths (disruption, authorization delegation), which additionally require exact modeled key or management-target resolution
 * Object-storage deletion paths, which distinguish object writes and metadata mutation from logical, version, or generation deletion while retaining provider-native recovery uncertainty
+* Structured-data deletion paths, which distinguish item/entity mutation from item/entity deletion while retaining provider-native scope and recovery evidence
 * Messaging read paths, which require the corresponding exact receive/consume grant - modeled identity and provider-native receive or consume authority is not a guarantee of effective message retrieval after provider deny, network, or encryption controls
 * Secret values themselves, which are never retained in evidence or reports
 
 For object-storage paths, recovery uncertainty affects impact evidence, not deterministic deletion authority. Explicitly denied or incompatible deletion paths stay quiet; conditional, incomplete, ambiguous, or unresolved paths remain uncertainty where modeled. See [Object-Storage Paths](object-storage-paths.md) for the provider-native target and recovery boundaries.
+
+For structured-data paths, recovery evidence qualifies the impact of deterministic item/entity deletion authority; it does not prove successful restoration or immediate item-level undo. Whole-table, database, account, container, and control-plane destruction remain outside this path family. See [Structured-Data Paths](structured-data-paths.md) for provider-native target and recovery boundaries.
 
 ## Identity and workload data-plane paths are provider-local
 

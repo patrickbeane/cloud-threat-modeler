@@ -96,6 +96,7 @@ Azure trust-boundary records currently cover public storage and Key Vault endpoi
 * Exact public App Service-to-Key Vault, Storage, Service Bus, and Cosmos DB for NoSQL read and mutation paths across account, database, and container scopes
 * Exact public App Service-to-Service Bus receive paths, and vault/storage-scoped least-privilege posture
 * Public App Service Blob deletion paths with container-namespace scope, versioning, soft-delete, HNS, and permanent-delete compatibility evidence
+* Public App Service Cosmos DB item-deletion paths at account, database, and container scopes with native backup-recovery evidence
 * Public App Service Key Vault secret-value tampering and recoverable or permanent secret-disruption paths for runtime identity authority
 * External, explicitly denied, or incompatible Key Vault paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected paths remain uncertainty where modeled
 

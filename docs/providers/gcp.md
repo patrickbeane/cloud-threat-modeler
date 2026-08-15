@@ -97,6 +97,7 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 * Exact public Cloud Run-to-Secret Manager, GCS, Pub/Sub, and Firestore read and mutation paths
 * Exact public Cloud Run-to-Pub/Sub subscription consume paths
 * Public Cloud Run GCS logical-object and generation deletion paths with project/bucket scope and soft-delete/versioning evidence
+* Public Cloud Run Firestore entity and bulk-entity deletion paths with project/database IAM scope and point-in-time-recovery evidence
 * Public Cloud Run secret-version tampering and secret/version disruption paths for runtime IAM authority
 * Service-account access broader than consumed references
 * External or explicitly denied Secret Manager paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected paths remain uncertainty where modeled
