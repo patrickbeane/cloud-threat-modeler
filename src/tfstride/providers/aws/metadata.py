@@ -9,6 +9,7 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsKeyPolicyEvidence,
     AwsKmsOperationAuthorization,
 )
+from tfstride.providers.aws.message_removal_evidence import AwsEcsSqsMessageRemovalPath
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
@@ -81,6 +82,7 @@ class AwsResourceMetadata:
     UNRESOLVED_SQS_QUEUE_REFERENCES = StringListMetadataField("unresolved_sqs_queue_references")
     SNS_POSTURE_UNCERTAINTIES = StringListMetadataField("sns_posture_uncertainties")
     SQS_POSTURE_UNCERTAINTIES = StringListMetadataField("sqs_posture_uncertainties")
+    SQS_QUEUE_POLICY_UNCERTAINTIES = StringListMetadataField("sqs_queue_policy_uncertainties")
     ECR_POSTURE_UNCERTAINTIES = StringListMetadataField("ecr_posture_uncertainties")
     ECR_WRITE_PATH_UNCERTAINTIES = StringListMetadataField("ecr_write_path_uncertainties")
     ECS_SECRET_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_access_path_uncertainties")
@@ -91,6 +93,7 @@ class AwsResourceMetadata:
         "ecs_s3_protected_data_convergence_uncertainties"
     )
     ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_messaging_access_path_uncertainties")
+    ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField("ecs_sqs_message_removal_path_uncertainties")
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
         "ecs_dynamodb_item_deletion_path_uncertainties"
@@ -356,6 +359,7 @@ class AwsResourceMetadata:
     SQS_ENCRYPTION_OWNERSHIP_STATE = OptionalStringMetadataField("sqs_encryption_ownership_state")
     SQS_REDRIVE_STATE = OptionalStringMetadataField("sqs_redrive_state")
     SQS_REDRIVE_TARGET_ARN = OptionalStringMetadataField("sqs_redrive_target_arn")
+    SQS_QUEUE_POLICY_STATE = OptionalStringMetadataField("sqs_queue_policy_state")
     SQS_REDRIVE_SOURCE_ADDRESS = OptionalStringMetadataField("sqs_redrive_source_address")
     ECR_REPOSITORY_URL = OptionalStringMetadataField("ecr_repository_url")
     ECR_ENCRYPTION_TYPE = OptionalStringMetadataField("ecr_encryption_type")
@@ -480,6 +484,9 @@ class AwsResourceMetadata:
         "ecs_s3_protected_data_convergences"
     )
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
+    ECS_SQS_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[AwsEcsSqsMessageRemovalPath](
+        "ecs_sqs_message_removal_paths"
+    )
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_DYNAMODB_ITEM_DELETION_PATHS = RecordListMetadataField[AwsEcsDynamoDbItemDeletionPath](
         "ecs_dynamodb_item_deletion_paths"

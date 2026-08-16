@@ -51,6 +51,14 @@ class AwsMessagingFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.SQS_MESSAGE_RETENTION_SECONDS)
 
     @property
+    def sqs_queue_policy_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.SQS_QUEUE_POLICY_STATE)
+
+    @property
+    def sqs_queue_policy_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.SQS_QUEUE_POLICY_UNCERTAINTIES)
+
+    @property
     def sqs_redrive_state(self) -> str | None:
         return self.get(AwsResourceMetadata.SQS_REDRIVE_STATE)
 

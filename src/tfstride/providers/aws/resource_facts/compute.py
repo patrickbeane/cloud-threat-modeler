@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
+from tfstride.providers.aws.message_removal_evidence import AwsEcsSqsMessageRemovalPath
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
@@ -148,6 +149,14 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_messaging_access_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_sqs_message_removal_paths(self) -> list[AwsEcsSqsMessageRemovalPath]:
+        return self.get(AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATHS)
+
+    @property
+    def ecs_sqs_message_removal_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES)
 
     @property
     def ecs_dynamodb_access_paths(self) -> list[dict[str, Any]]:
@@ -637,6 +646,21 @@ class AwsComputeFacts(AwsBaseFacts):
 
     def extend_ecs_messaging_access_path_uncertainties(self, values: Sequence[str | None]) -> None:
         self.extend(AwsResourceMetadata.ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_ecs_sqs_message_removal_paths(
+        self,
+        values: list[AwsEcsSqsMessageRemovalPath],
+    ) -> None:
+        self.set(AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATHS, values)
+
+    def extend_ecs_sqs_message_removal_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def set_ecs_dynamodb_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(AwsResourceMetadata.ECS_DYNAMODB_ACCESS_PATHS, values)

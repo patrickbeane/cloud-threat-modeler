@@ -425,8 +425,20 @@ def normalize_sns_topic(resource: TerraformResource) -> NormalizedResource:
 def normalize_sqs_queue(resource: TerraformResource) -> NormalizedResource:
     values = resource.values
     unknown_values = resource.unknown_values
-    policy_document = load_json_document(values.get("policy"))
+    raw_policy = values.get("policy")
+    policy_document = load_json_document(raw_policy)
     uncertainties: list[str] = []
+    queue_policy_uncertainties: list[str] = []
+    if attribute_unknown(unknown_values, "policy"):
+        queue_policy_state = STATE_UNKNOWN
+        queue_policy_uncertainties.append("policy is unknown after planning")
+    elif raw_policy is None or raw_policy == "":
+        queue_policy_state = STATE_NOT_CONFIGURED
+    elif policy_document:
+        queue_policy_state = STATE_CONFIGURED
+    else:
+        queue_policy_state = STATE_UNKNOWN
+        queue_policy_uncertainties.append("policy has an unrecognized or malformed value shape")
     kms_master_key_id = known_string(
         values,
         unknown_values,
@@ -451,6 +463,8 @@ def normalize_sqs_queue(resource: TerraformResource) -> NormalizedResource:
         policy_statements=parse_policy_statements(policy_document),
         metadata={
             AwsResourceMetadata.POLICY_DOCUMENT: policy_document,
+            AwsResourceMetadata.SQS_QUEUE_POLICY_STATE: queue_policy_state,
+            AwsResourceMetadata.SQS_QUEUE_POLICY_UNCERTAINTIES: (queue_policy_uncertainties),
             AwsResourceMetadata.SQS_QUEUE_URL: known_string(
                 values,
                 unknown_values,

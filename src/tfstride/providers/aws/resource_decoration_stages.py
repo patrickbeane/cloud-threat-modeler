@@ -46,6 +46,10 @@ from tfstride.providers.aws.resource_decoration.ecs_secret_management_paths impo
     ModelEcsSecretsManagerManagementPathsStage,
     ProjectEcsSecretsManagerManagementPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_sqs_message_removal_paths import (
+    ModelEcsSqsMessageRemovalPathsStage,
+    ProjectEcsSqsMessageRemovalPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.iam import (
     MergeRolePolicyResourcesStage,
     NormalizeIamAssignmentPostureStage,
@@ -121,6 +125,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelSecretsManagerOperationAuthorizationStage(),
         ModelEcsSecretsManagerManagementPathsStage(),
         ApplySqsRedrivePolicyResourcesStage(),
+        ModelEcsSqsMessageRemovalPathsStage(),
         ResolveAwsKmsEncryptionDependenciesStage(),
         DeriveSubnetPostureStage(),
         InferVpcIdsStage(),
@@ -133,6 +138,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsS3AccessPathsOntoServicesStage(),
         ProjectEcsS3ObjectDeletionPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
+        ProjectEcsSqsMessageRemovalPathsOntoServicesStage(),
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbItemDeletionPathsOntoServicesStage(),
         ModelEcsS3ProtectedDataConvergenceStage(),
