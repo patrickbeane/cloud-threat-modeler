@@ -568,7 +568,7 @@ class PublicWorkloadMessagingReadPathParityTests(unittest.TestCase):
                 _aws_resources(
                     actions=[
                         "sqs:ReceiveMessage",
-                        "sqs:DeleteMessage",
+                        "sqs:SendMessage",
                     ]
                 ),
                 AWS_READ_RULE,

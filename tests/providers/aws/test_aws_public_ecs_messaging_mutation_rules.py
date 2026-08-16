@@ -145,11 +145,34 @@ class AwsPublicEcsMessagingMutationRuleTests(unittest.TestCase):
         self.assertIn("actions=sns:Publish,sns:DeleteTopic", topic_evidence)
         self.assertIn("target_address=aws_sqs_queue.orders", queue_evidence)
         self.assertIn(f"target_arn={_QUEUE_ARN}", queue_evidence)
-        self.assertIn("mutation_classes=write,delete,administrative", queue_evidence)
-        self.assertIn("actions=sqs:SendMessage,sqs:PurgeQueue,sqs:SetQueueAttributes", queue_evidence)
+        self.assertIn("mutation_classes=write,administrative", queue_evidence)
+        self.assertIn("actions=sqs:SendMessage,sqs:SetQueueAttributes", queue_evidence)
+        self.assertNotIn("sqs:PurgeQueue", queue_evidence)
         self.assertNotIn("sqs:ReceiveMessage", queue_evidence)
         self.assertIn("access_state=allowed", queue_evidence)
         self.assertIn("does not mean that the topic or queue itself is public", finding.rationale)
+
+    def test_message_removal_only_access_remains_outside_tampering(self) -> None:
+        _, _, findings = _evaluate(
+            [
+                _load_balancer(),
+                _queue(),
+                _role(
+                    "orders_task",
+                    _TASK_ROLE_ARN,
+                    [
+                        _statement(
+                            "Allow",
+                            ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:PurgeQueue"],
+                            _QUEUE_ARN,
+                        )
+                    ],
+                ),
+                _task_definition(execution_role_arn=None),
+                _service(),
+            ]
+        )
+        self.assertEqual(findings, [])
 
     def test_receive_only_access_remains_quiet(self) -> None:
         _, _, findings = _evaluate(

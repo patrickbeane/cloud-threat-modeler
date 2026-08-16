@@ -27,6 +27,9 @@ from tfstride.providers.aws.ecs_secret_management_rules import (
     AwsEcsSecretManagementRuleDetectors,
 )
 from tfstride.providers.aws.ecs_secret_rules import AwsEcsSecretDeliveryRuleDetectors
+from tfstride.providers.aws.ecs_sqs_message_disruption_rules import (
+    AwsEcsSqsMessageDisruptionRuleDetectors,
+)
 from tfstride.providers.aws.edge_protection_rules import AwsEdgeProtectionRuleDetectors
 from tfstride.providers.aws.eks_rules import AwsEksRuleDetectors
 from tfstride.providers.aws.iam_assignment_rules import AwsIamAssignmentRuleDetectors
@@ -110,6 +113,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-kms-key-disruption",
         "aws-public-ecs-kms-authorization-delegation",
         "aws-public-ecs-messaging-mutation-access",
+        "aws-public-ecs-sqs-message-disruption",
         "aws-public-ecs-sqs-receive-access",
         "aws-sns-customer-managed-encryption-missing",
         "aws-sqs-customer-managed-encryption-missing",
@@ -185,6 +189,7 @@ def build_aws_rule_contribution(
     ecs_dynamodb_item_disruption_detectors = AwsEcsDynamoDbItemDisruptionRuleDetectors(finding_factory)
     ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
     ecs_messaging_detectors = AwsEcsMessagingAccessRuleDetectors(finding_factory)
+    ecs_sqs_message_disruption_detectors = AwsEcsSqsMessageDisruptionRuleDetectors(finding_factory)
     messaging_detectors = AwsMessagingPostureRuleDetectors(finding_factory)
     secrets_manager_detectors = AwsSecretsManagerPostureRuleDetectors(finding_factory)
     kms_detectors = AwsKmsRuleDetectors(finding_factory)
@@ -275,6 +280,9 @@ def build_aws_rule_contribution(
             ecs_kms_detectors.detect_public_service_kms_authorization_delegation
         ),
         "aws-public-ecs-messaging-mutation-access": (ecs_messaging_detectors.detect_public_service_mutation_access),
+        "aws-public-ecs-sqs-message-disruption": (
+            ecs_sqs_message_disruption_detectors.detect_public_service_message_disruption
+        ),
         "aws-public-ecs-sqs-receive-access": (ecs_messaging_detectors.detect_public_service_sqs_receive_access),
         "aws-sns-customer-managed-encryption-missing": (
             messaging_detectors.detect_sns_customer_managed_encryption_missing

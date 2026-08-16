@@ -79,6 +79,7 @@ include = [
   # AWS messaging removal and delivery evidence.
   "src/tfstride/providers/aws/message_removal_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_sqs_message_removal_paths.py",
+  "src/tfstride/providers/aws/ecs_sqs_message_disruption_rules.py",
 
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",

@@ -524,6 +524,21 @@ def _queue_policy_posture(queue: NormalizedResource) -> _QueuePolicyPosture:
     )
 
 
+def sqs_queue_policy_operation_is_complete(
+    queue: NormalizedResource,
+    operation: str,
+) -> bool:
+    if operation not in _OPERATION_ORDER:
+        return False
+    state = aws_facts(queue).sqs_queue_policy_state
+    if state == "not_configured":
+        return True
+    if state != "configured":
+        return False
+    incomplete_operations, _ = _queue_policy_incomplete_operations(queue)
+    return operation not in incomplete_operations
+
+
 def _queue_policy_incomplete_operations(
     queue: NormalizedResource,
 ) -> tuple[

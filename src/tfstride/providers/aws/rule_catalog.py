@@ -881,6 +881,33 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-sqs-message-disruption",
+        title="Internet-facing ECS service can remove SQS messages",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Separate queue-consuming workers from internet-facing ECS services where possible. Otherwise, reduce "
+            "public ingress and restrict the ECS task role to only the exact SQS receive and message-deletion "
+            "operations required at runtime. Remove `sqs:PurgeQueue` from public workloads, scope queue policies to "
+            "exact principals and queues, and use separate operational identities for queue-wide message removal."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "sqs",
+            "iam",
+            "public-access",
+            "messaging",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-sqs-receive-access",
         title="Internet-facing ECS service task role has an exact SQS receive allow",
         category=StrideCategory.INFORMATION_DISCLOSURE,
