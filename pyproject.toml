@@ -76,6 +76,9 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_item_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_dynamodb_item_disruption_rules.py",
 
+  # AWS messaging removal and delivery evidence.
+  "src/tfstride/providers/aws/message_removal_evidence.py",
+
   # AWS managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/kms_dependency_evidence.py",
   "src/tfstride/providers/aws/protected_data_evidence.py",
@@ -120,6 +123,9 @@ include = [
   "src/tfstride/providers/gcp/structured_data_deletion_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_firestore_entity_deletion_paths.py",
 
+  # GCP messaging removal and delivery evidence.
+  "src/tfstride/providers/gcp/message_removal_evidence.py",
+
   # GCP managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/gcp/kms_dependency_evidence.py",
   "src/tfstride/providers/gcp/protected_data_evidence.py",
@@ -159,6 +165,9 @@ include = [
   # Azure structured-data deletion and recovery evidence.
   "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_item_deletion_paths.py",
+
+  # Azure messaging removal and delivery evidence.
+  "src/tfstride/providers/azure/message_removal_evidence.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",
