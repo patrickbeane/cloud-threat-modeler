@@ -97,6 +97,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-gcs-object-disruption",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
+        "gcp-public-cloud-run-pubsub-message-disruption",
     ),
     (),
     (),
@@ -282,6 +283,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-pubsub-consume-access": (
             cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_consume_access
+        ),
+        "gcp-public-cloud-run-pubsub-message-disruption": (
+            cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_message_disruption
         ),
         "gcp-service-account-iam-broad-principal": gcp_detectors.detect_service_account_iam_broad_principal,
         "gcp-service-account-iam-privileged-role": gcp_detectors.detect_service_account_iam_privileged_role,

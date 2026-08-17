@@ -978,6 +978,25 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-pubsub-message-disruption",
+        title="Public Cloud Run identity can disrupt Pub/Sub messages",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account "
+            "acknowledgement permission only on the exact pull subscriptions required. Separate public "
+            "request handling from message-consuming identities, and retain acknowledged-message replay "
+            "controls where message recovery is required."
+        ),
+        tags=("gcp", "cloud-run", "pubsub", "iam", "public-access", "messaging", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-service-account-iam-broad-principal",
         title="GCP service account IAM grants access to broad principals",
         category=StrideCategory.ELEVATION_OF_PRIVILEGE,
