@@ -14,6 +14,11 @@ def normalize_project(resource: TerraformResource) -> NormalizedResource:
         _project_from_identifier(values.get(GcpAttr.ID)),
     )
     identifier = first_non_empty(values.get(GcpAttr.ID), project_id, resource.address)
+    organization_id = first_non_empty(
+        values.get(GcpAttr.ORG_ID),
+        values.get(GcpAttr.ORGANIZATION_ID),
+        _organization_from_parent(values.get(GcpAttr.PARENT)),
+    )
     return NormalizedResource(
         address=resource.address,
         provider=GCP_PROVIDER,
@@ -24,6 +29,7 @@ def normalize_project(resource: TerraformResource) -> NormalizedResource:
         metadata={
             GcpResourceMetadata.NAME: project_id,
             GcpResourceMetadata.PROJECT: project_id,
+            GcpResourceMetadata.ORGANIZATION_ID: organization_id,
             GcpResourceMetadata.SELF_LINK: values.get(GcpAttr.SELF_LINK),
         },
     )
@@ -62,6 +68,17 @@ def _key_ring_path(project: str | None, location: str | None, name: str | None) 
     if not project or not location or not name or "/" in name:
         return None
     return f"projects/{project}/locations/{location}/keyRings/{name}"
+
+
+def _organization_from_parent(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parent = value.strip().strip("/")
+    prefix = "organizations/"
+    if not parent.startswith(prefix):
+        return None
+    organization_id = parent.removeprefix(prefix)
+    return organization_id or None
 
 
 def _project_from_identifier(value: object) -> str | None:

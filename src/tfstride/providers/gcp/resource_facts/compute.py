@@ -6,6 +6,9 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsManagementPath,
     GcpCloudRunKmsOperationPath,
 )
+from tfstride.providers.gcp.message_removal_evidence import (
+    GcpCloudRunPubsubMessageRemovalPath,
+)
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
@@ -127,6 +130,14 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_pubsub_message_removal_paths(self) -> list[GcpCloudRunPubsubMessageRemovalPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATHS)
+
+    @property
+    def cloud_run_pubsub_message_removal_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES)
+
+    @property
     def cloud_run_firestore_access_paths(self) -> list[dict[str, Any]]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATHS)
 
@@ -231,6 +242,18 @@ class GcpComputeFacts(GcpBaseFacts):
 
     def extend_cloud_run_pubsub_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_pubsub_message_removal_paths(
+        self,
+        values: list[GcpCloudRunPubsubMessageRemovalPath],
+    ) -> None:
+        self.set(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATHS, values)
+
+    def extend_cloud_run_pubsub_message_removal_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES, values)
 
     def set_cloud_run_firestore_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATHS, values)

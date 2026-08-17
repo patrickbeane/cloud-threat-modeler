@@ -263,6 +263,8 @@ class GcpAttr:
     PUBLIC_ACCESS_PREVENTION = OptionalStringAttribute("public_access_prevention")
     PURPOSE = OptionalStringAttribute("purpose")
     PUSH_CONFIG = ListAttribute("push_config")
+    BIGQUERY_CONFIG = ListAttribute("bigquery_config")
+    CLOUD_STORAGE_CONFIG = ListAttribute("cloud_storage_config")
     PUBLIC_KEY_TYPE = OptionalStringAttribute("public_key_type")
     REPLICATION = ListAttribute("replication")
     RETAIN_ACKED_MESSAGES = BoolAttribute("retain_acked_messages")

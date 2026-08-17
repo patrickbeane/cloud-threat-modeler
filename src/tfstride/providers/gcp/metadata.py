@@ -7,6 +7,9 @@ from tfstride.providers.gcp.kms_evidence import (
     GcpKmsIamGrant,
     GcpKmsKeyRingIamGrant,
 )
+from tfstride.providers.gcp.message_removal_evidence import (
+    GcpCloudRunPubsubMessageRemovalPath,
+)
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
 )
@@ -109,6 +112,9 @@ class GcpResourceMetadata:
         "cloud_run_gcs_protected_data_convergence_uncertainties"
     )
     CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_pubsub_access_path_uncertainties")
+    CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_pubsub_message_removal_path_uncertainties"
+    )
     CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_access_path_uncertainties"
     )
@@ -489,6 +495,9 @@ class GcpResourceMetadata:
     PUBSUB_SUBSCRIPTION_DEAD_LETTER_POLICY = DictListMetadataField("pubsub_subscription_dead_letter_policy")
     PUBSUB_SUBSCRIPTION_EXPIRATION_POLICY = DictListMetadataField("pubsub_subscription_expiration_policy")
     PUBSUB_SUBSCRIPTION_PUSH_CONFIG = DictListMetadataField("pubsub_subscription_push_config")
+    PUBSUB_SUBSCRIPTION_BIGQUERY_CONFIG = DictListMetadataField("pubsub_subscription_bigquery_config")
+    PUBSUB_SUBSCRIPTION_CLOUD_STORAGE_CONFIG = DictListMetadataField("pubsub_subscription_cloud_storage_config")
+    PUBSUB_SUBSCRIPTION_DELIVERY_MODE = OptionalStringMetadataField("pubsub_subscription_delivery_mode")
     PUBSUB_SUBSCRIPTION_RETRY_POLICY = DictListMetadataField("pubsub_subscription_retry_policy")
     ARTIFACT_REGISTRY_CLEANUP_POLICIES = DictListMetadataField("artifact_registry_cleanup_policies")
     CLOUD_SQL_AUTHORIZED_NETWORKS = DictListMetadataField("cloud_sql_authorized_networks")
@@ -524,6 +533,9 @@ class GcpResourceMetadata:
         "cloud_run_gcs_protected_data_convergences"
     )
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
+    CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[GcpCloudRunPubsubMessageRemovalPath](
+        "cloud_run_pubsub_message_removal_paths"
+    )
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
     CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATHS = RecordListMetadataField[GcpCloudRunFirestoreDeletionPath](
         "cloud_run_firestore_entity_deletion_paths"

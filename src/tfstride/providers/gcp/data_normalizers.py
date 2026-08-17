@@ -134,6 +134,8 @@ def normalize_pubsub_subscription(resource: TerraformResource) -> NormalizedReso
         dead_letter_topic,
         dead_letter_max_delivery_attempts,
     ) = _pubsub_dead_letter_posture(resource, uncertainties)
+    delivery_mode = _pubsub_subscription_delivery_mode(resource, uncertainties)
+    retain_acked_messages = _pubsub_retain_acked_messages(resource, uncertainties)
     return _with_storage_encrypted(
         NormalizedResource(
             address=resource.address,
@@ -164,8 +166,13 @@ def normalize_pubsub_subscription(resource: TerraformResource) -> NormalizedReso
                 GcpResourceMetadata.PUBSUB_SUBSCRIPTION_MESSAGE_RETENTION_SECONDS: message_retention_seconds,
                 GcpResourceMetadata.PUBSUB_SUBSCRIPTION_MESSAGE_RETENTION_STATE: message_retention_state,
                 GcpResourceMetadata.PUBSUB_SUBSCRIPTION_PUSH_CONFIG: values.get(GcpAttr.PUSH_CONFIG),
-                GcpResourceMetadata.PUBSUB_SUBSCRIPTION_RETAIN_ACKED_MESSAGES: as_bool(
-                    values.get(GcpAttr.RETAIN_ACKED_MESSAGES)
+                GcpResourceMetadata.PUBSUB_SUBSCRIPTION_BIGQUERY_CONFIG: values.get(GcpAttr.BIGQUERY_CONFIG),
+                GcpResourceMetadata.PUBSUB_SUBSCRIPTION_CLOUD_STORAGE_CONFIG: values.get(GcpAttr.CLOUD_STORAGE_CONFIG),
+                GcpResourceMetadata.PUBSUB_SUBSCRIPTION_DELIVERY_MODE: delivery_mode,
+                **(
+                    {GcpResourceMetadata.PUBSUB_SUBSCRIPTION_RETAIN_ACKED_MESSAGES: retain_acked_messages}
+                    if retain_acked_messages is not None
+                    else {}
                 ),
                 GcpResourceMetadata.PUBSUB_SUBSCRIPTION_RETRY_POLICY: values.get(GcpAttr.RETRY_POLICY),
                 GcpResourceMetadata.PUBSUB_POSTURE_UNCERTAINTIES: uncertainties,
@@ -258,6 +265,42 @@ def _pubsub_dead_letter_posture(
 
     state = STATE_CONFIGURED if dead_letter_topic is not None and not topic_unknown else STATE_UNKNOWN
     return policy, state, dead_letter_topic, max_delivery_attempts
+
+
+def _pubsub_retain_acked_messages(
+    resource: TerraformResource,
+    uncertainties: list[str],
+) -> bool | None:
+    if value_is_unknown(resource.unknown_values.get(GcpAttr.RETAIN_ACKED_MESSAGES.key)):
+        uncertainties.append("retain_acked_messages is unknown after planning")
+        return None
+    raw_value = resource.values.get(GcpAttr.RETAIN_ACKED_MESSAGES.key)
+    return False if raw_value is None else as_bool(raw_value)
+
+
+def _pubsub_subscription_delivery_mode(
+    resource: TerraformResource,
+    uncertainties: list[str],
+) -> str:
+    configured_blocks = (
+        ("push", GcpAttr.PUSH_CONFIG),
+        ("bigquery_export", GcpAttr.BIGQUERY_CONFIG),
+        ("cloud_storage_export", GcpAttr.CLOUD_STORAGE_CONFIG),
+    )
+    unknown_blocks = [
+        name for name, attribute in configured_blocks if value_is_unknown(resource.unknown_values.get(attribute.key))
+    ]
+    if unknown_blocks:
+        uncertainties.append("subscription delivery mode is unknown after planning: " + ",".join(unknown_blocks))
+        return STATE_UNKNOWN
+
+    configured = [
+        name for name, attribute in configured_blocks if resource.values.get(attribute.key) not in (None, [], {})
+    ]
+    if len(configured) > 1:
+        uncertainties.append("subscription has multiple configured delivery modes")
+        return STATE_UNKNOWN
+    return configured[0] if configured else "pull"
 
 
 def normalize_bigquery_dataset(resource: TerraformResource) -> NormalizedResource:

@@ -15,6 +15,7 @@ GcpPubsubActiveCustomRoleStage = Literal[
     "EAP",
     "GA",
 ]
+GcpPubsubCustomRoleGrantScopeCompatibilityState = Literal["compatible", "not_applicable"]
 GcpPubsubAcknowledgedMessageReplayState = Literal[
     "retained_by_subscription",
     "retained_by_topic",
@@ -89,6 +90,7 @@ class GcpCloudRunPubsubMessageAcknowledgementPathCommon(TypedDict):
     custom_role_permissions: list[str]
     custom_role_stage: GcpPubsubActiveCustomRoleStage | None
     custom_role_deleted: Literal[False] | None
+    custom_role_grant_scope_compatibility_state: GcpPubsubCustomRoleGrantScopeCompatibilityState
     matched_permissions: list[Literal["pubsub.subscriptions.consume"]]
     grant_basis: str
     authorization_state: Literal["granted"]

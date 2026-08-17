@@ -100,6 +100,18 @@ class GcpMessagingFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_PUSH_CONFIG)
 
     @property
+    def pubsub_subscription_bigquery_config(self) -> list[dict[str, Any]]:
+        return self.get(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_BIGQUERY_CONFIG)
+
+    @property
+    def pubsub_subscription_cloud_storage_config(self) -> list[dict[str, Any]]:
+        return self.get(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_CLOUD_STORAGE_CONFIG)
+
+    @property
+    def pubsub_subscription_delivery_mode(self) -> str | None:
+        return self.get(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_DELIVERY_MODE)
+
+    @property
     def pubsub_subscription_retain_acked_messages(self) -> bool | None:
         return self.optional_bool(GcpResourceMetadata.PUBSUB_SUBSCRIPTION_RETAIN_ACKED_MESSAGES)
 
