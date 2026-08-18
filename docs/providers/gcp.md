@@ -95,7 +95,7 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 
 ### Workload-to-data paths
 * Exact public Cloud Run-to-Secret Manager, GCS, Pub/Sub, and Firestore read and mutation paths
-* Exact public Cloud Run-to-Pub/Sub subscription consume paths
+* Exact public Cloud Run-to-Pub/Sub pull-subscription consume and acknowledgement paths with exact consumer-project and topic ancestry
 * Public Cloud Run GCS logical-object and generation deletion paths with project/bucket scope and soft-delete/versioning evidence
 * Public Cloud Run Firestore entity and bulk-entity deletion paths with project/database IAM scope and point-in-time-recovery evidence
 * Public Cloud Run secret-version tampering and secret/version disruption paths for runtime IAM authority
@@ -115,7 +115,7 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 * Cloud SQL exposure, private-service-access, recovery, zonal availability, Query Insights, and connector-enforcement posture
 * Firestore customer-managed encryption, point-in-time recovery, and service delete-protection posture
 * GCS public-access, encryption, versioning, soft-delete, and retention posture
-* Pub/Sub customer-managed encryption, message retention, and dead-letter posture
+* Pub/Sub customer-managed encryption, message retention, acknowledged-message replay, and dead-letter posture
 * Secret Manager customer-managed encryption and lifecycle posture
 
 ### Cloud KMS & cryptographic paths
@@ -141,6 +141,6 @@ Cloud KMS and Secret Manager lifecycle posture, public workload cryptographic-op
 
 * GCP support is broad across core workload, data, Kubernetes, private-connectivity, public-edge TLS/protection, and audit/security-posture checks, but still has limited provider-specific positive observation records compared with its finding coverage.
 * Identity-assignment analysis is deterministic and plan-local, focused on modeled IAM bindings/members, custom roles, and Workload Identity Federation pools/providers.
-* Public workload messaging read findings establish modeled identity and provider-native authorization to receive or consume messages, not guaranteed effective message retrieval after provider deny, network, or encryption controls.
+* Messaging findings establish modeled service-account authority, not successful payload retrieval, acknowledgement, replay, or recovery; see [Public Workload Messaging Disclosure and Disruption Paths](../analysis/messaging-paths.md).
 
 See [Cross-Provider Threat-Path Semantics](../analysis/path-semantics.md) for how these findings relate to the shared cross-provider evidence model.

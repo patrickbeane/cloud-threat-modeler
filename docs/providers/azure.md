@@ -94,7 +94,7 @@ Azure trust-boundary records currently cover public storage and Key Vault endpoi
 
 ### Workload-to-data paths
 * Exact public App Service-to-Key Vault, Storage, Service Bus, and Cosmos DB for NoSQL read and mutation paths across account, database, and container scopes
-* Exact public App Service-to-Service Bus receive paths, and vault/storage-scoped least-privilege posture
+* Exact public App Service-to-Service Bus receive and destructive-settlement paths for modeled queues and subscriptions, including namespace-scoped RBAC fanout
 * Public App Service Blob deletion paths with container-namespace scope, versioning, soft-delete, HNS, and permanent-delete compatibility evidence
 * Public App Service Cosmos DB item-deletion paths at account, database, and container scopes with native backup-recovery evidence
 * Public App Service Key Vault secret-value tampering and recoverable or permanent secret-disruption paths for runtime identity authority
@@ -104,7 +104,7 @@ Azure trust-boundary records currently cover public storage and Key Vault endpoi
 * Storage encryption ownership, Blob versioning, soft-delete, HNS, and permanent-delete recovery posture
 * SQL and PostgreSQL public access, recovery, and transport hardening
 * Cosmos DB for NoSQL customer-managed encryption, Continuous backup/recovery, minimum TLS, public network, local authentication, and Private Endpoint posture
-* Service Bus namespace public-network, minimum-TLS, local/SAS-auth, Premium CMK, and private-endpoint posture
+* Service Bus namespace public-network, minimum-TLS, local/SAS-auth, Premium CMK, and private-endpoint posture, plus queue/subscription status, auto-forwarding, TTL, lock-duration, and dead-letter evidence
 
 ### Key Vault & cryptographic paths
 * Key Vault network/recovery/authorization posture, exact versioned/versionless key identities, key expiration, HSM-backed key types, rotation, and cryptographic operations
@@ -139,6 +139,7 @@ Key Vault key and secret posture, public workload cryptographic-operation paths,
 * Diagnostic analysis is scoped to resolved diagnostic settings for supported sensitive resources and modeled Defender/Security Center resources.
 * AKS support covers public/private API posture, authorized IP restrictions, local account usage, RBAC posture, network policy posture, workload identity/OIDC, KMS, monitoring, Defender, and Azure Policy signals when represented in the plan.
 * App Service support covers modeled platform authentication and strict sensitive app-setting delivery, but does not verify application-level authentication, application code, or routing behavior outside the Terraform plan.
+* Messaging findings establish modeled managed-identity authority, not successful payload retrieval, settlement, replay, or recovery; see [Public Workload Messaging Disclosure and Disruption Paths](../analysis/messaging-paths.md).
 * Deeper AKS workload/node posture, full Private DNS record correctness, App Service routing/application-level authentication modeling, and broader Azure RBAC hierarchy modeling are not covered yet.
 * Azure observations distinguish restricted network posture, identity authorization posture, private-endpoint uncertainty, and unresolved Azure plan values.
 
