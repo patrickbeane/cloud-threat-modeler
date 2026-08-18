@@ -27,6 +27,9 @@ _MUTATION_RULE_ID = "azure-public-app-service-service-bus-mutation-access"
 _RECEIVE_ROLE_ID = (
     "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0"
 )
+_OWNER_ROLE_ID = (
+    "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/090c5cfd-751d-490a-894a-3ce6f1109419"
+)
 
 
 def _public(resource: TerraformResource) -> TerraformResource:
@@ -120,6 +123,37 @@ class AzurePublicAppServiceServiceBusMessageDisruptionRuleTests(unittest.TestCas
             )
         )
         self.assertNotIn("service_bus_message_removal_path_uncertainties", evidence)
+
+    def test_built_in_role_definition_id_without_name_is_revalidated(self) -> None:
+        inventory, findings = _evaluate(
+            [
+                _namespace(),
+                _entity(AzureResourceType.SERVICE_BUS_QUEUE, _QUEUE_ID),
+                _public(_web_app()),
+                _role_assignment(
+                    scope="azurerm_servicebus_queue.orders.id",
+                    role_name=None,
+                    role_definition_id=_RECEIVE_ROLE_ID,
+                ),
+            ],
+            frozenset({_MUTATION_RULE_ID, _RECEIVE_RULE_ID, _RULE_ID}),
+        )
+
+        app = inventory.get_by_address("azurerm_linux_web_app.orders")
+        assert app is not None
+        access_paths = azure_facts(app).app_service_service_bus_access_paths
+        removal_paths = azure_facts(app).app_service_service_bus_message_removal_paths
+        self.assertEqual(len(access_paths), 1)
+        self.assertEqual(len(removal_paths), 1)
+        self.assertEqual(
+            access_paths[0]["role_definition_name"],
+            "Azure Service Bus Data Receiver",
+        )
+        self.assertEqual(access_paths[0]["role_definition_id"], _RECEIVE_ROLE_ID)
+        self.assertEqual(
+            {finding.rule_id for finding in findings},
+            {_RECEIVE_RULE_ID, _RULE_ID},
+        )
 
     def test_namespace_authority_fans_out_to_exact_queue_and_subscription_targets(self) -> None:
         _inventory, findings = _evaluate(
@@ -215,7 +249,11 @@ class AzurePublicAppServiceServiceBusMessageDisruptionRuleTests(unittest.TestCas
                         _namespace(),
                         _entity(AzureResourceType.SERVICE_BUS_QUEUE, _QUEUE_ID),
                         _public(_web_app()),
-                        _receiver_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                        _role_assignment(
+                            scope="azurerm_servicebus_queue.orders.id",
+                            role_name="Azure Service Bus Data Owner",
+                            role_definition_id=_OWNER_ROLE_ID,
+                        ),
                     ]
                 )
                 assignment = inventory.get_by_address("azurerm_role_assignment.orders_messaging")
@@ -225,7 +263,15 @@ class AzurePublicAppServiceServiceBusMessageDisruptionRuleTests(unittest.TestCas
                 findings = StrideRuleEngine().evaluate(
                     inventory,
                     [],
-                    rule_policy=RulePolicy(enabled_rule_ids=frozenset({_RULE_ID})),
+                    rule_policy=RulePolicy(
+                        enabled_rule_ids=frozenset(
+                            {
+                                _MUTATION_RULE_ID,
+                                _RECEIVE_RULE_ID,
+                                _RULE_ID,
+                            }
+                        )
+                    ),
                 )
                 self.assertEqual(findings, [])
 

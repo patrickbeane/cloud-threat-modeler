@@ -6,6 +6,9 @@ from fnmatch import fnmatchcase
 from typing import Any
 
 from tfstride.models import NormalizedResource
+from tfstride.providers.azure.arm_control_plane_authorization import (
+    assignment_condition_state,
+)
 from tfstride.providers.azure.key_vault_evidence import AzureKeyVaultRuntimeIdentityKind
 from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceServiceBusAccessPath,
@@ -128,7 +131,7 @@ def _app_service_service_bus_access_paths(
             assignment_facts = azure_facts(assignment_resource)
             if not _same_identifier(assignment_facts.principal_id, identity_facts.principal_id):
                 continue
-            if _condition_is_unknown(assignment_resource):
+            if assignment_condition_state(assignment_resource) == "unknown":
                 uncertainties.append(f"{workload.address}: {assignment_resource.address} condition is unresolved")
                 continue
 
@@ -216,7 +219,7 @@ def _service_bus_data_grant(
 ) -> tuple[_ServiceBusDataGrant | None, str | None]:
     role_name = _string_value(assignment.get("role_definition_name"))
     role_definition_id = _string_value(assignment.get("role_definition_id"))
-    built_in = _built_in_role(role_name, role_definition_id)
+    built_in = service_bus_built_in_data_role(role_name, role_definition_id)
     if built_in is not None:
         default_role_name, role_kind, access_classes = built_in
         access_classes = _applicable_access_classes(access_classes, target_type)
@@ -270,7 +273,7 @@ def _service_bus_data_grant(
     )
 
 
-def _built_in_role(
+def service_bus_built_in_data_role(
     role_name: str | None,
     role_definition_id: str | None,
 ) -> tuple[str, str, tuple[AzureServiceBusAccessClass, ...]] | None:
@@ -424,13 +427,6 @@ def _resource_scope(target: NormalizedResource) -> AzureServiceBusResourceScope:
     if target.resource_type == AzureResourceType.SERVICE_BUS_SUBSCRIPTION:
         return "exact_service_bus_subscription"
     return "exact_service_bus_namespace"
-
-
-def _condition_is_unknown(assignment: NormalizedResource) -> bool:
-    return any(
-        "condition is unknown" in uncertainty
-        for uncertainty in azure_facts(assignment).key_vault_authorization_uncertainties
-    )
 
 
 def _same_identifier(left: str | None, right: str | None) -> bool:

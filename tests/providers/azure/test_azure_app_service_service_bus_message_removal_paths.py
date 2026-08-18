@@ -40,6 +40,7 @@ def _receiver_assignment(
     scope: object = "azurerm_servicebus_namespace.orders.id",
     principal_id: object = _SYSTEM_PRINCIPAL_ID,
     condition: object | None = None,
+    unknown_values: dict[str, object] | None = None,
 ) -> TerraformResource:
     return _role_assignment(
         principal_id=principal_id,
@@ -47,6 +48,7 @@ def _receiver_assignment(
         role_name="Azure Service Bus Data Receiver",
         role_definition_id=_RECEIVER_ROLE_ID,
         condition=condition,
+        unknown_values=unknown_values,
     )
 
 
@@ -430,6 +432,24 @@ class AzureAppServiceServiceBusMessageRemovalPathTests(unittest.TestCase):
             [],
         )
         self.assertTrue(conditional.app_service_service_bus_message_removal_path_uncertainties)
+
+    def test_unknown_condition_version_does_not_become_settlement(self) -> None:
+        facts = _workload_facts(
+            [
+                _namespace(),
+                _queue(),
+                _web_app(),
+                _receiver_assignment(
+                    scope="azurerm_servicebus_queue.orders.id",
+                    unknown_values={"condition_version": True},
+                ),
+            ]
+        )
+
+        self.assertEqual(facts.app_service_service_bus_access_paths, [])
+        self.assertEqual(facts.app_service_service_bus_message_removal_paths, [])
+        self.assertTrue(facts.app_service_service_bus_access_path_uncertainties)
+        self.assertTrue(facts.app_service_service_bus_message_removal_path_uncertainties)
 
     def test_auto_forwarding_gates_direct_queue_and_subscription_settlement(self) -> None:
         queue_facts = _workload_facts(

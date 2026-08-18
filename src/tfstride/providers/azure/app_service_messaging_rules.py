@@ -16,6 +16,9 @@ from tfstride.providers.azure.arm_control_plane_authorization import (
     assignment_condition_state,
     azure_arm_scope_contains,
 )
+from tfstride.providers.azure.resource_decoration.app_service_service_bus_access_paths import (
+    service_bus_built_in_data_role,
+)
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_types import (
     AZURE_APP_SERVICE_RESOURCE_TYPES,
@@ -661,10 +664,7 @@ def _message_role_assignment_is_current(
         or assignment_facts.role_assignment_target_resource_type != source_target.resource_type
         or assignment_facts.role_definition_id != path.get("role_definition_id")
         or assignment_condition_state(assignment) != "not_configured"
-        or (
-            path.get("role_kind") != "custom"
-            and assignment_facts.role_definition_name != path.get("role_definition_name")
-        )
+        or (path.get("role_kind") != "custom" and not _built_in_service_bus_role_is_current(path, assignment))
     ):
         return False
 
@@ -931,6 +931,13 @@ def _is_deterministic_service_bus_path(
     )
     if identity is None or target is None or role_assignment is None:
         return False
+    if assignment_condition_state(role_assignment) != "not_configured":
+        return False
+    if path.get("role_kind") != "custom" and (
+        azure_facts(role_assignment).role_definition_id != path.get("role_definition_id")
+        or not _built_in_service_bus_role_is_current(path, role_assignment)
+    ):
+        return False
     if path.get("identity_kind") == "system_assigned" and identity.address != app.address:
         return False
     if (
@@ -959,6 +966,18 @@ def _is_deterministic_service_bus_path(
     ):
         return False
     return True
+
+
+def _built_in_service_bus_role_is_current(
+    path: Mapping[str, Any],
+    assignment: NormalizedResource,
+) -> bool:
+    assignment_facts = azure_facts(assignment)
+    role = service_bus_built_in_data_role(
+        assignment_facts.role_definition_name,
+        assignment_facts.role_definition_id,
+    )
+    return bool(role is not None and role[0] == path.get("role_definition_name") and role[1] == path.get("role_kind"))
 
 
 def _target_relationship_is_exact(

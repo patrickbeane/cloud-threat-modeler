@@ -4,7 +4,10 @@ from collections.abc import Mapping
 from typing import Any, Literal, cast
 
 from tfstride.models import NormalizedResource
-from tfstride.providers.azure.arm_control_plane_authorization import azure_arm_scope_contains
+from tfstride.providers.azure.arm_control_plane_authorization import (
+    assignment_condition_state,
+    azure_arm_scope_contains,
+)
 from tfstride.providers.azure.key_vault_evidence import (
     AzureKeyVaultRuntimeIdentityKind,
 )
@@ -348,7 +351,7 @@ def _message_removal_path(
             assignment_scope,
         )
         or assignment_facts.role_assignment_scope_kind != source_assignment_scope_kind
-        or assignment_facts.role_assignment_condition is not None
+        or assignment_condition_state(assignment) != "not_configured"
     ):
         return None, "Service Bus settlement role assignment is no longer exact"
 
