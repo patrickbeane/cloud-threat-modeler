@@ -227,11 +227,11 @@ def model_arm_control_plane_action_authority(
             ),
         )
 
-    assignment_condition_state = _assignment_condition_state(assignment)
-    if assignment_condition_state != "not_configured":
+    condition_state = assignment_condition_state(assignment)
+    if condition_state != "not_configured":
         return AzureArmControlPlaneAuthorityResult(
             "unknown",
-            uncertainties=(f"{assignment.address}: assignment condition state is {assignment_condition_state}",),
+            uncertainties=(f"{assignment.address}: assignment condition state is {condition_state}",),
         )
     if not matched_actions:
         return AzureArmControlPlaneAuthorityResult("not_granted")
@@ -423,7 +423,7 @@ def _matched_actions(
     return matched, excluded
 
 
-def _assignment_condition_state(assignment: NormalizedResource) -> str:
+def assignment_condition_state(assignment: NormalizedResource) -> str:
     facts = azure_facts(assignment)
     if _assignment_field_unknown(assignment, "condition") or _assignment_field_unknown(
         assignment,
