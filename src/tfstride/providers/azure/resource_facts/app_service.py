@@ -6,6 +6,9 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultManagementPath,
     AzureAppServiceKeyVaultOperationPath,
 )
+from tfstride.providers.azure.message_removal_evidence import (
+    AzureAppServiceServiceBusMessageRemovalPath,
+)
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.object_storage_deletion_evidence import (
     AzureAppServiceBlobDeletionPath,
@@ -206,6 +209,34 @@ class AzureAppServiceFacts(AzureBaseFacts):
 
     def extend_app_service_service_bus_access_path_uncertainties(self, values: list[str]) -> None:
         self.extend(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_ACCESS_PATH_UNCERTAINTIES, values)
+
+    @property
+    def app_service_service_bus_message_removal_paths(
+        self,
+    ) -> list[AzureAppServiceServiceBusMessageRemovalPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATHS)
+
+    @property
+    def app_service_service_bus_message_removal_path_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES)
+
+    def set_app_service_service_bus_message_removal_paths(
+        self,
+        values: list[AzureAppServiceServiceBusMessageRemovalPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATHS,
+            values,
+        )
+
+    def extend_app_service_service_bus_message_removal_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES,
+            values,
+        )
 
     @property
     def app_service_service_bus_protected_data_convergences(

@@ -10,12 +10,10 @@ AzureServiceBusMessageRemovalOperation = Literal["microsoft.servicebus/namespace
 AzureServiceBusMessageRemovalOperationClass = Literal["destructive_message_receive"]
 AzureServiceBusMessageRemovalManagementEffect = Literal["disruption"]
 AzureServiceBusMessageRemovalTargetGranularity = Literal[
-    "namespace_message_namespace",
     "queue_message_namespace",
     "subscription_message_namespace",
 ]
 AzureServiceBusMessageRemovalScopeType = Literal[
-    "namespace",
     "queue",
     "subscription",
 ]
@@ -41,6 +39,9 @@ class AzureAppServiceServiceBusMessageRemovalPathCommon(TypedDict):
     service_bus_resource_address: str
     service_bus_resource_type: str
     service_bus_resource_id: str
+    service_bus_entity_status: str
+    service_bus_auto_forwarding_state: Literal["not_configured"]
+    service_bus_forward_to: None
     service_bus_namespace_address: str
     service_bus_namespace_id: str
     operation: Literal["microsoft.servicebus/namespaces/messages/receive/action"]
@@ -57,6 +58,7 @@ class AzureAppServiceServiceBusMessageRemovalPathCommon(TypedDict):
     role_definition_id: str | None
     role_definition_address: str | None
     role_kind: str
+    custom_role_assignable_scope_compatibility_state: Literal["not_applicable", "compatible"]
     grant_basis: str
     evaluation_basis: Literal["modeled_rbac_assignment"]
     assignment_scope: str
@@ -73,18 +75,6 @@ class AzureAppServiceServiceBusMessageRemovalPathCommon(TypedDict):
     lifecycle_compatibility_state: Literal["not_applicable"]
     delivery_evidence: AzureServiceBusMessageRemovalDeliveryEvidence
     posture_uncertainties: list[str]
-
-
-class AzureAppServiceServiceBusNamespaceMessageRemovalPath(
-    AzureAppServiceServiceBusMessageRemovalPathCommon,
-):
-    scope_type: Literal["namespace"]
-    target_granularity: Literal["namespace_message_namespace"]
-    target_scope: Literal["exact_service_bus_namespace_message_namespace"]
-    service_bus_entity_kind: None
-    queue_address: None
-    topic_address: None
-    subscription_address: None
 
 
 class AzureAppServiceServiceBusQueueMessageRemovalPath(
@@ -112,8 +102,6 @@ class AzureAppServiceServiceBusSubscriptionMessageRemovalPath(
 
 
 AzureAppServiceServiceBusMessageRemovalPath = (
-    AzureAppServiceServiceBusNamespaceMessageRemovalPath
-    | AzureAppServiceServiceBusQueueMessageRemovalPath
-    | AzureAppServiceServiceBusSubscriptionMessageRemovalPath
+    AzureAppServiceServiceBusQueueMessageRemovalPath | AzureAppServiceServiceBusSubscriptionMessageRemovalPath
 )
 AzureAppServiceServiceBusMessageRemovalEvidence = AzureAppServiceServiceBusMessageRemovalPath

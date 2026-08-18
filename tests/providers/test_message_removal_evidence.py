@@ -10,7 +10,6 @@ from tfstride.providers.aws.message_removal_evidence import (
     AwsSqsMessageRemovalDeliveryEvidence,
 )
 from tfstride.providers.azure.message_removal_evidence import (
-    AzureAppServiceServiceBusNamespaceMessageRemovalPath,
     AzureAppServiceServiceBusQueueMessageRemovalPath,
     AzureAppServiceServiceBusSubscriptionMessageRemovalPath,
     AzureServiceBusMessageRemovalDeliveryEvidence,
@@ -91,15 +90,10 @@ class MessageRemovalEvidenceTests(unittest.TestCase):
     def test_azure_contract_preserves_receive_modes_and_native_ancestry(
         self,
     ) -> None:
-        namespace_hints = get_type_hints(AzureAppServiceServiceBusNamespaceMessageRemovalPath)
         queue_hints = get_type_hints(AzureAppServiceServiceBusQueueMessageRemovalPath)
         subscription_hints = get_type_hints(AzureAppServiceServiceBusSubscriptionMessageRemovalPath)
         delivery_hints = get_type_hints(AzureServiceBusMessageRemovalDeliveryEvidence)
 
-        self.assertEqual(
-            namespace_hints["target_granularity"],
-            Literal["namespace_message_namespace"],
-        )
         self.assertEqual(
             queue_hints["target_granularity"],
             Literal["queue_message_namespace"],

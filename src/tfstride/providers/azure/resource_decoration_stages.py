@@ -30,6 +30,9 @@ from tfstride.providers.azure.resource_decoration.app_service_key_vault_secret_m
 from tfstride.providers.azure.resource_decoration.app_service_service_bus_access_paths import (
     ModelAppServiceServiceBusAccessPathsStage,
 )
+from tfstride.providers.azure.resource_decoration.app_service_service_bus_message_removal_paths import (
+    ModelAppServiceServiceBusMessageRemovalPathsStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_storage_access_paths import (
     ModelAppServiceStorageAccessPathsStage,
 )
@@ -109,6 +112,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         ModelAppServiceStorageAccessPathsStage(),
         ModelAppServiceBlobDeletionPathsStage(),
         ModelAppServiceServiceBusAccessPathsStage(),
+        ModelAppServiceServiceBusMessageRemovalPathsStage(),
         ModelAppServiceKeyVaultProtectedDataConvergenceStage(),
         ModelFederatedManagedIdentityTrustPathsStage(),
         ModelAppServiceAcrWritePathsStage(),

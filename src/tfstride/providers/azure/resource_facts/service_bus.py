@@ -36,6 +36,39 @@ class AzureServiceBusFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.SERVICE_BUS_ENTITY_KIND)
 
     @property
+    def service_bus_entity_status(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_ENTITY_STATUS)
+
+    @property
+    def service_bus_auto_forwarding_state(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_AUTO_FORWARDING_STATE)
+
+    @property
+    def service_bus_forward_to(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_FORWARD_TO)
+
+    @property
+    def service_bus_default_message_time_to_live(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_DEFAULT_MESSAGE_TIME_TO_LIVE)
+
+    @property
+    def service_bus_lock_duration(self) -> str | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_LOCK_DURATION)
+
+    @property
+    def service_bus_max_delivery_count(self) -> int | None:
+        return self.get(AzureResourceMetadata.SERVICE_BUS_MAX_DELIVERY_COUNT)
+
+    @property
+    def service_bus_dead_lettering_on_message_expiration(self) -> bool | None:
+        state = self.get(AzureResourceMetadata.SERVICE_BUS_DEAD_LETTERING_ON_MESSAGE_EXPIRATION_STATE)
+        if state == STATE_ENABLED:
+            return True
+        if state == STATE_DISABLED:
+            return False
+        return None
+
+    @property
     def service_bus_topic_reference(self) -> str | None:
         return self.get(AzureResourceMetadata.SERVICE_BUS_TOPIC_REFERENCE)
 

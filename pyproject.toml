@@ -172,6 +172,8 @@ include = [
 
   # Azure messaging removal and delivery evidence.
   "src/tfstride/providers/azure/message_removal_evidence.py",
+  "src/tfstride/providers/azure/service_bus_entity_normalizers.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_service_bus_message_removal_paths.py",
 
   # Azure managed-key evidence, authorization, and workload paths.
   "src/tfstride/providers/azure/key_vault_dependency_evidence.py",

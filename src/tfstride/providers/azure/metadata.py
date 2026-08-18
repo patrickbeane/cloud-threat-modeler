@@ -6,6 +6,9 @@ from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultOperationPath,
     AzureKeyVaultAuthorizationGrant,
 )
+from tfstride.providers.azure.message_removal_evidence import (
+    AzureAppServiceServiceBusMessageRemovalPath,
+)
 from tfstride.providers.azure.object_storage_deletion_evidence import (
     AzureAppServiceBlobDeletionPath,
 )
@@ -45,6 +48,15 @@ class AzureResourceMetadata:
     SERVICE_BUS_ENTITY_ID = OptionalStringMetadataField("service_bus_entity_id")
     SERVICE_BUS_ENTITY_NAME = OptionalStringMetadataField("service_bus_entity_name")
     SERVICE_BUS_ENTITY_KIND = OptionalStringMetadataField("service_bus_entity_kind")
+    SERVICE_BUS_ENTITY_STATUS = OptionalStringMetadataField("service_bus_entity_status")
+    SERVICE_BUS_AUTO_FORWARDING_STATE = OptionalStringMetadataField("service_bus_auto_forwarding_state")
+    SERVICE_BUS_FORWARD_TO = OptionalStringMetadataField("service_bus_forward_to")
+    SERVICE_BUS_DEFAULT_MESSAGE_TIME_TO_LIVE = OptionalStringMetadataField("service_bus_default_message_time_to_live")
+    SERVICE_BUS_LOCK_DURATION = OptionalStringMetadataField("service_bus_lock_duration")
+    SERVICE_BUS_MAX_DELIVERY_COUNT = OptionalIntMetadataField("service_bus_max_delivery_count")
+    SERVICE_BUS_DEAD_LETTERING_ON_MESSAGE_EXPIRATION_STATE = OptionalStringMetadataField(
+        "service_bus_dead_lettering_on_message_expiration_state"
+    )
     SERVICE_BUS_TOPIC_REFERENCE = OptionalStringMetadataField("service_bus_topic_reference")
     RESOLVED_SERVICE_BUS_TOPIC_ADDRESS = OptionalStringMetadataField("resolved_service_bus_topic_address")
     SERVICE_BUS_SKU = OptionalStringMetadataField("service_bus_sku")
@@ -410,6 +422,9 @@ class AzureResourceMetadata:
     APP_SERVICE_SERVICE_BUS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_access_path_uncertainties"
     )
+    APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_service_bus_message_removal_path_uncertainties"
+    )
     APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_protected_data_convergence_uncertainties"
     )
@@ -444,6 +459,9 @@ class AzureResourceMetadata:
     APP_SERVICE_SERVICE_BUS_ACCESS_PATHS = RecordListMetadataField[AzureAppServiceServiceBusAccessPath](
         "app_service_service_bus_access_paths"
     )
+    APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[
+        AzureAppServiceServiceBusMessageRemovalPath
+    ]("app_service_service_bus_message_removal_paths")
     APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
         AzureAppServiceServiceBusProtectedDataConvergence
     ]("app_service_service_bus_protected_data_convergences")
