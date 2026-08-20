@@ -9,6 +9,9 @@ from tfstride.providers.gcp.kms_evidence import (
 from tfstride.providers.gcp.message_removal_evidence import (
     GcpCloudRunPubsubMessageRemovalPath,
 )
+from tfstride.providers.gcp.messaging_topology_destruction_evidence import (
+    GcpCloudRunPubsubTopologyDestructionPath,
+)
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
@@ -138,6 +141,16 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_pubsub_topology_destruction_paths(
+        self,
+    ) -> list[GcpCloudRunPubsubTopologyDestructionPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def cloud_run_pubsub_topology_destruction_path_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
+
+    @property
     def cloud_run_firestore_access_paths(self) -> list[dict[str, Any]]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATHS)
 
@@ -254,6 +267,24 @@ class GcpComputeFacts(GcpBaseFacts):
         values: list[str],
     ) -> None:
         self.extend(GcpResourceMetadata.CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES, values)
+
+    def set_cloud_run_pubsub_topology_destruction_paths(
+        self,
+        values: list[GcpCloudRunPubsubTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            GcpResourceMetadata.CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_cloud_run_pubsub_topology_destruction_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            GcpResourceMetadata.CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def set_cloud_run_firestore_access_paths(self, values: list[dict[str, Any]]) -> None:
         self.set(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_ACCESS_PATHS, values)

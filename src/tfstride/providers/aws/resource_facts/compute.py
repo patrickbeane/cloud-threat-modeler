@@ -5,6 +5,9 @@ from typing import Any
 
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.message_removal_evidence import AwsEcsSqsMessageRemovalPath
+from tfstride.providers.aws.messaging_topology_destruction_evidence import (
+    AwsEcsMessagingTopologyDestructionPath,
+)
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
@@ -157,6 +160,16 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_sqs_message_removal_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_messaging_topology_destruction_paths(
+        self,
+    ) -> list[AwsEcsMessagingTopologyDestructionPath]:
+        return self.get(AwsResourceMetadata.ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def ecs_messaging_topology_destruction_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
 
     @property
     def ecs_dynamodb_access_paths(self) -> list[dict[str, Any]]:
@@ -659,6 +672,24 @@ class AwsComputeFacts(AwsBaseFacts):
     ) -> None:
         self.extend(
             AwsResourceMetadata.ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    def set_ecs_messaging_topology_destruction_paths(
+        self,
+        values: list[AwsEcsMessagingTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_ecs_messaging_topology_destruction_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
             values,
         )
 

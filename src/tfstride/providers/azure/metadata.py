@@ -9,6 +9,9 @@ from tfstride.providers.azure.key_vault_evidence import (
 from tfstride.providers.azure.message_removal_evidence import (
     AzureAppServiceServiceBusMessageRemovalPath,
 )
+from tfstride.providers.azure.messaging_topology_destruction_evidence import (
+    AzureAppServiceServiceBusTopologyDestructionPath,
+)
 from tfstride.providers.azure.object_storage_deletion_evidence import (
     AzureAppServiceBlobDeletionPath,
 )
@@ -425,6 +428,9 @@ class AzureResourceMetadata:
     APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_message_removal_path_uncertainties"
     )
+    APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_service_bus_topology_destruction_path_uncertainties"
+    )
     APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_protected_data_convergence_uncertainties"
     )
@@ -462,6 +468,9 @@ class AzureResourceMetadata:
     APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[
         AzureAppServiceServiceBusMessageRemovalPath
     ]("app_service_service_bus_message_removal_paths")
+    APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[
+        AzureAppServiceServiceBusTopologyDestructionPath
+    ]("app_service_service_bus_topology_destruction_paths")
     APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
         AzureAppServiceServiceBusProtectedDataConvergence
     ]("app_service_service_bus_protected_data_convergences")

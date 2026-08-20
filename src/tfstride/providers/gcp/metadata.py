@@ -10,6 +10,9 @@ from tfstride.providers.gcp.kms_evidence import (
 from tfstride.providers.gcp.message_removal_evidence import (
     GcpCloudRunPubsubMessageRemovalPath,
 )
+from tfstride.providers.gcp.messaging_topology_destruction_evidence import (
+    GcpCloudRunPubsubTopologyDestructionPath,
+)
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
 )
@@ -114,6 +117,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_PUBSUB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_pubsub_access_path_uncertainties")
     CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_pubsub_message_removal_path_uncertainties"
+    )
+    CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_pubsub_topology_destruction_path_uncertainties"
     )
     CLOUD_RUN_FIRESTORE_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_access_path_uncertainties"
@@ -535,6 +541,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_PUBSUB_ACCESS_PATHS = DictListMetadataField("cloud_run_pubsub_access_paths")
     CLOUD_RUN_PUBSUB_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[GcpCloudRunPubsubMessageRemovalPath](
         "cloud_run_pubsub_message_removal_paths"
+    )
+    CLOUD_RUN_PUBSUB_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[GcpCloudRunPubsubTopologyDestructionPath](
+        "cloud_run_pubsub_topology_destruction_paths"
     )
     CLOUD_RUN_FIRESTORE_ACCESS_PATHS = DictListMetadataField("cloud_run_firestore_access_paths")
     CLOUD_RUN_FIRESTORE_ENTITY_DELETION_PATHS = RecordListMetadataField[GcpCloudRunFirestoreDeletionPath](

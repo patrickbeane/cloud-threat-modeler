@@ -10,6 +10,9 @@ from tfstride.providers.aws.kms_evidence import (
     AwsKmsOperationAuthorization,
 )
 from tfstride.providers.aws.message_removal_evidence import AwsEcsSqsMessageRemovalPath
+from tfstride.providers.aws.messaging_topology_destruction_evidence import (
+    AwsEcsMessagingTopologyDestructionPath,
+)
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
@@ -94,6 +97,9 @@ class AwsResourceMetadata:
     )
     ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_messaging_access_path_uncertainties")
     ECS_SQS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES = StringListMetadataField("ecs_sqs_message_removal_path_uncertainties")
+    ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "ecs_messaging_topology_destruction_path_uncertainties"
+    )
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
         "ecs_dynamodb_item_deletion_path_uncertainties"
@@ -486,6 +492,9 @@ class AwsResourceMetadata:
     ECS_MESSAGING_ACCESS_PATHS = DictListMetadataField("ecs_messaging_access_paths")
     ECS_SQS_MESSAGE_REMOVAL_PATHS = RecordListMetadataField[AwsEcsSqsMessageRemovalPath](
         "ecs_sqs_message_removal_paths"
+    )
+    ECS_MESSAGING_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[AwsEcsMessagingTopologyDestructionPath](
+        "ecs_messaging_topology_destruction_paths"
     )
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_DYNAMODB_ITEM_DELETION_PATHS = RecordListMetadataField[AwsEcsDynamoDbItemDeletionPath](

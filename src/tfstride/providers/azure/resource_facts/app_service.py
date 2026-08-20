@@ -9,6 +9,9 @@ from tfstride.providers.azure.key_vault_evidence import (
 from tfstride.providers.azure.message_removal_evidence import (
     AzureAppServiceServiceBusMessageRemovalPath,
 )
+from tfstride.providers.azure.messaging_topology_destruction_evidence import (
+    AzureAppServiceServiceBusTopologyDestructionPath,
+)
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.object_storage_deletion_evidence import (
     AzureAppServiceBlobDeletionPath,
@@ -235,6 +238,36 @@ class AzureAppServiceFacts(AzureBaseFacts):
     ) -> None:
         self.extend(
             AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_MESSAGE_REMOVAL_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    @property
+    def app_service_service_bus_topology_destruction_paths(
+        self,
+    ) -> list[AzureAppServiceServiceBusTopologyDestructionPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def app_service_service_bus_topology_destruction_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
+
+    def set_app_service_service_bus_topology_destruction_paths(
+        self,
+        values: list[AzureAppServiceServiceBusTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_app_service_service_bus_topology_destruction_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
             values,
         )
 
