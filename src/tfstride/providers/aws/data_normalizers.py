@@ -384,8 +384,20 @@ def normalize_s3_bucket_lifecycle_configuration(resource: TerraformResource) -> 
 def normalize_sns_topic(resource: TerraformResource) -> NormalizedResource:
     values = resource.values
     unknown_values = resource.unknown_values
-    policy_document = load_json_document(values.get("policy"))
+    raw_policy = values.get("policy")
+    policy_document = load_json_document(raw_policy)
     uncertainties: list[str] = []
+    topic_policy_uncertainties: list[str] = []
+    if attribute_unknown(unknown_values, "policy"):
+        topic_policy_state = STATE_UNKNOWN
+        topic_policy_uncertainties.append("policy is unknown after planning")
+    elif raw_policy is None or raw_policy == "":
+        topic_policy_state = STATE_NOT_CONFIGURED
+    elif policy_document:
+        topic_policy_state = STATE_CONFIGURED
+    else:
+        topic_policy_state = STATE_UNKNOWN
+        topic_policy_uncertainties.append("policy has an unrecognized or malformed value shape")
     kms_master_key_id = known_string(
         values,
         unknown_values,
@@ -404,6 +416,8 @@ def normalize_sns_topic(resource: TerraformResource) -> NormalizedResource:
         policy_statements=parse_policy_statements(policy_document),
         metadata={
             AwsResourceMetadata.POLICY_DOCUMENT: policy_document,
+            AwsResourceMetadata.SNS_TOPIC_POLICY_STATE: topic_policy_state,
+            AwsResourceMetadata.SNS_TOPIC_POLICY_UNCERTAINTIES: topic_policy_uncertainties,
             AwsResourceMetadata.SNS_DISPLAY_NAME: known_string(
                 values,
                 unknown_values,

@@ -101,6 +101,74 @@ class AwsMessagingNormalizerTests(unittest.TestCase):
         self.assertEqual(unknown.sns_encryption_ownership_state, "unknown")
         self.assertEqual(unknown.sns_posture_uncertainties, ["kms_master_key_id is unknown after planning"])
 
+    def test_sns_policy_state_distinguishes_absent_configured_and_unknown(self) -> None:
+        configured = aws_facts(
+            normalize_sns_topic(
+                _resource(
+                    "aws_sns_topic.configured",
+                    "aws_sns_topic",
+                    {
+                        "name": "configured",
+                        "policy": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Principal": "*",
+                                    "Action": "sns:Publish",
+                                    "Resource": "*",
+                                }
+                            ],
+                        },
+                    },
+                )
+            )
+        )
+        absent = aws_facts(
+            normalize_sns_topic(
+                _resource(
+                    "aws_sns_topic.absent_policy",
+                    "aws_sns_topic",
+                    {"name": "absent-policy"},
+                )
+            )
+        )
+        unknown = aws_facts(
+            normalize_sns_topic(
+                _resource(
+                    "aws_sns_topic.unknown_policy",
+                    "aws_sns_topic",
+                    {"name": "unknown-policy"},
+                    unknown_values={"policy": True},
+                )
+            )
+        )
+        malformed = aws_facts(
+            normalize_sns_topic(
+                _resource(
+                    "aws_sns_topic.malformed_policy",
+                    "aws_sns_topic",
+                    {"name": "malformed-policy", "policy": "{"},
+                )
+            )
+        )
+
+        self.assertEqual(configured.sns_topic_policy_state, "configured")
+        self.assertEqual(configured.sns_topic_policy_uncertainties, [])
+        self.assertEqual(absent.sns_topic_policy_state, "not_configured")
+        self.assertEqual(absent.sns_topic_policy_uncertainties, [])
+        self.assertEqual(unknown.sns_topic_policy_state, "unknown")
+        self.assertEqual(
+            unknown.sns_topic_policy_uncertainties,
+            ["policy is unknown after planning"],
+        )
+        self.assertEqual(unknown.sns_posture_uncertainties, [])
+        self.assertEqual(malformed.sns_topic_policy_state, "unknown")
+        self.assertEqual(
+            malformed.sns_topic_policy_uncertainties,
+            ["policy has an unrecognized or malformed value shape"],
+        )
+
     def test_sqs_encryption_ownership_states_and_retention_are_distinct(self) -> None:
         customer_managed = aws_facts(
             normalize_sqs_queue(

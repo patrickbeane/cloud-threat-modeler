@@ -27,6 +27,10 @@ from tfstride.providers.aws.resource_decoration.ecs_messaging_access_paths impor
     ModelEcsMessagingAccessPathsStage,
     ProjectEcsMessagingAccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_messaging_topology_destruction_paths import (
+    ModelEcsMessagingTopologyDestructionPathsStage,
+    ProjectEcsMessagingTopologyDestructionPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_s3_access_paths import (
     ModelEcsS3AccessPathsStage,
     ProjectEcsS3AccessPathsOntoServicesStage,
@@ -118,6 +122,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelWorkloadEcrWritePathsStage(),
         ResolveApiGatewayRelationshipsStage(),
         MergeResourcePolicyResourcesStage(),
+        ModelEcsMessagingTopologyDestructionPathsStage(),
         ApplyS3PublicAccessBlocksStage(),
         ApplyS3PostureResourcesStage(),
         ModelEcsS3ObjectDeletionPathsStage(),
@@ -139,6 +144,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsS3ObjectDeletionPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
         ProjectEcsSqsMessageRemovalPathsOntoServicesStage(),
+        ProjectEcsMessagingTopologyDestructionPathsOntoServicesStage(),
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbItemDeletionPathsOntoServicesStage(),
         ModelEcsS3ProtectedDataConvergenceStage(),

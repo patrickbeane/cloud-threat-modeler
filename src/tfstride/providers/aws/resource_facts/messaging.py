@@ -27,6 +27,14 @@ class AwsMessagingFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.SNS_POSTURE_UNCERTAINTIES)
 
     @property
+    def sns_topic_policy_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.SNS_TOPIC_POLICY_STATE)
+
+    @property
+    def sns_topic_policy_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.SNS_TOPIC_POLICY_UNCERTAINTIES)
+
+    @property
     def sqs_queue_url(self) -> str | None:
         return self.get(AwsResourceMetadata.SQS_QUEUE_URL)
 

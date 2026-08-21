@@ -353,7 +353,7 @@ def _azure_authority(
 
 
 class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase):
-    """Pin topology-deletion prerequisites without constructing disruption paths."""
+    """Pin topology-deletion prerequisites and provider-native paths."""
 
     def test_topology_deletion_remains_distinct_from_message_removal(self) -> None:
         aws_inventory, aws_service = _aws_service_facts(
@@ -370,7 +370,14 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
         )
         self.assertEqual(aws_service.ecs_sqs_message_removal_paths, [])
         self.assertEqual(
-            {tuple(path["internet_facing_load_balancers"]) for path in aws_service.ecs_messaging_access_paths},
+            {path["operation"] for path in aws_service.ecs_messaging_topology_destruction_paths},
+            {_AWS_DELETE_QUEUE, _AWS_DELETE_TOPIC},
+        )
+        self.assertEqual(
+            {
+                tuple(path["internet_facing_load_balancers"])
+                for path in aws_service.ecs_messaging_topology_destruction_paths
+            },
             {("aws_lb.public",)},
         )
         self.assertIsNotNone(aws_inventory.get_by_address("aws_sns_topic.orders"))
@@ -467,6 +474,26 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             {path["credential_context"] for path in paths.values()},
             {"workload_runtime"},
         )
+        topology_paths = {
+            path["messaging_resource_address"]: path for path in facts.ecs_messaging_topology_destruction_paths
+        }
+        self.assertEqual(set(topology_paths), set(paths))
+        self.assertEqual(
+            topology_paths["aws_sns_topic.orders"]["operation"],
+            _AWS_DELETE_TOPIC,
+        )
+        self.assertEqual(
+            topology_paths["aws_sqs_queue.orders"]["operation"],
+            _AWS_DELETE_QUEUE,
+        )
+        self.assertEqual(
+            {path["authorization_state"] for path in topology_paths.values()},
+            {"allowed"},
+        )
+        self.assertEqual(
+            {path["same_account"] for path in topology_paths.values()},
+            {True},
+        )
 
     def test_aws_denied_conditional_incomplete_and_non_exact_authority_fails_closed(
         self,
@@ -513,6 +540,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                     if path["access_state"] == "allowed" and _AWS_DELETE_QUEUE in path["matched_actions"]
                 ]
                 self.assertEqual(deterministic, [])
+                self.assertEqual(
+                    facts.ecs_messaging_topology_destruction_paths,
+                    [],
+                )
                 self.assertTrue(paths or facts.ecs_messaging_access_path_uncertainties)
 
     def test_aws_delete_queue_account_compatibility_and_queue_policy_stay_separate(
@@ -561,6 +592,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             aws_facts(normalized_queue).sqs_queue_policy_state,
             "configured",
         )
+        self.assertEqual(
+            facts.ecs_messaging_topology_destruction_paths,
+            [],
+        )
         self.assertEqual(len(normalized_queue.policy_statements), 1)
         queue_policy = normalized_queue.policy_statements[0]
         self.assertEqual(queue_policy.effect, "Allow")
@@ -580,6 +615,14 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
         self.assertEqual(
             facts.ecs_messaging_access_paths[0]["matched_actions"],
             [_AWS_DELETE_QUEUE],
+        )
+        self.assertEqual(
+            [path["operation"] for path in facts.ecs_messaging_topology_destruction_paths],
+            [_AWS_DELETE_QUEUE],
+        )
+        self.assertEqual(
+            facts.ecs_messaging_topology_destruction_paths[0]["internet_facing_load_balancers"],
+            [],
         )
         self.assertEqual(
             _evaluate(
