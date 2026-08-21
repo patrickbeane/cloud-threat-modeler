@@ -22,7 +22,6 @@ _MUTATION_ACTION_CLASSES = {
     "sns:publish": "publish",
     "sns:confirmsubscription": "write",
     "sns:subscribe": "write",
-    "sns:deletetopic": "delete",
     "sns:addpermission": "administrative",
     "sns:putdataprotectionpolicy": "administrative",
     "sns:removepermission": "administrative",
@@ -30,18 +29,16 @@ _MUTATION_ACTION_CLASSES = {
     "sns:tagresource": "administrative",
     "sns:untagresource": "administrative",
     "sqs:sendmessage": "write",
-    "sqs:deletequeue": "delete",
     "sqs:addpermission": "administrative",
     "sqs:removepermission": "administrative",
     "sqs:setqueueattributes": "administrative",
     "sqs:tagqueue": "administrative",
     "sqs:untagqueue": "administrative",
 }
-_MUTATION_CLASS_ORDER = ("publish", "write", "delete", "administrative")
+_MUTATION_CLASS_ORDER = ("publish", "write", "administrative")
 _MUTATION_CAPABILITIES = {
     "publish": "publish messages",
     "write": "send messages or manage subscriptions",
-    "delete": "delete or purge messaging resources or data",
     "administrative": "perform administrative topic or queue changes",
 }
 
@@ -78,7 +75,7 @@ class AwsEcsMessagingAccessRuleDetectors:
             mutation_classes = _mutation_classes(mutation_paths)
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
-                privilege_breadth=2 if {"delete", "administrative"} & set(mutation_classes) else 1,
+                privilege_breadth=2 if "administrative" in mutation_classes else 1,
                 data_sensitivity=1,
                 lateral_movement=1,
                 blast_radius=2 if len(target_addresses) > 1 else 1,

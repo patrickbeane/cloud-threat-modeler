@@ -141,8 +141,9 @@ class AwsPublicEcsMessagingMutationRuleTests(unittest.TestCase):
         topic_evidence, queue_evidence = evidence["messaging_mutation_paths"]
         self.assertIn("target_address=aws_sns_topic.orders", topic_evidence)
         self.assertIn(f"target_arn={_TOPIC_ARN}", topic_evidence)
-        self.assertIn("mutation_classes=publish,delete", topic_evidence)
-        self.assertIn("actions=sns:Publish,sns:DeleteTopic", topic_evidence)
+        self.assertIn("mutation_classes=publish", topic_evidence)
+        self.assertIn("actions=sns:Publish", topic_evidence)
+        self.assertNotIn("sns:DeleteTopic", topic_evidence)
         self.assertIn("target_address=aws_sqs_queue.orders", queue_evidence)
         self.assertIn(f"target_arn={_QUEUE_ARN}", queue_evidence)
         self.assertIn("mutation_classes=write,administrative", queue_evidence)

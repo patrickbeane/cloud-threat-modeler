@@ -882,6 +882,18 @@ def _definition_for_target(
     )
 
 
+def messaging_topology_resource_policy_operation_is_complete(
+    target: NormalizedResource,
+    operation: AwsMessagingTopologyDestructionOperation,
+) -> bool:
+    definition = _definition_for_target(target)
+    return bool(
+        definition is not None
+        and definition.operation == operation
+        and _resource_policy_posture(target, definition).complete
+    )
+
+
 def _identity_policy_complete(role: NormalizedResource) -> bool:
     facts = aws_facts(role)
     return bool(

@@ -65,8 +65,8 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
 
         self.assertIs(evaluation_rule_set, engine._rule_engine.rule_set_for("aws"))
         self.assertIs(coverage_registry, evaluation_rule_set.registry)
-        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 100)
-        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 100)
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 101)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 101)
         self.assertTrue(all(rule_id.startswith("aws-") for rule_id in result.analysis_coverage.rules.enabled_rules))
 
     def test_analysis_selects_boundary_contributors_for_normalized_provider(self) -> None:

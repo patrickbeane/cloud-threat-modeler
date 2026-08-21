@@ -80,6 +80,7 @@ include = [
   "src/tfstride/providers/aws/message_removal_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_sqs_message_removal_paths.py",
   "src/tfstride/providers/aws/ecs_sqs_message_disruption_rules.py",
+  "src/tfstride/providers/aws/ecs_messaging_topology_disruption_rules.py",
 
   # AWS messaging topology-destruction evidence.
   "src/tfstride/providers/aws/messaging_topology_destruction_evidence.py",

@@ -908,6 +908,33 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-messaging-topology-disruption",
+        title="Internet-facing ECS service can delete messaging topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and remove `sqs:DeleteQueue` and `sns:DeleteTopic` "
+            "from internet-facing task roles. Scope messaging permissions to exact runtime operations and use "
+            "separate operational identities for queue and topic topology changes."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "sns",
+            "sqs",
+            "iam",
+            "public-access",
+            "messaging",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-sqs-receive-access",
         title="Internet-facing ECS service task role has an exact SQS receive allow",
         category=StrideCategory.INFORMATION_DISCLOSURE,
