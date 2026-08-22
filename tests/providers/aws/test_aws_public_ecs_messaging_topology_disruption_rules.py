@@ -7,10 +7,12 @@ from tests.providers.aws.test_aws_ecs_messaging_topology_destruction_paths impor
     _QUEUE_ARN,
     _TOPIC_ARN,
     _queue,
+    _resource_policy_statement,
     _role,
     _statement,
     _task_definition,
     _topic,
+    _with_policy,
 )
 from tests.providers.aws.test_aws_public_ecs_messaging_mutation_rules import (
     _load_balancer,
@@ -22,6 +24,7 @@ from tfstride.analysis.trust_boundaries import detect_trust_boundaries
 from tfstride.models import Finding, ResourceInventory, StrideCategory, TerraformResource
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.normalizer import AwsNormalizer
+from tfstride.providers.aws.policy_documents import parse_policy_statement
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.rules import AWS_RULE_GROUP_IDS
 
@@ -44,6 +47,14 @@ def _evaluate(
         rule_policy=RulePolicy(enabled_rule_ids=rule_ids),
     )
     return inventory, findings
+
+
+def _reevaluate(inventory: ResourceInventory) -> list[Finding]:
+    return StrideRuleEngine().evaluate(
+        inventory,
+        detect_trust_boundaries(inventory),
+        rule_policy=RulePolicy(enabled_rule_ids=frozenset({_RULE_ID})),
+    )
 
 
 def _public_resources(
@@ -211,6 +222,188 @@ class AwsPublicEcsMessagingTopologyDisruptionRuleTests(unittest.TestCase):
             rule_policy=RulePolicy(enabled_rule_ids=frozenset({_RULE_ID})),
         )
         self.assertEqual(findings, [])
+
+    def test_current_identity_delete_allow_removal_rejects_cached_path(self) -> None:
+        cases = (
+            ("queue", _DELETE_QUEUE, _QUEUE_ARN),
+            ("topic", _DELETE_TOPIC, _TOPIC_ARN),
+        )
+        for case, operation, target_arn in cases:
+            with self.subTest(case=case):
+                inventory, initial_findings = _evaluate(_public_resources([(operation, target_arn)]))
+                self.assertEqual(
+                    [finding.rule_id for finding in initial_findings],
+                    [_RULE_ID],
+                )
+
+                role = inventory.get_by_address("aws_iam_role.orders_task")
+                assert role is not None
+                role.policy_statements = ()
+
+                self.assertEqual(_reevaluate(inventory), [])
+
+    def test_current_identity_explicit_deny_rejects_cached_path(self) -> None:
+        cases = (
+            ("queue", _DELETE_QUEUE, _QUEUE_ARN),
+            ("topic", _DELETE_TOPIC, _TOPIC_ARN),
+        )
+        for case, operation, target_arn in cases:
+            with self.subTest(case=case):
+                inventory, initial_findings = _evaluate(_public_resources([(operation, target_arn)]))
+                self.assertEqual(len(initial_findings), 1)
+
+                role = inventory.get_by_address("aws_iam_role.orders_task")
+                assert role is not None
+                role.policy_statements = (
+                    *role.policy_statements,
+                    parse_policy_statement(_statement("Deny", operation, target_arn)),
+                )
+
+                self.assertEqual(_reevaluate(inventory), [])
+
+    def test_current_resource_policy_allow_removal_rejects_cached_path(self) -> None:
+        cases = (
+            (
+                "queue",
+                "aws_sqs_queue.orders",
+                _with_policy(
+                    _queue(),
+                    [
+                        _resource_policy_statement(
+                            "Allow",
+                            _DELETE_QUEUE,
+                            _QUEUE_ARN,
+                        )
+                    ],
+                ),
+                None,
+                ("sqs:SendMessage", _QUEUE_ARN),
+            ),
+            (
+                "topic",
+                "aws_sns_topic.orders",
+                None,
+                _with_policy(
+                    _topic(),
+                    [
+                        _resource_policy_statement(
+                            "Allow",
+                            _DELETE_TOPIC,
+                            _TOPIC_ARN,
+                        )
+                    ],
+                ),
+                ("sns:Publish", _TOPIC_ARN),
+            ),
+        )
+        for case, target_address, queue, topic, identity_action in cases:
+            with self.subTest(case=case):
+                inventory, initial_findings = _evaluate(
+                    _public_resources(
+                        [identity_action],
+                        queue=queue,
+                        topic=topic,
+                    )
+                )
+                self.assertEqual(len(initial_findings), 1)
+
+                target = inventory.get_by_address(target_address)
+                assert target is not None
+                target.policy_statements = ()
+                aws_facts(target).set_policy_document({"Version": "2012-10-17", "Statement": []})
+
+                self.assertEqual(_reevaluate(inventory), [])
+
+    def test_current_resource_policy_explicit_deny_rejects_cached_path(self) -> None:
+        cases = (
+            (
+                "queue",
+                _DELETE_QUEUE,
+                _QUEUE_ARN,
+                "aws_sqs_queue.orders",
+                _queue(),
+            ),
+            (
+                "topic",
+                _DELETE_TOPIC,
+                _TOPIC_ARN,
+                "aws_sns_topic.orders",
+                _topic(),
+            ),
+        )
+        for case, operation, target_arn, target_address, target_resource in cases:
+            with self.subTest(case=case):
+                inventory, initial_findings = _evaluate(
+                    _public_resources(
+                        [(operation, target_arn)],
+                        queue=target_resource if case == "queue" else None,
+                        topic=target_resource if case == "topic" else None,
+                    )
+                )
+                self.assertEqual(len(initial_findings), 1)
+
+                target = inventory.get_by_address(target_address)
+                assert target is not None
+                deny = _resource_policy_statement(
+                    "Deny",
+                    operation,
+                    target_arn,
+                )
+                target.policy_statements = (parse_policy_statement(deny),)
+                aws_facts(target).set_policy_document(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [deny],
+                    }
+                )
+                aws_facts(target).set(
+                    (
+                        AwsResourceMetadata.SQS_QUEUE_POLICY_STATE
+                        if case == "queue"
+                        else AwsResourceMetadata.SNS_TOPIC_POLICY_STATE
+                    ),
+                    "configured",
+                )
+
+                self.assertEqual(_reevaluate(inventory), [])
+
+    def test_current_conditional_or_retargeted_allow_rejects_cached_path(self) -> None:
+        inventory, initial_findings = _evaluate(_public_resources([(_DELETE_QUEUE, _QUEUE_ARN)]))
+        self.assertEqual(len(initial_findings), 1)
+        role = inventory.get_by_address("aws_iam_role.orders_task")
+        assert role is not None
+        role.policy_statements = (
+            parse_policy_statement(
+                _statement(
+                    "Allow",
+                    _DELETE_QUEUE,
+                    _QUEUE_ARN,
+                    condition={
+                        "StringEquals": {
+                            "aws:RequestedRegion": "us-east-1",
+                        }
+                    },
+                )
+            ),
+        )
+        self.assertEqual(_reevaluate(inventory), [])
+
+        role.policy_statements = (parse_policy_statement(_statement("Allow", _DELETE_QUEUE, _TOPIC_ARN)),)
+        self.assertEqual(_reevaluate(inventory), [])
+
+    def test_current_deterministic_allow_remains_valid(self) -> None:
+        cases = (
+            ("queue", _DELETE_QUEUE, _QUEUE_ARN),
+            ("topic", _DELETE_TOPIC, _TOPIC_ARN),
+        )
+        for case, operation, target_arn in cases:
+            with self.subTest(case=case):
+                inventory, initial_findings = _evaluate(_public_resources([(operation, target_arn)]))
+                self.assertEqual(len(initial_findings), 1)
+                self.assertEqual(
+                    [finding.rule_id for finding in _reevaluate(inventory)],
+                    [_RULE_ID],
+                )
 
     def test_current_target_policy_unknown_rejects_cached_path(self) -> None:
         inventory, _ = _evaluate(_public_resources([(_DELETE_QUEUE, _QUEUE_ARN)]))

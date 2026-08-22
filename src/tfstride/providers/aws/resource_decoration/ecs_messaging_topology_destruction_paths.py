@@ -882,15 +882,30 @@ def _definition_for_target(
     )
 
 
-def messaging_topology_resource_policy_operation_is_complete(
+def current_messaging_topology_destruction_path(
+    task_definition: NormalizedResource,
     target: NormalizedResource,
     operation: AwsMessagingTopologyDestructionOperation,
-) -> bool:
+    context: AwsDecorationContext,
+) -> AwsEcsMessagingTopologyDestructionPath | None:
+    """Recompute the current deterministic path for one task and target."""
+
     definition = _definition_for_target(target)
-    return bool(
-        definition is not None
-        and definition.operation == operation
-        and _resource_policy_posture(target, definition).complete
+    if definition is None or definition.operation != operation:
+        return None
+
+    paths, _uncertainties = _task_definition_paths(
+        task_definition,
+        (target,),
+        context,
+    )
+    return next(
+        (
+            path
+            for path in paths
+            if path["operation"] == operation and path["messaging_resource_address"] == target.address
+        ),
+        None,
     )
 
 

@@ -27,10 +27,13 @@ from tfstride.providers.aws.messaging_topology_destruction_evidence import (
     AwsMessagingTopologyDestructionOperation,
 )
 from tfstride.providers.aws.resource_decoration.ecs_messaging_topology_destruction_paths import (
-    messaging_topology_resource_policy_operation_is_complete,
+    current_messaging_topology_destruction_path,
 )
 from tfstride.providers.aws.resource_facts import AwsResourceFacts, aws_facts
-from tfstride.providers.coercion import dedupe
+from tfstride.providers.aws.resource_index import (
+    AwsDecorationContext,
+    AwsResourceIndexBuilder,
+)
 from tfstride.resource_helpers import parse_aws_account_id
 
 _AWS_ECS_SERVICE = "aws_ecs_service"
@@ -78,13 +81,21 @@ class AwsEcsMessagingTopologyDisruptionRuleDetectors:
         if context.inventory.provider != "aws":
             return []
 
+        decoration_context = AwsDecorationContext(
+            AwsResourceIndexBuilder().build(list(context.inventory.resources)),
+        )
         findings: list[Finding] = []
         for service in context.inventory.by_type(_AWS_ECS_SERVICE):
             service_facts = aws_facts(service)
             paths = [
                 path
                 for path in service_facts.ecs_messaging_topology_destruction_paths
-                if _is_current_deterministic_path(path, service, context)
+                if _is_current_deterministic_path(
+                    path,
+                    service,
+                    context,
+                    decoration_context,
+                )
             ]
             if not paths:
                 continue
@@ -167,6 +178,7 @@ def _is_current_deterministic_path(
     path: AwsEcsMessagingTopologyDestructionPath,
     service: NormalizedResource,
     context: RuleEvaluationContext,
+    decoration_context: AwsDecorationContext,
 ) -> bool:
     operation = path.get("operation")
     expected = _EXPECTED_OPERATION.get(operation)
@@ -191,18 +203,19 @@ def _is_current_deterministic_path(
         return False
 
     service_facts = aws_facts(service)
-    task_facts = aws_facts(task_definition)
-    role_facts = aws_facts(role)
     target_facts = aws_facts(target)
     target_arn = target.arn
     if not isinstance(target_arn, str) or not target_arn:
         return False
     target_name = _target_name(target, target_arn)
-    expected_sources = _current_authorization_source_addresses(
-        role,
+    current_task_path = current_messaging_topology_destruction_path(
+        task_definition,
         target,
-        target_type,
+        operation,
+        decoration_context,
     )
+    if current_task_path is None:
+        return False
 
     if (
         task_definition.address not in service_facts.resolved_task_definition_addresses
@@ -234,15 +247,8 @@ def _is_current_deterministic_path(
         or path.get("explicit_deny") is not False
         or path.get("conditional_evaluation_required") is not False
         or path.get("lifecycle_compatibility_state") != "compatible"
-        or path.get("authorization_source_addresses") != expected_sources
         or path.get("posture_uncertainties") != []
         or path.get("outcome_evidence") != _current_outcome_evidence()
-        or role_facts.iam_policy_completeness_state != "complete"
-        or bool(role_facts.unresolved_attached_policy_arns)
-        or not messaging_topology_resource_policy_operation_is_complete(
-            target,
-            operation,
-        )
         or not _target_identity_is_current(path, target, target_facts, target_type)
         or not _current_load_balancers(
             path,
@@ -250,7 +256,7 @@ def _is_current_deterministic_path(
         )
         or not _matches_current_task_path(
             path,
-            task_facts.ecs_messaging_topology_destruction_paths,
+            (current_task_path,),
         )
     ):
         return False
@@ -321,29 +327,6 @@ def _task_role_relationship_is_current(
             return False
         resolved = True
     return observed and resolved
-
-
-def _current_authorization_source_addresses(
-    role: NormalizedResource,
-    target: NormalizedResource,
-    target_type: str,
-) -> list[str]:
-    role_facts = aws_facts(role)
-    sources = dedupe(
-        [
-            role.address,
-            *role_facts.inline_policy_resource_addresses,
-            *role_facts.attached_policy_addresses,
-        ]
-    )
-    policy_state = (
-        aws_facts(target).sqs_queue_policy_state
-        if target_type == _AWS_SQS_QUEUE
-        else aws_facts(target).sns_topic_policy_state
-    )
-    if policy_state == "configured":
-        sources.append(target.address)
-    return sources
 
 
 def _current_load_balancers(
