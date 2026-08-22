@@ -26,6 +26,9 @@ from tfstride.providers.azure.app_service_secret_management_rules import (
     AzureAppServiceSecretManagementRuleDetectors,
 )
 from tfstride.providers.azure.app_service_secret_rules import AzureAppServiceSecretDeliveryRuleDetectors
+from tfstride.providers.azure.app_service_service_bus_topology_disruption_rules import (
+    AzureAppServiceServiceBusTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.azure.app_service_storage_rules import AzureAppServiceStorageRuleDetectors
 from tfstride.providers.azure.audit_rules import AzureAuditRuleDetectors
 from tfstride.providers.azure.compute_rules import AzureComputeRuleDetectors
@@ -114,6 +117,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-public-app-service-service-bus-mutation-access",
         "azure-public-app-service-service-bus-receive-access",
         "azure-public-app-service-service-bus-message-disruption",
+        "azure-public-app-service-service-bus-topology-disruption",
         "azure-app-service-sensitive-app-setting-inline",
         "azure-app-service-key-vault-reference-identity-not-configured",
         "azure-app-service-key-vault-secret-access-overprivileged",
@@ -179,6 +183,9 @@ def build_azure_rule_contribution(
     app_service_cosmosdb_detectors = AzureAppServiceCosmosDbRuleDetectors(finding_factory)
     app_service_secret_detectors = AzureAppServiceSecretDeliveryRuleDetectors(finding_factory)
     app_service_messaging_detectors = AzureAppServiceMessagingRuleDetectors(finding_factory)
+    app_service_service_bus_topology_detectors = AzureAppServiceServiceBusTopologyDisruptionRuleDetectors(
+        finding_factory
+    )
     app_service_storage_detectors = AzureAppServiceStorageRuleDetectors(finding_factory)
     app_service_blob_detectors = AzureAppServiceBlobRuleDetectors(finding_factory)
     app_service_key_vault_detectors = AzureAppServiceKeyVaultRuleDetectors(finding_factory)
@@ -325,6 +332,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-service-bus-message-disruption": (
             app_service_messaging_detectors.detect_public_app_service_service_bus_message_disruption
+        ),
+        "azure-public-app-service-service-bus-topology-disruption": (
+            app_service_service_bus_topology_detectors.detect_public_app_service_service_bus_topology_disruption
         ),
         "azure-app-service-sensitive-app-setting-inline": (
             app_service_secret_detectors.detect_inline_sensitive_app_setting

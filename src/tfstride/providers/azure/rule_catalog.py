@@ -894,6 +894,33 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-service-bus-topology-disruption",
+        title="Public Azure App Service identity can disrupt Service Bus topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Remove Service Bus namespace, queue, topic, or subscription delete authority from public App Service "
+            "runtime identities. Scope required control-plane access to the exact topology resource, preserve "
+            "management locks where appropriate, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "service-bus",
+            "managed-identity",
+            "public-access",
+            "topology",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-app-service-sensitive-app-setting-inline",
         title="Azure App Service materializes a sensitive setting as a literal value",
         category=StrideCategory.INFORMATION_DISCLOSURE,

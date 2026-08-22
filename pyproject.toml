@@ -187,6 +187,7 @@ include = [
 
   # Azure messaging topology-destruction evidence.
   "src/tfstride/providers/azure/messaging_topology_destruction_evidence.py",
+  "src/tfstride/providers/azure/app_service_service_bus_topology_disruption_rules.py",
   "src/tfstride/providers/azure/management_lock_normalizers.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_service_bus_topology_destruction_paths.py",
 
