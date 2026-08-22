@@ -137,6 +137,7 @@ include = [
 
   # GCP messaging topology-destruction evidence.
   "src/tfstride/providers/gcp/messaging_topology_destruction_evidence.py",
+  "src/tfstride/providers/gcp/cloud_run_pubsub_topology_disruption_rules.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_pubsub_topology_destruction_paths.py",
 
   # GCP managed-key evidence, authorization, and workload paths.

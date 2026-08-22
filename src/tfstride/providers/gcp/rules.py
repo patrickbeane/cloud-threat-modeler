@@ -10,6 +10,9 @@ from tfstride.providers.gcp.cloud_run_firestore_rules import GcpCloudRunFirestor
 from tfstride.providers.gcp.cloud_run_gcs_rules import GcpCloudRunGcsAccessRuleDetectors
 from tfstride.providers.gcp.cloud_run_kms_rules import GcpCloudRunKmsOperationRuleDetectors
 from tfstride.providers.gcp.cloud_run_pubsub_rules import GcpCloudRunPubsubAccessRuleDetectors
+from tfstride.providers.gcp.cloud_run_pubsub_topology_disruption_rules import (
+    GcpCloudRunPubsubTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.gcp.cloud_run_secret_management_rules import GcpCloudRunSecretManagementRuleDetectors
 from tfstride.providers.gcp.detectors import GcpRuleDetectors
 from tfstride.providers.gcp.iam_assignment_rules import GcpIamAssignmentRuleDetectors
@@ -98,6 +101,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
         "gcp-public-cloud-run-pubsub-message-disruption",
+        "gcp-public-cloud-run-pubsub-topology-disruption",
     ),
     (),
     (),
@@ -133,6 +137,7 @@ def build_gcp_rule_contribution(
     cloud_run_secret_management_detectors = GcpCloudRunSecretManagementRuleDetectors(finding_factory)
     cloud_run_gcs_detectors = GcpCloudRunGcsAccessRuleDetectors(finding_factory)
     cloud_run_pubsub_detectors = GcpCloudRunPubsubAccessRuleDetectors(finding_factory)
+    cloud_run_pubsub_topology_detectors = GcpCloudRunPubsubTopologyDisruptionRuleDetectors(finding_factory)
     network_telemetry_detectors = GcpNetworkTelemetryRuleDetectors(finding_factory)
     iam_assignment_detectors = GcpIamAssignmentRuleDetectors(finding_factory)
     private_connectivity_detectors = GcpPrivateConnectivityRuleDetectors(finding_factory)
@@ -286,6 +291,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-pubsub-message-disruption": (
             cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_message_disruption
+        ),
+        "gcp-public-cloud-run-pubsub-topology-disruption": (
+            cloud_run_pubsub_topology_detectors.detect_public_cloud_run_pubsub_topology_disruption
         ),
         "gcp-service-account-iam-broad-principal": gcp_detectors.detect_service_account_iam_broad_principal,
         "gcp-service-account-iam-privileged-role": gcp_detectors.detect_service_account_iam_privileged_role,

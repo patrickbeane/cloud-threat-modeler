@@ -153,7 +153,7 @@ class GcpPublicCloudRunPubsubMutationRuleTests(unittest.TestCase):
                 self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
                 self.assertIn(expected_evidence, _evidence(findings[0])[evidence_key][0])
 
-    def test_delete_paths_are_detected_for_exact_targets(self) -> None:
+    def test_delete_only_paths_are_excluded_from_mutation(self) -> None:
         cases = {
             "topic deletion": [
                 _public_cloud_run(),
@@ -175,14 +175,7 @@ class GcpPublicCloudRunPubsubMutationRuleTests(unittest.TestCase):
         for case, resources in cases.items():
             with self.subTest(case=case):
                 findings = _evaluate(resources)
-                self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
-                finding = findings[0]
-                self.assertIn("deterministic delete access", finding.rationale)
-                self.assertIn("could delete Pub/Sub topics or subscriptions", finding.rationale)
-                self.assertIn(
-                    "mutation_classes=delete",
-                    _evidence(finding)["pubsub_mutation_paths"][0],
-                )
+                self.assertEqual(findings, [])
 
     def test_administrative_paths_are_detected_for_exact_targets(self) -> None:
         cases = {

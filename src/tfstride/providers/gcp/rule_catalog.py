@@ -997,6 +997,24 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-pubsub-topology-disruption",
+        title="Public Cloud Run identity can disrupt Pub/Sub topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Pub/Sub topic or subscription deletion permissions required. Separate public request "
+            "handling from messaging administration, and keep topology-deletion authority off public workloads."
+        ),
+        tags=("gcp", "cloud-run", "pubsub", "iam", "public-access", "messaging", "topology", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-service-account-iam-broad-principal",
         title="GCP service account IAM grants access to broad principals",
         category=StrideCategory.ELEVATION_OF_PRIVILEGE,

@@ -40,7 +40,7 @@ from tfstride.providers.gcp.resource_types import (
 )
 from tfstride.providers.gcp.resource_utils import GCP_ROLE_REFERENCE_SUFFIXES, binding_members, gcp_reference_key
 
-_MUTATION_ACCESS_CLASSES = frozenset({"publish", "delete", "administrative"})
+_MUTATION_ACCESS_CLASSES = frozenset({"publish", "administrative"})
 _PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
 _SUBSCRIPTION_CONSUMER_ROLES = frozenset(
     {
@@ -106,7 +106,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
             mutation_classes = _mutation_classes(mutation_paths)
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=True,
-                privilege_breadth=(2 if {"delete", "administrative"} & set(mutation_classes) else 1),
+                privilege_breadth=(2 if "administrative" in mutation_classes else 1),
                 data_sensitivity=1,
                 lateral_movement=1,
                 blast_radius=2 if len(target_addresses) > 1 else 1,
@@ -890,7 +890,7 @@ def _mutation_impact(mutation_classes: list[str]) -> str:
 
 def _mutation_classes(paths: list[dict[str, Any]]) -> list[str]:
     classes = {access_class for path in paths for access_class in _path_mutation_classes(path)}
-    return [access_class for access_class in ("publish", "delete", "administrative") if access_class in classes]
+    return [access_class for access_class in ("publish", "administrative") if access_class in classes]
 
 
 def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
@@ -898,6 +898,14 @@ def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
         access_class
         for access_class in _string_values(path.get("access_classes"))
         if access_class in _MUTATION_ACCESS_CLASSES
+    ]
+
+
+def _mutation_matched_permissions(path: Mapping[str, Any]) -> list[str]:
+    return [
+        permission
+        for permission in _string_values(path.get("matched_permissions"))
+        if permission.casefold() not in {"pubsub.topics.delete", "pubsub.subscriptions.delete"}
     ]
 
 
@@ -950,8 +958,8 @@ def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
                     f"role={path['role']}",
                     f"role_kind={path['role_kind']}",
                     f"mutation_classes={','.join(_path_mutation_classes(path))}",
-                    f"access_classes={','.join(_string_values(path.get('access_classes')))}",
-                    f"matched_permissions={','.join(_string_values(path.get('matched_permissions'))) or 'built-in-role'}",
+                    f"access_classes={','.join(_path_mutation_classes(path))}",
+                    f"matched_permissions={','.join(_mutation_matched_permissions(path)) or 'built-in-role'}",
                     f"resource_scope={path['resource_scope']}",
                     "access_state=granted",
                     "condition_state=not_configured",
