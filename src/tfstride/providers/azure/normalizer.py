@@ -51,6 +51,7 @@ from tfstride.providers.azure.key_vault_normalizers import (
     normalize_key_vault_key,
     normalize_key_vault_secret,
 )
+from tfstride.providers.azure.management_lock_normalizers import normalize_management_lock
 from tfstride.providers.azure.mssql_normalizers import (
     normalize_mssql_database,
     normalize_mssql_firewall_rule,
@@ -118,6 +119,7 @@ _AZURE_RESOURCE_NORMALIZERS = {
     AzureResourceType.KEY_VAULT_CERTIFICATE: normalize_key_vault_certificate,
     AzureResourceType.ROLE_ASSIGNMENT: normalize_role_assignment,
     AzureResourceType.ROLE_DEFINITION: normalize_role_definition,
+    AzureResourceType.MANAGEMENT_LOCK: normalize_management_lock,
     AzureResourceType.USER_ASSIGNED_IDENTITY: normalize_user_assigned_identity,
     AzureResourceType.FEDERATED_IDENTITY_CREDENTIAL: normalize_federated_identity_credential,
     AzureResourceType.VIRTUAL_NETWORK: normalize_virtual_network,

@@ -28,6 +28,7 @@ class AzureResourceType:
     KEY_VAULT_CERTIFICATE = "azurerm_key_vault_certificate"
     ROLE_ASSIGNMENT = "azurerm_role_assignment"
     ROLE_DEFINITION = "azurerm_role_definition"
+    MANAGEMENT_LOCK = "azurerm_management_lock"
     USER_ASSIGNED_IDENTITY = "azurerm_user_assigned_identity"
     FEDERATED_IDENTITY_CREDENTIAL = "azurerm_federated_identity_credential"
     VIRTUAL_NETWORK = "azurerm_virtual_network"
@@ -185,6 +186,12 @@ AZURE_AUDIT_SECURITY_RESOURCE_TYPES = frozenset(
     }
 )
 
+AZURE_MANAGEMENT_LOCK_RESOURCE_TYPES = frozenset(
+    {
+        AzureResourceType.MANAGEMENT_LOCK,
+    }
+)
+
 AZURE_SUPPORTED_RESOURCE_TYPES = (
     AZURE_STORAGE_RESOURCE_TYPES
     | AZURE_SERVICE_BUS_RESOURCE_TYPES
@@ -201,4 +208,5 @@ AZURE_SUPPORTED_RESOURCE_TYPES = (
     | AZURE_SQL_RESOURCE_TYPES
     | AZURE_POSTGRESQL_RESOURCE_TYPES
     | AZURE_AUDIT_SECURITY_RESOURCE_TYPES
+    | AZURE_MANAGEMENT_LOCK_RESOURCE_TYPES
 )

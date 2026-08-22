@@ -98,6 +98,18 @@ class AzureRbacFacts(AzureBaseFacts):
     def role_assignment_target_resource_type(self) -> str | None:
         return self.get(AzureResourceMetadata.ROLE_ASSIGNMENT_TARGET_RESOURCE_TYPE)
 
+    @property
+    def management_lock_scope(self) -> str | None:
+        return self.get(AzureResourceMetadata.MANAGEMENT_LOCK_SCOPE)
+
+    @property
+    def management_lock_level(self) -> str | None:
+        return self.get(AzureResourceMetadata.MANAGEMENT_LOCK_LEVEL)
+
+    @property
+    def management_lock_uncertainties(self) -> list[str]:
+        return self.get(AzureResourceMetadata.MANAGEMENT_LOCK_UNCERTAINTIES)
+
     def set_resolved_role_definition_address(self, address: str) -> None:
         self.set(AzureResourceMetadata.RESOLVED_ROLE_DEFINITION_ADDRESS, address)
 

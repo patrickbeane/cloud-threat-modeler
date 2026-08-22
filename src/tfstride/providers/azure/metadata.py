@@ -73,6 +73,8 @@ class AzureResourceMetadata:
     SERVICE_BUS_CUSTOMER_MANAGED_KEY_SOURCE_ADDRESS = OptionalStringMetadataField(
         "service_bus_customer_managed_key_source_address"
     )
+    MANAGEMENT_LOCK_SCOPE = OptionalStringMetadataField("management_lock_scope")
+    MANAGEMENT_LOCK_LEVEL = OptionalStringMetadataField("management_lock_level")
     COSMOSDB_ACCOUNT_ID = OptionalStringMetadataField("cosmosdb_account_id")
     COSMOSDB_RESOURCE_GROUP_NAME = OptionalStringMetadataField("cosmosdb_resource_group_name")
     COSMOSDB_ACCOUNT_NAME = OptionalStringMetadataField("cosmosdb_account_name")
@@ -431,6 +433,7 @@ class AzureResourceMetadata:
     APP_SERVICE_SERVICE_BUS_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_topology_destruction_path_uncertainties"
     )
+    MANAGEMENT_LOCK_UNCERTAINTIES = StringListMetadataField("management_lock_uncertainties")
     APP_SERVICE_SERVICE_BUS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "app_service_service_bus_protected_data_convergence_uncertainties"
     )
