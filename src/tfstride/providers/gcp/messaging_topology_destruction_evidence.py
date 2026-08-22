@@ -33,7 +33,7 @@ GcpPubsubTopologyActiveCustomRoleStage = Literal[
 
 
 class GcpPubsubTopologyBuiltInRoleEvidence(TypedDict):
-    role_kind: Literal["editor", "admin"]
+    role_kind: Literal["owner", "editor", "admin"]
     role_definition_address: None
     custom_role_permissions: list[Never]
     custom_role_stage: None

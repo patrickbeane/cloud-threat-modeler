@@ -193,3 +193,37 @@ class GcpMessagingNormalizerTests(GcpNormalizerTestCase):
                 "dead_letter_policy.max_delivery_attempts is unknown after planning",
             ],
         )
+
+    def test_pubsub_unknown_native_identity_is_preserved_as_uncertainty(self) -> None:
+        topic = normalize_pubsub_topic(
+            _terraform_resource(
+                "google_pubsub_topic.events",
+                "google_pubsub_topic",
+                {
+                    "name": "events",
+                    "project": "tfstride-demo",
+                },
+                unknown_values={"name": True},
+            )
+        )
+        subscription = normalize_pubsub_subscription(
+            _terraform_resource(
+                "google_pubsub_subscription.events",
+                "google_pubsub_subscription",
+                {
+                    "name": "events",
+                    "project": "tfstride-demo",
+                    "topic": "google_pubsub_topic.events.id",
+                },
+                unknown_values={"project": True},
+            )
+        )
+
+        self.assertIn(
+            "name is unknown after planning",
+            gcp_facts(topic).pubsub_posture_uncertainties,
+        )
+        self.assertIn(
+            "project is unknown after planning",
+            gcp_facts(subscription).pubsub_posture_uncertainties,
+        )

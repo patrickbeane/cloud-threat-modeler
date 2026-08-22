@@ -31,6 +31,9 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_access_paths im
 from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_message_removal_paths import (
     ModelCloudRunPubsubMessageRemovalPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_topology_destruction_paths import (
+    ModelCloudRunPubsubTopologyDestructionPathsStage,
+)
 from tfstride.providers.gcp.resource_decoration.cloud_run_secret_access_paths import (
     ModelCloudRunSecretAccessPathsStage,
 )
@@ -86,6 +89,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         ModelCloudRunGcsObjectDeletionPathsStage(),
         ModelCloudRunGcsProtectedDataConvergenceStage(),
         ModelCloudRunPubsubAccessPathsStage(),
+        ModelCloudRunPubsubTopologyDestructionPathsStage(),
         ModelCloudRunPubsubMessageRemovalPathsStage(),
         ModelCloudRunSecretAccessPathsStage(),
         ModelCloudRunSecretManagementPathsStage(),

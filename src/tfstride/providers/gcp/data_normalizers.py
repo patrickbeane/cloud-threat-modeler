@@ -83,6 +83,7 @@ def normalize_pubsub_topic(resource: TerraformResource) -> NormalizedResource:
     name = first_non_empty(values.get(GcpAttr.NAME), resource.name)
     identifier = first_non_empty(values.get(GcpAttr.ID), name, resource.address)
     uncertainties: list[str] = []
+    _pubsub_native_identity_uncertainties(resource, uncertainties)
     kms_key_name, cmek_state = _pubsub_cmek_posture(resource, uncertainties)
     message_retention_duration, message_retention_seconds, message_retention_state = _pubsub_message_retention_posture(
         resource,
@@ -124,6 +125,7 @@ def normalize_pubsub_subscription(resource: TerraformResource) -> NormalizedReso
     identifier = first_non_empty(values.get(GcpAttr.ID), name, resource.address)
     topic_reference = first_non_empty(values.get(GcpAttr.TOPIC))
     uncertainties: list[str] = []
+    _pubsub_native_identity_uncertainties(resource, uncertainties)
     message_retention_duration, message_retention_seconds, message_retention_state = _pubsub_message_retention_posture(
         resource,
         uncertainties,
@@ -179,6 +181,15 @@ def normalize_pubsub_subscription(resource: TerraformResource) -> NormalizedReso
             },
         )
     )
+
+
+def _pubsub_native_identity_uncertainties(
+    resource: TerraformResource,
+    uncertainties: list[str],
+) -> None:
+    for attribute in (GcpAttr.NAME, GcpAttr.PROJECT):
+        if value_is_unknown(resource.unknown_values.get(attribute.key)):
+            uncertainties.append(f"{attribute.key} is unknown after planning")
 
 
 def _pubsub_cmek_posture(

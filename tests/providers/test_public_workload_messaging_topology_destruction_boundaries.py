@@ -409,6 +409,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             gcp_workload_facts.cloud_run_pubsub_message_removal_paths,
             [],
         )
+        self.assertEqual(
+            {path["operation"] for path in gcp_workload_facts.cloud_run_pubsub_topology_destruction_paths},
+            {_GCP_DELETE_SUBSCRIPTION, _GCP_DELETE_TOPIC},
+        )
 
         azure_inventory, azure_context = _azure_inventory_and_context(
             [
@@ -672,6 +676,24 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             gcp_facts(subscription).pubsub_topic_reference,
             f"{GCP_TOPIC_ADDRESS}.id",
         )
+        topology_paths = {
+            path["messaging_resource_kind"]: path
+            for path in gcp_facts(workload).cloud_run_pubsub_topology_destruction_paths
+        }
+        self.assertEqual(set(topology_paths), {"topic", "subscription"})
+        self.assertEqual(topology_paths["topic"]["operation"], _GCP_DELETE_TOPIC)
+        self.assertEqual(
+            topology_paths["topic"]["target_model_evidence_addresses"],
+            [GCP_TOPIC_ADDRESS],
+        )
+        self.assertEqual(
+            topology_paths["subscription"]["operation"],
+            _GCP_DELETE_SUBSCRIPTION,
+        )
+        self.assertEqual(
+            topology_paths["subscription"]["target_model_evidence_addresses"],
+            [GCP_TOPIC_ADDRESS, GCP_SUBSCRIPTION_ADDRESS],
+        )
 
     def test_gcp_project_scope_fans_only_to_consumer_project_subscriptions(
         self,
@@ -727,6 +749,13 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
         self.assertEqual(path["topic_project"], "producer-project")
         self.assertEqual(path["subscription_address"], GCP_SUBSCRIPTION_ADDRESS)
         self.assertEqual(path["topic_address"], GCP_TOPIC_ADDRESS)
+        topology_paths = gcp_facts(workload).cloud_run_pubsub_topology_destruction_paths
+        self.assertEqual(len(topology_paths), 1)
+        self.assertEqual(topology_paths[0]["operation"], _GCP_DELETE_SUBSCRIPTION)
+        self.assertEqual(topology_paths[0]["scope_type"], "project")
+        self.assertEqual(topology_paths[0]["scope"], "consumer-project")
+        self.assertEqual(topology_paths[0]["subscription_project"], "consumer-project")
+        self.assertEqual(topology_paths[0]["topic_project"], "producer-project")
         self.assertEqual(gcp_facts(normalized_topic).project, "producer-project")
         self.assertEqual(
             gcp_facts(normalized_subscription).project,
@@ -757,6 +786,11 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
         conditional_path = gcp_facts(conditional_workload).cloud_run_pubsub_access_paths[0]
         self.assertEqual(conditional_path["condition_state"], "configured")
         self.assertEqual(conditional_path["access_state"], "conditional")
+        self.assertEqual(
+            gcp_facts(conditional_workload).cloud_run_pubsub_topology_destruction_paths,
+            [],
+        )
+        self.assertTrue(gcp_facts(conditional_workload).cloud_run_pubsub_topology_destruction_path_uncertainties)
 
         lifecycle_cases = {
             "disabled": _gcp_custom_role(
@@ -793,6 +827,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                     gcp_facts(workload).cloud_run_pubsub_message_removal_paths,
                     [],
                 )
+                self.assertEqual(
+                    gcp_facts(workload).cloud_run_pubsub_topology_destruction_paths,
+                    [],
+                )
                 role_facts = gcp_facts(normalized_role)
                 if case == "disabled":
                     self.assertEqual(role_facts.custom_role_stage, "DISABLED")
@@ -820,6 +858,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
         assert manager_workload is not None
         manager_facts = gcp_facts(manager_workload)
         self.assertEqual(manager_facts.cloud_run_pubsub_message_removal_paths, [])
+        self.assertEqual(
+            manager_facts.cloud_run_pubsub_topology_destruction_paths,
+            [],
+        )
         self.assertTrue(
             any(
                 "overlapping" in uncertainty or "ambiguous" in uncertainty
@@ -844,6 +886,10 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
 
         self.assertEqual(
             gcp_facts(workload).cloud_run_pubsub_access_paths[0]["matched_permissions"],
+            [_GCP_DELETE_TOPIC],
+        )
+        self.assertEqual(
+            [path["operation"] for path in gcp_facts(workload).cloud_run_pubsub_topology_destruction_paths],
             [_GCP_DELETE_TOPIC],
         )
         self.assertEqual(

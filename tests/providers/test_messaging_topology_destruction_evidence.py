@@ -147,6 +147,10 @@ class MessagingTopologyDestructionEvidenceTests(unittest.TestCase):
         )
 
         self.assertEqual(
+            built_in_role_hints["role_kind"],
+            Literal["owner", "editor", "admin"],
+        )
+        self.assertEqual(
             built_in_role_hints["custom_role_permissions"],
             list[Never],
         )
