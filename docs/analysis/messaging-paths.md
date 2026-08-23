@@ -6,18 +6,18 @@ Messaging analysis separates authority to send messages, receive their contents,
 
 * Send or publish authority produces Tampering paths.
 * Receive or pull authority produces Information Disclosure paths.
-* Delete, acknowledge, complete, or purge authority produces Denial of Service paths.
+* Delete, acknowledge, complete, purge, or modeled topology-deletion authority produces Denial of Service paths.
 * One workload may produce multiple findings when the corresponding operation families are deterministic.
 * Private workloads retain modeled paths but do not produce public-workload findings.
 * Conditional, denied, incomplete, ambiguous, incompatible, or unresolved authority is not promoted into a deterministic path.
 
-## Provider-native removal
+## Provider-native disruption
 
-| Provider | Removal boundary |
-| --- | --- |
-| AWS | ECS `DeleteMessage` requires the same task role to receive from the exact SQS queue; the receipt handle remains a runtime source. `PurgeQueue` independently establishes queue-wide removal authority. |
-| GCP | Cloud Run `pubsub.subscriptions.consume` establishes disclosure and acknowledgement authority only for exact modeled pull subscriptions. Consumer-project scope and cross-project topic ancestry remain distinct. |
-| Azure | App Service Service Bus receive authority establishes ReceiveAndDelete and PeekLock-completion capability for exact queues or topic subscriptions. Namespace RBAC fans out only to modeled consumable children; entity status and auto-forwarding remain runtime compatibility gates. |
+| Provider | Message removal | Topology deletion |
+| --- | --- | --- |
+| AWS | ECS `DeleteMessage` requires the same task role to receive from the exact SQS queue; `PurgeQueue` is queue-wide. | ECS `DeleteQueue` and `DeleteTopic` cover exact modeled SQS queues and SNS topics. |
+| GCP | Cloud Run `pubsub.subscriptions.consume` establishes acknowledgement authority only for exact modeled pull subscriptions. | Cloud Run `pubsub.topics.delete` and `pubsub.subscriptions.delete` retain exact target and cross-project ancestry. |
+| Azure | App Service Service Bus receive authority establishes ReceiveAndDelete and PeekLock-completion capability for exact queues or topic subscriptions. | App Service ARM deletion covers exact modeled namespaces, queues, topics, and subscriptions; plan-local management locks qualify compatibility. |
 
 ## Delivery and replay evidence
 
@@ -25,6 +25,6 @@ SQS retention and redrive, Pub/Sub retention and acknowledged-message replay, an
 
 ## Scope limits
 
-Queue, topic, subscription, and namespace destruction remain outside this path family. Broad grants fan out only to exact modeled consumable targets; out-of-plan message instances and runtime delivery mode selection are not inferred.
+Topology deletion is limited to the modeled provider-native targets above. It does not establish successful deletion, descendant impact, recovery, or out-of-plan topology. Broad grants fan out only to exact modeled consumable or topology targets; out-of-plan message instances and runtime delivery mode selection are not inferred.
 
 See [Cross-Provider Threat-Path Semantics](path-semantics.md) for the shared quiet-versus-promoted rule, and the provider coverage maps ([AWS](../providers/aws.md), [GCP](../providers/gcp.md), [Azure](../providers/azure.md)) for current implementation scope.

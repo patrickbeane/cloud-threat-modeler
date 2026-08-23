@@ -11,14 +11,14 @@ A relationship only becomes a finding when it is backed by deterministic modeled
 * Managed-key administration paths (disruption, authorization delegation), which additionally require exact modeled key or management-target resolution
 * Object-storage deletion paths, which distinguish object writes and metadata mutation from logical, version, or generation deletion while retaining provider-native recovery uncertainty
 * Structured-data deletion paths, which distinguish item/entity mutation from item/entity deletion while retaining provider-native scope and recovery evidence
-* Messaging paths, which separate send/publish mutation, receive/pull disclosure, and delete/acknowledge/settle/purge disruption while retaining provider-native delivery and replay evidence
+* Messaging paths, which separate send/publish mutation, receive/pull disclosure, message removal, and modeled topology deletion while retaining provider-native delivery and replay evidence
 * Secret values themselves, which are never retained in evidence or reports
 
 For object-storage paths, recovery uncertainty affects impact evidence, not deterministic deletion authority. Explicitly denied or incompatible deletion paths stay quiet; conditional, incomplete, ambiguous, or unresolved paths remain uncertainty where modeled. See [Object-Storage Paths](object-storage-paths.md) for the provider-native target and recovery boundaries.
 
 For structured-data paths, recovery evidence qualifies the impact of deterministic item/entity deletion authority; it does not prove successful restoration or immediate item-level undo. Whole-table, database, account, container, and control-plane destruction remain outside this path family. See [Structured-Data Paths](structured-data-paths.md) for provider-native target and recovery boundaries.
 
-For messaging paths, delivery and replay posture qualifies impact without proving payload retrieval, successful removal, replay, or recovery. Resource destruction remains outside this path family. See [Messaging Paths](messaging-paths.md) for provider-native removal and settlement boundaries.
+For messaging paths, delivery and replay posture qualifies impact without proving payload retrieval, successful removal, topology deletion, replay, or recovery. Only modeled queue, topic, subscription, and namespace deletion belongs to this path family; broader service or account destruction remains outside it. See [Messaging Paths](messaging-paths.md) for provider-native boundaries.
 
 ## Identity and workload data-plane paths are provider-local
 

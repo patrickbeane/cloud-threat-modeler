@@ -94,6 +94,7 @@ This is a concise coverage map. Reports identify unsupported AWS resource types 
 ### Workload-to-data paths
 * Public ECS service-to-Secrets Manager, S3, SNS/SQS, and DynamoDB mutation paths
 * Exact public ECS-to-SQS receive and message-removal paths; `DeleteMessage` requires receive authority for runtime receipt handles, while `PurgeQueue` is independent
+* Public ECS SQS queue and SNS topic topology-deletion paths for `DeleteQueue` and `DeleteTopic`
 * Public ECS S3 `DeleteObject` and `DeleteObjectVersion` disruption paths with exact object, prefix, bucket-namespace, and version/Object Lock evidence
 * Public ECS DynamoDB item-deletion paths for `DeleteItem`, PartiQL deletion, and `BatchWriteItem`, with exact table item-namespace and point-in-time-recovery evidence
 * Public ECS secret-value tampering and secret-deletion disruption paths for task-role authority
@@ -139,6 +140,6 @@ KMS and secret-management posture, public workload cryptographic-operation paths
 * AWS is currently `tfstride`'s deepest provider implementation.
 * Identity-assignment analysis is deterministic and plan-local, focused on inline policies, standalone policies, role-policy attachments, OIDC providers, and trust policies.
 * Condition narrowing focuses on high-signal keys such as `SourceArn`, `SourceAccount`, and `ExternalId` rather than every service-specific authorization condition.
-* Messaging findings establish modeled task-role authority, not successful payload retrieval, message removal, replay, or recovery; see [Public Workload Messaging Disclosure and Disruption Paths](../analysis/messaging-paths.md).
+* Messaging findings establish modeled task-role authority, not successful payload retrieval, message or topology deletion, replay, or recovery; see [Public Workload Messaging Disclosure and Disruption Paths](../analysis/messaging-paths.md).
 
 See [Cross-Provider Threat-Path Semantics](../analysis/path-semantics.md) for how these findings relate to the shared cross-provider evidence model.
