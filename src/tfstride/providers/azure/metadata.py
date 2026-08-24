@@ -15,6 +15,9 @@ from tfstride.providers.azure.messaging_topology_destruction_evidence import (
 from tfstride.providers.azure.object_storage_deletion_evidence import (
     AzureAppServiceBlobDeletionPath,
 )
+from tfstride.providers.azure.object_storage_topology_destruction_evidence import (
+    AzureAppServiceStorageContainerTopologyDestructionPath,
+)
 from tfstride.providers.azure.protected_data_evidence import (
     AzureAppServiceServiceBusAccessPath,
     AzureAppServiceServiceBusProtectedDataConvergence,
@@ -421,6 +424,9 @@ class AzureResourceMetadata:
     APP_SERVICE_BLOB_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_blob_deletion_path_uncertainties"
     )
+    APP_SERVICE_STORAGE_CONTAINER_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_storage_container_topology_destruction_path_uncertainties"
+    )
     APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "app_service_storage_protected_data_convergence_uncertainties"
     )
@@ -462,6 +468,9 @@ class AzureResourceMetadata:
     APP_SERVICE_BLOB_DELETION_PATHS = RecordListMetadataField[AzureAppServiceBlobDeletionPath](
         "app_service_blob_deletion_paths"
     )
+    APP_SERVICE_STORAGE_CONTAINER_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[
+        AzureAppServiceStorageContainerTopologyDestructionPath
+    ]("app_service_storage_container_topology_destruction_paths")
     APP_SERVICE_STORAGE_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[
         AzureAppServiceStorageProtectedDataConvergence
     ]("app_service_storage_protected_data_convergences")

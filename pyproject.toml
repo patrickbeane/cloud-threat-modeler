@@ -66,8 +66,9 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/secrets_manager_operation_authorization.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_secret_management_paths.py",
 
-  # AWS object-storage deletion and recovery evidence.
+  # AWS object-storage deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/aws/object_storage_deletion_evidence.py",
+  "src/tfstride/providers/aws/object_storage_topology_destruction_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_s3_object_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_s3_object_disruption_rules.py",
 
@@ -115,7 +116,7 @@ include = [
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_secret_management_paths.py",
   "src/tfstride/providers/gcp/cloud_run_secret_management_rules.py",
 
-  # GCP object-storage normalization, deletion, and recovery evidence.
+  # GCP object-storage normalization, deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/gcp/attributes.py",
   "src/tfstride/providers/gcp/iam_custom_role_normalizers.py",
   "src/tfstride/providers/gcp/identity_normalizers.py",
@@ -124,6 +125,7 @@ include = [
   "src/tfstride/providers/gcp/resource_facts/iam.py",
   "src/tfstride/providers/gcp/resource_facts/storage.py",
   "src/tfstride/providers/gcp/object_storage_deletion_evidence.py",
+  "src/tfstride/providers/gcp/object_storage_topology_destruction_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_gcs_object_deletion_paths.py",
   "src/tfstride/providers/gcp/cloud_run_gcs_rules.py",
 
@@ -171,8 +173,9 @@ include = [
   "src/tfstride/providers/azure/resource_decoration/app_service_key_vault_secret_management_paths.py",
   "src/tfstride/providers/azure/app_service_secret_management_rules.py",
 
-  # Azure object-storage deletion and recovery evidence.
+  # Azure object-storage deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/azure/object_storage_deletion_evidence.py",
+  "src/tfstride/providers/azure/object_storage_topology_destruction_evidence.py",
   "src/tfstride/providers/azure/app_service_blob_rules.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_blob_deletion_paths.py",
 

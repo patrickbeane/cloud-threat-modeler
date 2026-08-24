@@ -16,6 +16,9 @@ from tfstride.providers.gcp.messaging_topology_destruction_evidence import (
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
 )
+from tfstride.providers.gcp.object_storage_topology_destruction_evidence import (
+    GcpCloudRunGcsBucketTopologyDestructionPath,
+)
 from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsAccessPath,
     GcpCloudRunGcsProtectedDataConvergence,
@@ -110,6 +113,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_GCS_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_gcs_access_path_uncertainties")
     CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_gcs_object_deletion_path_uncertainties"
+    )
+    CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_gcs_bucket_topology_destruction_path_uncertainties"
     )
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_gcs_protected_data_convergence_uncertainties"
@@ -535,6 +541,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_GCS_OBJECT_DELETION_PATHS = RecordListMetadataField[GcpCloudRunGcsObjectDeletionPath](
         "cloud_run_gcs_object_deletion_paths"
     )
+    CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[
+        GcpCloudRunGcsBucketTopologyDestructionPath
+    ]("cloud_run_gcs_bucket_topology_destruction_paths")
     CLOUD_RUN_GCS_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[GcpCloudRunGcsProtectedDataConvergence](
         "cloud_run_gcs_protected_data_convergences"
     )

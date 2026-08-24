@@ -10,6 +10,9 @@ from tfstride.providers.aws.messaging_topology_destruction_evidence import (
 )
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
+from tfstride.providers.aws.object_storage_topology_destruction_evidence import (
+    AwsEcsS3BucketTopologyDestructionPath,
+)
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
     AwsEcsS3ProtectedDataConvergence,
@@ -134,6 +137,16 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_s3_object_deletion_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_s3_bucket_topology_destruction_paths(
+        self,
+    ) -> list[AwsEcsS3BucketTopologyDestructionPath]:
+        return self.get(AwsResourceMetadata.ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def ecs_s3_bucket_topology_destruction_path_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
 
     @property
     def ecs_s3_protected_data_convergences(
@@ -638,6 +651,24 @@ class AwsComputeFacts(AwsBaseFacts):
         values: Sequence[str | None],
     ) -> None:
         self.extend(AwsResourceMetadata.ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES, values)
+
+    def set_ecs_s3_bucket_topology_destruction_paths(
+        self,
+        values: list[AwsEcsS3BucketTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_ecs_s3_bucket_topology_destruction_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+            values,
+        )
 
     def set_ecs_s3_protected_data_convergences(
         self,

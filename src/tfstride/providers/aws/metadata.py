@@ -14,6 +14,9 @@ from tfstride.providers.aws.messaging_topology_destruction_evidence import (
     AwsEcsMessagingTopologyDestructionPath,
 )
 from tfstride.providers.aws.object_storage_deletion_evidence import AwsEcsS3ObjectDeletionPath
+from tfstride.providers.aws.object_storage_topology_destruction_evidence import (
+    AwsEcsS3BucketTopologyDestructionPath,
+)
 from tfstride.providers.aws.protected_data_evidence import (
     AwsEcsS3AccessPath,
     AwsEcsS3ProtectedDataConvergence,
@@ -93,6 +96,9 @@ class AwsResourceMetadata:
     ECS_SECRET_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_secret_management_path_uncertainties")
     ECS_S3_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_access_path_uncertainties")
     ECS_S3_OBJECT_DELETION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_s3_object_deletion_path_uncertainties")
+    ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "ecs_s3_bucket_topology_destruction_path_uncertainties"
+    )
     ECS_S3_PROTECTED_DATA_CONVERGENCE_UNCERTAINTIES = StringListMetadataField(
         "ecs_s3_protected_data_convergence_uncertainties"
     )
@@ -488,6 +494,9 @@ class AwsResourceMetadata:
     )
     ECS_S3_ACCESS_PATHS = RecordListMetadataField[AwsEcsS3AccessPath]("ecs_s3_access_paths")
     ECS_S3_OBJECT_DELETION_PATHS = RecordListMetadataField[AwsEcsS3ObjectDeletionPath]("ecs_s3_object_deletion_paths")
+    ECS_S3_BUCKET_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[AwsEcsS3BucketTopologyDestructionPath](
+        "ecs_s3_bucket_topology_destruction_paths"
+    )
     ECS_S3_PROTECTED_DATA_CONVERGENCES = RecordListMetadataField[AwsEcsS3ProtectedDataConvergence](
         "ecs_s3_protected_data_convergences"
     )

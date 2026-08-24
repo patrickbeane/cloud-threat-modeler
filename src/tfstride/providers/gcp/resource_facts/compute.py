@@ -16,6 +16,9 @@ from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.object_storage_deletion_evidence import (
     GcpCloudRunGcsObjectDeletionPath,
 )
+from tfstride.providers.gcp.object_storage_topology_destruction_evidence import (
+    GcpCloudRunGcsBucketTopologyDestructionPath,
+)
 from tfstride.providers.gcp.protected_data_evidence import (
     GcpCloudRunGcsAccessPath,
     GcpCloudRunGcsProtectedDataConvergence,
@@ -111,6 +114,18 @@ class GcpComputeFacts(GcpBaseFacts):
     @property
     def cloud_run_gcs_object_deletion_path_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES)
+
+    @property
+    def cloud_run_gcs_bucket_topology_destruction_paths(
+        self,
+    ) -> list[GcpCloudRunGcsBucketTopologyDestructionPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def cloud_run_gcs_bucket_topology_destruction_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
 
     @property
     def cloud_run_gcs_protected_data_convergences(
@@ -229,6 +244,24 @@ class GcpComputeFacts(GcpBaseFacts):
     ) -> None:
         self.extend(
             GcpResourceMetadata.CLOUD_RUN_GCS_OBJECT_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    def set_cloud_run_gcs_bucket_topology_destruction_paths(
+        self,
+        values: list[GcpCloudRunGcsBucketTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            GcpResourceMetadata.CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_cloud_run_gcs_bucket_topology_destruction_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            GcpResourceMetadata.CLOUD_RUN_GCS_BUCKET_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
             values,
         )
 
