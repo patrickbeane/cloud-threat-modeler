@@ -7,6 +7,9 @@ from tfstride.analysis.rule_definitions import RuleContribution, RuleDetector, b
 from tfstride.analysis.rule_registry import RuleRegistry, default_rule_registry
 from tfstride.providers.gcp.audit_rules import GcpAuditRuleDetectors
 from tfstride.providers.gcp.cloud_run_firestore_rules import GcpCloudRunFirestoreAccessRuleDetectors
+from tfstride.providers.gcp.cloud_run_gcs_bucket_topology_disruption_rules import (
+    GcpCloudRunGcsBucketTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.gcp.cloud_run_gcs_rules import GcpCloudRunGcsAccessRuleDetectors
 from tfstride.providers.gcp.cloud_run_kms_rules import GcpCloudRunKmsOperationRuleDetectors
 from tfstride.providers.gcp.cloud_run_pubsub_rules import GcpCloudRunPubsubAccessRuleDetectors
@@ -98,6 +101,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-public-cloud-run-secret-disruption",
         "gcp-public-cloud-run-gcs-mutation-access",
         "gcp-public-cloud-run-gcs-object-disruption",
+        "gcp-public-cloud-run-gcs-bucket-topology-disruption",
         "gcp-public-cloud-run-pubsub-mutation-access",
         "gcp-public-cloud-run-pubsub-consume-access",
         "gcp-public-cloud-run-pubsub-message-disruption",
@@ -136,6 +140,7 @@ def build_gcp_rule_contribution(
     cloud_run_kms_detectors = GcpCloudRunKmsOperationRuleDetectors(finding_factory)
     cloud_run_secret_management_detectors = GcpCloudRunSecretManagementRuleDetectors(finding_factory)
     cloud_run_gcs_detectors = GcpCloudRunGcsAccessRuleDetectors(finding_factory)
+    cloud_run_gcs_bucket_topology_detectors = GcpCloudRunGcsBucketTopologyDisruptionRuleDetectors(finding_factory)
     cloud_run_pubsub_detectors = GcpCloudRunPubsubAccessRuleDetectors(finding_factory)
     cloud_run_pubsub_topology_detectors = GcpCloudRunPubsubTopologyDisruptionRuleDetectors(finding_factory)
     network_telemetry_detectors = GcpNetworkTelemetryRuleDetectors(finding_factory)
@@ -282,6 +287,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-gcs-object-disruption": (
             cloud_run_gcs_detectors.detect_public_cloud_run_gcs_object_disruption
+        ),
+        "gcp-public-cloud-run-gcs-bucket-topology-disruption": (
+            cloud_run_gcs_bucket_topology_detectors.detect_public_cloud_run_gcs_bucket_topology_disruption
         ),
         "gcp-public-cloud-run-pubsub-mutation-access": (
             cloud_run_pubsub_detectors.detect_public_cloud_run_pubsub_mutation_access

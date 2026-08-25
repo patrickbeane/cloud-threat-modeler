@@ -941,6 +941,24 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-gcs-bucket-topology-disruption",
+        title="Public Cloud Run service can disrupt GCS bucket topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only the "
+            "exact GCS bucket-deletion permission and bucket scope required. Keep bucket-topology administration "
+            "off public workloads, and treat bucket emptiness and recovery as separate operational controls."
+        ),
+        tags=("gcp", "cloud-run", "gcs", "iam", "public-access", "object-storage", "topology", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-pubsub-mutation-access",
         title="Public Cloud Run service has Pub/Sub publish, deletion, or administrative access",
         category=StrideCategory.TAMPERING,
