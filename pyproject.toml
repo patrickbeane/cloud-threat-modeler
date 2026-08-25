@@ -129,6 +129,7 @@ include = [
   "src/tfstride/providers/gcp/object_storage_deletion_evidence.py",
   "src/tfstride/providers/gcp/object_storage_topology_destruction_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_gcs_object_deletion_paths.py",
+  "src/tfstride/providers/gcp/resource_decoration/cloud_run_gcs_bucket_topology_destruction_paths.py",
   "src/tfstride/providers/gcp/cloud_run_gcs_rules.py",
 
   # GCP structured-data deletion and recovery evidence.

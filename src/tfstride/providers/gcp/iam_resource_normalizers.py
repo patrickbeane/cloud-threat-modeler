@@ -156,73 +156,26 @@ def _normalize_artifact_registry_iam_resource(
 
 
 def normalize_storage_bucket_iam_member(resource: TerraformResource) -> NormalizedResource:
-    values = GcpValues(resource.values)
-    bucket = first_non_empty(values.get(GcpAttr.BUCKET))
-    role = first_non_empty(values.get(GcpAttr.ROLE))
-    member = first_non_empty(values.get(GcpAttr.MEMBER))
-    return NormalizedResource(
-        address=resource.address,
-        provider=GCP_PROVIDER,
-        resource_type=resource.resource_type,
-        name=resource.name,
-        category=ResourceCategory.IAM,
-        identifier=first_non_empty(
-            values.get(GcpAttr.ID), _binding_identifier(bucket, role, [member]), resource.address
-        ),
-        metadata={
-            GcpResourceMetadata.BUCKET_NAME: bucket,
-            GcpResourceMetadata.IAM_ROLE: role,
-            GcpResourceMetadata.IAM_MEMBER: member,
-            GcpResourceMetadata.IAM_MEMBERS: compact([member]),
-            GcpResourceMetadata.IAM_CONDITION: _condition(values.raw(GcpAttr.CONDITION)),
-            GcpResourceMetadata.IAM_BINDINGS: _iam_bindings(
-                role, compact([member]), condition=values.raw(GcpAttr.CONDITION)
-            ),
-        },
+    return _normalize_target_iam_member(
+        resource,
+        target_field=GcpResourceMetadata.BUCKET_NAME,
+        target_keys=(GcpAttr.BUCKET,),
     )
 
 
 def normalize_storage_bucket_iam_binding(resource: TerraformResource) -> NormalizedResource:
-    values = GcpValues(resource.values)
-    bucket = first_non_empty(values.get(GcpAttr.BUCKET))
-    role = first_non_empty(values.get(GcpAttr.ROLE))
-    members = values.get(GcpAttr.MEMBERS)
-    return NormalizedResource(
-        address=resource.address,
-        provider=GCP_PROVIDER,
-        resource_type=resource.resource_type,
-        name=resource.name,
-        category=ResourceCategory.IAM,
-        identifier=first_non_empty(
-            values.get(GcpAttr.ID), _binding_identifier(bucket, role, members), resource.address
-        ),
-        metadata={
-            GcpResourceMetadata.BUCKET_NAME: bucket,
-            GcpResourceMetadata.IAM_ROLE: role,
-            GcpResourceMetadata.IAM_MEMBERS: members,
-            GcpResourceMetadata.IAM_CONDITION: _condition(values.raw(GcpAttr.CONDITION)),
-            GcpResourceMetadata.IAM_BINDINGS: _iam_bindings(role, members, condition=values.raw(GcpAttr.CONDITION)),
-        },
+    return _normalize_target_iam_binding(
+        resource,
+        target_field=GcpResourceMetadata.BUCKET_NAME,
+        target_keys=(GcpAttr.BUCKET,),
     )
 
 
 def normalize_storage_bucket_iam_policy(resource: TerraformResource) -> NormalizedResource:
-    values = GcpValues(resource.values)
-    bucket = first_non_empty(values.get(GcpAttr.BUCKET))
-    policy_document = load_json_document(values.raw(GcpAttr.POLICY_DATA))
-    bindings = _policy_bindings(policy_document)
-    return NormalizedResource(
-        address=resource.address,
-        provider=GCP_PROVIDER,
-        resource_type=resource.resource_type,
-        name=resource.name,
-        category=ResourceCategory.IAM,
-        identifier=first_non_empty(values.get(GcpAttr.ID), bucket, resource.address),
-        metadata={
-            GcpResourceMetadata.BUCKET_NAME: bucket,
-            GcpResourceMetadata.IAM_BINDINGS: bindings,
-            GcpResourceMetadata.POLICY_DOCUMENT: policy_document,
-        },
+    return _normalize_target_iam_policy(
+        resource,
+        target_field=GcpResourceMetadata.BUCKET_NAME,
+        target_keys=(GcpAttr.BUCKET,),
     )
 
 

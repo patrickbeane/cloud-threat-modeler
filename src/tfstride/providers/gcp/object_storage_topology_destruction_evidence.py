@@ -31,7 +31,7 @@ class GcpGcsBucketTopologyProjectBuiltInRoleEvidence(TypedDict):
 
 
 class GcpGcsBucketTopologyBucketBuiltInRoleEvidence(TypedDict):
-    role_kind: Literal["storage_admin"]
+    role_kind: Literal["storage_admin", "storage_editor"]
     role_definition_address: None
     custom_role_permissions: list[Never]
     custom_role_stage: None

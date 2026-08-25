@@ -152,7 +152,7 @@ class ObjectStorageTopologyDestructionEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(
             bucket_role_hints["role_kind"],
-            Literal["storage_admin"],
+            Literal["storage_admin", "storage_editor"],
         )
         self.assertEqual(custom_role_hints["custom_role_deleted"], Literal[False])
         self.assertEqual(

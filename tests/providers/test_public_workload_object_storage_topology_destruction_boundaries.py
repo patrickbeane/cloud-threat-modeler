@@ -964,6 +964,7 @@ class PublicWorkloadObjectStorageTopologyDestructionBoundaryTests(unittest.TestC
     def test_gcp_bucket_delete_roles_retain_provider_native_scope(self) -> None:
         cases = (
             ("roles/storage.admin", "bucket"),
+            ("roles/storage.editor", "bucket"),
             ("roles/storage.admin", "project"),
             ("roles/storage.editor", "project"),
             ("roles/editor", "project"),

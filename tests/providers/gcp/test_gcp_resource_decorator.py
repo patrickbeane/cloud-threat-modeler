@@ -275,6 +275,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "model_cloud_run_firestore_entity_deletion_paths",
                 "model_cloud_run_gcs_access_paths",
                 "model_cloud_run_gcs_object_deletion_paths",
+                "model_cloud_run_gcs_bucket_topology_destruction_paths",
                 "model_cloud_run_gcs_protected_data_convergence",
                 "model_cloud_run_pubsub_access_paths",
                 "model_cloud_run_pubsub_topology_destruction_paths",

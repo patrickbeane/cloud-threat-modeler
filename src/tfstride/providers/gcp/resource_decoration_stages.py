@@ -15,6 +15,9 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_firestore_entity_delet
 from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_access_paths import (
     ModelCloudRunGcsAccessPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_bucket_topology_destruction_paths import (
+    ModelCloudRunGcsBucketTopologyDestructionPathsStage,
+)
 from tfstride.providers.gcp.resource_decoration.cloud_run_gcs_object_deletion_paths import (
     ModelCloudRunGcsObjectDeletionPathsStage,
 )
@@ -87,6 +90,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         ModelCloudRunFirestoreEntityDeletionPathsStage(),
         ModelCloudRunGcsAccessPathsStage(),
         ModelCloudRunGcsObjectDeletionPathsStage(),
+        ModelCloudRunGcsBucketTopologyDestructionPathsStage(),
         ModelCloudRunGcsProtectedDataConvergenceStage(),
         ModelCloudRunPubsubAccessPathsStage(),
         ModelCloudRunPubsubTopologyDestructionPathsStage(),

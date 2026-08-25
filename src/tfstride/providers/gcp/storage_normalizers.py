@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
+from tfstride.providers.coercion import attribute_unknown
 from tfstride.providers.gcp.attributes import GcpAttr, GcpAttribute, GcpValues
 from tfstride.providers.gcp.coercion import as_bool, first_item
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
@@ -17,6 +18,10 @@ _GcsSoftDeleteState = Literal["enabled", "disabled", "unknown", "not_observed"]
 
 def normalize_storage_bucket(resource: TerraformResource) -> NormalizedResource:
     values = GcpValues(resource.values)
+    bucket_name = None if attribute_unknown(resource.unknown_values, GcpAttr.NAME.key) else resource_name(resource)
+    bucket_project = (
+        None if attribute_unknown(resource.unknown_values, GcpAttr.PROJECT.key) else values.get(GcpAttr.PROJECT)
+    )
     versioning_values = _first_block(values, GcpAttr.VERSIONING)
     encryption_values = _first_block(values, GcpAttr.ENCRYPTION)
     retention_policy_values = _first_block(values, GcpAttr.RETENTION_POLICY)
@@ -40,10 +45,10 @@ def normalize_storage_bucket(resource: TerraformResource) -> NormalizedResource:
         observed=values.has(GcpAttr.SOFT_DELETE_POLICY),
     )
     metadata: dict[str | MetadataField[Any], Any] = {
-        GcpResourceMetadata.NAME: resource_name(resource),
-        GcpResourceMetadata.BUCKET_NAME: resource_name(resource),
+        GcpResourceMetadata.NAME: bucket_name,
+        GcpResourceMetadata.BUCKET_NAME: bucket_name,
         GcpResourceMetadata.SELF_LINK: values.get(GcpAttr.SELF_LINK),
-        GcpResourceMetadata.PROJECT: values.get(GcpAttr.PROJECT),
+        GcpResourceMetadata.PROJECT: bucket_project,
         GcpResourceMetadata.LABELS: values.get(GcpAttr.LABELS),
         GcpResourceMetadata.UNIFORM_BUCKET_LEVEL_ACCESS: as_bool(values.get(GcpAttr.UNIFORM_BUCKET_LEVEL_ACCESS)),
         GcpResourceMetadata.PUBLIC_ACCESS_PREVENTION: values.get(GcpAttr.PUBLIC_ACCESS_PREVENTION),
