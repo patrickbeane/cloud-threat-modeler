@@ -460,6 +460,8 @@ def _resource_arm_id(resource: NormalizedResource) -> str | None:
         value = facts.app_service_id
     elif resource.resource_type == AzureResourceType.STORAGE_ACCOUNT:
         value = facts.storage_account_id
+    elif resource.resource_type == AzureResourceType.STORAGE_CONTAINER:
+        value = facts.storage_container_resource_manager_id
     elif resource.resource_type == AzureResourceType.KEY_VAULT:
         value = facts.key_vault_id
     elif resource.resource_type == AzureResourceType.KEY_VAULT_KEY:

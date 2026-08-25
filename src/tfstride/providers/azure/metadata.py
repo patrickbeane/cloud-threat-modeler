@@ -370,6 +370,8 @@ class AzureResourceMetadata:
     STORAGE_BLOB_VERSIONING_ENABLED = BoolMetadataField("storage_blob_versioning_enabled")
     STORAGE_BLOB_PERMANENT_DELETE_ENABLED = BoolMetadataField("storage_blob_permanent_delete_enabled")
     STORAGE_HIERARCHICAL_NAMESPACE_ENABLED = BoolMetadataField("storage_hierarchical_namespace_enabled")
+    STORAGE_CONTAINER_HAS_IMMUTABILITY_POLICY = BoolMetadataField("storage_container_has_immutability_policy")
+    STORAGE_CONTAINER_HAS_LEGAL_HOLD = BoolMetadataField("storage_container_has_legal_hold")
     PUBLIC_NETWORK_ACCESS_ENABLED = BoolMetadataField("public_network_access_enabled")
     DEFAULT_OUTBOUND_ACCESS_ENABLED = BoolMetadataField("default_outbound_access_enabled", default=True)
     IP_FORWARDING_ENABLED = BoolMetadataField("ip_forwarding_enabled")

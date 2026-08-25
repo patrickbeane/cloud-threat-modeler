@@ -68,6 +68,8 @@ class AzureStorageContainerTopologyDeletionConstraintsCompatible(TypedDict):
     has_immutability_policy: Literal[False]
     has_legal_hold: Literal[False]
     constraint_state: Literal["not_observed"]
+    protected_content_emptiness_required: Literal[False]
+    protected_content_emptiness_state: Literal["not_applicable"]
     arm_management_lock_applicability: Literal["not_applicable_to_storage_container_deletion"]
     uncertainties: list[str]
 
@@ -102,7 +104,12 @@ class AzureStorageContainerTopologyDeletionConstraintsUnknown(TypedDict):
     constraint_evidence_scope: Literal["plan_local_storage_container_immutability_and_legal_hold"]
     has_immutability_policy: bool | None
     has_legal_hold: bool | None
-    constraint_state: Literal["unknown"]
+    constraint_state: Literal[
+        "protected_content_emptiness_not_established",
+        "unknown",
+    ]
+    protected_content_emptiness_required: bool | None
+    protected_content_emptiness_state: Literal["not_established", "unknown"]
     arm_management_lock_applicability: Literal["not_applicable_to_storage_container_deletion"]
     uncertainties: list[str]
 

@@ -132,6 +132,24 @@ def normalize_storage_container(resource: TerraformResource) -> NormalizedResour
         metadata[AzureResourceMetadata.CONTAINER_ACCESS_TYPE] = (
             _optional_string(values.get("container_access_type")) or "private"
         )
+    _set_bool_posture(
+        metadata,
+        resource,
+        values,
+        key="has_immutability_policy",
+        field=AzureResourceMetadata.STORAGE_CONTAINER_HAS_IMMUTABILITY_POLICY,
+        default=False,
+        uncertainties=uncertainties,
+    )
+    _set_bool_posture(
+        metadata,
+        resource,
+        values,
+        key="has_legal_hold",
+        field=AzureResourceMetadata.STORAGE_CONTAINER_HAS_LEGAL_HOLD,
+        default=False,
+        uncertainties=uncertainties,
+    )
     if uncertainties:
         metadata[AzureResourceMetadata.STORAGE_POSTURE_UNCERTAINTIES] = uncertainties
 

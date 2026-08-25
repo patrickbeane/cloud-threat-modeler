@@ -26,6 +26,14 @@ class AzureStorageFacts(AzureBaseFacts):
         return self.get(AzureResourceMetadata.STORAGE_CONTAINER_RESOURCE_MANAGER_ID)
 
     @property
+    def storage_container_has_immutability_policy(self) -> bool | None:
+        return self.optional_bool(AzureResourceMetadata.STORAGE_CONTAINER_HAS_IMMUTABILITY_POLICY)
+
+    @property
+    def storage_container_has_legal_hold(self) -> bool | None:
+        return self.optional_bool(AzureResourceMetadata.STORAGE_CONTAINER_HAS_LEGAL_HOLD)
+
+    @property
     def resolved_storage_account_address(self) -> str | None:
         return self.get(AzureResourceMetadata.RESOLVED_STORAGE_ACCOUNT_ADDRESS)
 

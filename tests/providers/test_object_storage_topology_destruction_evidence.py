@@ -291,6 +291,14 @@ class ObjectStorageTopologyDestructionEvidenceTests(unittest.TestCase):
         self.assertEqual(compatible_hints["has_immutability_policy"], Literal[False])
         self.assertEqual(compatible_hints["has_legal_hold"], Literal[False])
         self.assertEqual(
+            compatible_hints["protected_content_emptiness_required"],
+            Literal[False],
+        )
+        self.assertEqual(
+            compatible_hints["protected_content_emptiness_state"],
+            Literal["not_applicable"],
+        )
+        self.assertEqual(
             compatible_hints["arm_management_lock_applicability"],
             Literal["not_applicable_to_storage_container_deletion"],
         )
@@ -315,7 +323,18 @@ class ObjectStorageTopologyDestructionEvidenceTests(unittest.TestCase):
             legal_hold_blocking_hints["uncertainties"],
             list[Never],
         )
-        self.assertEqual(unknown_hints["constraint_state"], Literal["unknown"])
+        self.assertEqual(
+            unknown_hints["constraint_state"],
+            Literal["protected_content_emptiness_not_established", "unknown"],
+        )
+        self.assertEqual(
+            unknown_hints["protected_content_emptiness_required"],
+            bool | None,
+        )
+        self.assertEqual(
+            unknown_hints["protected_content_emptiness_state"],
+            Literal["not_established", "unknown"],
+        )
 
         self.assertEqual(
             set(get_args(AzureStorageContainerTopologyDestructionRecoveryEvidence)),
