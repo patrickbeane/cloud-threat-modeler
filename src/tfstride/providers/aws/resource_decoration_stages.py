@@ -35,6 +35,10 @@ from tfstride.providers.aws.resource_decoration.ecs_s3_access_paths import (
     ModelEcsS3AccessPathsStage,
     ProjectEcsS3AccessPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_s3_bucket_topology_destruction_paths import (
+    ModelEcsS3BucketTopologyDestructionPathsStage,
+    ProjectEcsS3BucketTopologyDestructionPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_s3_object_deletion_paths import (
     ModelEcsS3ObjectDeletionPathsStage,
     ProjectEcsS3ObjectDeletionPathsOntoServicesStage,
@@ -125,6 +129,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelEcsMessagingTopologyDestructionPathsStage(),
         ApplyS3PublicAccessBlocksStage(),
         ApplyS3PostureResourcesStage(),
+        ModelEcsS3BucketTopologyDestructionPathsStage(),
         ModelEcsS3ObjectDeletionPathsStage(),
         ApplySecretsManagerPostureResourcesStage(),
         ModelSecretsManagerOperationAuthorizationStage(),
@@ -141,6 +146,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsSecretsManagerManagementPathsOntoServicesStage(),
         ProjectEcsSecretAccessPathsOntoServicesStage(),
         ProjectEcsS3AccessPathsOntoServicesStage(),
+        ProjectEcsS3BucketTopologyDestructionPathsOntoServicesStage(),
         ProjectEcsS3ObjectDeletionPathsOntoServicesStage(),
         ProjectEcsMessagingAccessPathsOntoServicesStage(),
         ProjectEcsSqsMessageRemovalPathsOntoServicesStage(),

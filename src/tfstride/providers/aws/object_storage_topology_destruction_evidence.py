@@ -57,6 +57,7 @@ class AwsS3BucketTopologyDestructionRecoveryEvidence(TypedDict):
     object_lock_default_retention_days: int | None
     object_lock_default_retention_years: int | None
     out_of_plan_object_inventory_evaluated: Literal[False]
+    attached_access_point_state: Literal["not_established"]
     bucket_recovery_state: Literal["not_established_by_modeled_aws_s3_bucket_evidence"]
     successful_deletion_observed: Literal[False]
     recovery_observed: Literal[False]

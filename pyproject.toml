@@ -69,6 +69,7 @@ include = [
   # AWS object-storage deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/aws/object_storage_deletion_evidence.py",
   "src/tfstride/providers/aws/object_storage_topology_destruction_evidence.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_s3_bucket_topology_destruction_paths.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_s3_object_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_s3_object_disruption_rules.py",
 
