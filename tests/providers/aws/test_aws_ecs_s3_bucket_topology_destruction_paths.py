@@ -49,6 +49,7 @@ def _caller_identity(
     *,
     unknown: bool = False,
     address: str = "data.aws_caller_identity.current",
+    provider_config_key: str = "aws",
 ) -> TerraformResource:
     values: dict[str, object] = {}
     if account_id is not None:
@@ -64,6 +65,7 @@ def _caller_identity(
         name=address.rsplit(".", 1)[-1],
         provider_name="registry.terraform.io/hashicorp/aws",
         values=values,
+        provider_config_key=provider_config_key,
         unknown_values={"account_id": True} if unknown else {},
     )
 
@@ -138,14 +140,20 @@ def _normalize(
     caller_identity: TerraformResource | None = None,
     include_caller_identity: bool = True,
     extra: list[TerraformResource] | None = None,
+    provider_config_key: str = "aws",
 ):
     resources: list[TerraformResource] = []
     if include_caller_identity:
-        resources.append(caller_identity or _caller_identity())
+        resources.append(caller_identity or _caller_identity(provider_config_key=provider_config_key))
     resources.extend(
         [
-            bucket or _bucket(),
-            _role("orders_task", role_arn, role_statements),
+            bucket or _bucket(provider_config_key=provider_config_key),
+            _role(
+                "orders_task",
+                role_arn,
+                role_statements,
+                provider_config_key=provider_config_key,
+            ),
         ]
     )
     if bucket_policy is not None:
@@ -156,8 +164,9 @@ def _normalize(
             or _task_definition(
                 task_role_arn=role_arn,
                 execution_role_arn=None,
+                provider_config_key=provider_config_key,
             ),
-            _service(),
+            _service(provider_config_key=provider_config_key),
             *(extra or []),
         ]
     )
@@ -412,10 +421,68 @@ class AwsEcsS3BucketTopologyDestructionPathTests(unittest.TestCase):
                 if case not in {"identity deny", "bucket deny"}:
                     self.assertTrue(facts.ecs_s3_bucket_topology_destruction_path_uncertainties)
 
+    def test_default_provider_caller_does_not_establish_aliased_bucket_ownership(
+        self,
+    ) -> None:
+        _inventory, task, service = _normalize(
+            role_statements=[
+                _statement("Allow", _DELETE_BUCKET, _BUCKET_ARN),
+            ],
+            bucket=_bucket(provider_config_key="aws.archive"),
+        )
+
+        self.assertEqual(
+            aws_facts(task).ecs_s3_bucket_topology_destruction_paths,
+            [],
+        )
+        self.assertEqual(
+            aws_facts(service).ecs_s3_bucket_topology_destruction_paths,
+            [],
+        )
+        self.assertTrue(
+            any(
+                "bucket ownership compatibility" in uncertainty
+                for uncertainty in aws_facts(task).ecs_s3_bucket_topology_destruction_path_uncertainties
+            )
+        )
+
+    def test_matching_aliased_provider_configuration_establishes_ownership(
+        self,
+    ) -> None:
+        inventory, task, service = _normalize(
+            role_statements=[
+                _statement("Allow", _DELETE_BUCKET, _BUCKET_ARN),
+            ],
+            provider_config_key="aws.archive",
+        )
+
+        bucket = inventory.get_by_address("aws_s3_bucket.orders")
+        role = inventory.get_by_address("aws_iam_role.orders_task")
+        caller = inventory.get_by_address("data.aws_caller_identity.current")
+        assert bucket is not None
+        assert role is not None
+        assert caller is not None
+        self.assertEqual(bucket.provider_config_key, "aws.archive")
+        self.assertEqual(role.provider_config_key, "aws.archive")
+        self.assertEqual(caller.provider_config_key, "aws.archive")
+        self.assertEqual(
+            len(aws_facts(task).ecs_s3_bucket_topology_destruction_paths),
+            1,
+        )
+        self.assertEqual(
+            len(aws_facts(service).ecs_s3_bucket_topology_destruction_paths),
+            1,
+        )
+
     def test_bucket_owner_compatibility_requires_resolved_caller_identity(
         self,
     ) -> None:
+        bucket_without_provider_key = _bucket()
+        bucket_without_provider_key.provider_config_key = None
         cases = {
+            "missing provider configuration": {
+                "bucket": bucket_without_provider_key,
+            },
             "absent": {
                 "include_caller_identity": False,
             },

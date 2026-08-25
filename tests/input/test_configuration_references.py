@@ -11,6 +11,41 @@ from tfstride.models import TerraformReferenceProvenance, TerraformReferenceReso
 
 
 class TerraformConfigurationReferenceResolutionTests(unittest.TestCase):
+    def test_provider_configuration_keys_are_attached_to_planned_resources(
+        self,
+    ) -> None:
+        payload = _root_plan(
+            planned_resources=[
+                _planned_resource("aws_target.primary", "aws_target", "primary", {}),
+                _planned_resource("aws_target.archive", "aws_target", "archive", {}),
+            ],
+            configuration_resources=[
+                _configuration_resource(
+                    "aws_target.primary",
+                    "aws_target",
+                    "primary",
+                    provider_config_key="aws",
+                ),
+                _configuration_resource(
+                    "aws_target.archive",
+                    "aws_target",
+                    "archive",
+                    provider_config_key="aws.archive",
+                ),
+            ],
+        )
+
+        resources = _load_resources(payload)
+
+        self.assertEqual(
+            resources["aws_target.primary"].provider_config_key,
+            "aws",
+        )
+        self.assertEqual(
+            resources["aws_target.archive"].provider_config_key,
+            "aws.archive",
+        )
+
     def test_known_planned_value_takes_precedence_over_configuration_reference(self) -> None:
         payload = _root_plan(
             planned_resources=[
@@ -668,6 +703,7 @@ def _configuration_resource(
     name: str,
     *,
     expressions: dict[str, Any] | None = None,
+    provider_config_key: str = "aws",
     **extra: Any,
 ) -> dict[str, Any]:
     return {
@@ -675,6 +711,7 @@ def _configuration_resource(
         "mode": "managed",
         "type": resource_type,
         "name": name,
+        "provider_config_key": provider_config_key,
         "expressions": expressions or {},
         **extra,
     }

@@ -84,6 +84,16 @@ def _collect_module_resources(
         name = _required_string(resource, "name", resource_path, plan_path)
         mode = _optional_string(resource, "mode", resource_path, plan_path, default="managed")
         provider_name = _optional_string(resource, "provider_name", resource_path, plan_path, default="")
+        provider_config_key = (
+            _optional_string(
+                resource,
+                "provider_config_key",
+                resource_path,
+                plan_path,
+                default="",
+            )
+            or None
+        )
         values = resource.get("values", {})
         if values is None:
             values = {}
@@ -97,6 +107,7 @@ def _collect_module_resources(
                 name=name,
                 provider_name=provider_name,
                 values=values,
+                provider_config_key=provider_config_key,
                 unknown_values=dict(unknown_values_by_address.get(address, {})),
             )
         )

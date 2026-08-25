@@ -221,6 +221,7 @@ class AwsNormalizer(ProviderNormalizer):
         except KeyError as exc:
             raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}") from exc
         normalized = normalizer(resource)
+        normalized.provider_config_key = resource.provider_config_key
         normalized.reference_resolutions = resource.reference_resolutions
         return normalized
 

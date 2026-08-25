@@ -100,7 +100,6 @@ class ModelEcsS3BucketTopologyDestructionPathsStage:
             resources,
             context,
         )
-        primary_account_id = _infer_primary_account_id(resources)
         for task_definition in resources:
             if task_definition.resource_type != _ECS_TASK_DEFINITION:
                 continue
@@ -108,7 +107,6 @@ class ModelEcsS3BucketTopologyDestructionPathsStage:
                 task_definition,
                 buckets,
                 context,
-                primary_account_id=primary_account_id,
                 unresolved_policy_sources=unresolved_policy_sources,
             )
             facts = aws_facts(task_definition)
@@ -167,7 +165,6 @@ def _task_definition_paths(
     buckets: Sequence[NormalizedResource],
     context: AwsDecorationContext,
     *,
-    primary_account_id: str | None,
     unresolved_policy_sources: Sequence[NormalizedResource],
 ) -> tuple[list[AwsEcsS3BucketTopologyDestructionPath], list[str]]:
     task_facts = aws_facts(task_definition)
@@ -277,7 +274,11 @@ def _task_definition_paths(
         same_account, partitions_match = _account_relationship(
             role_arn,
             bucket_arn,
-            primary_account_id,
+            _provider_account_id_for_bucket_role(
+                tuple(context.index.resources_by_address.values()),
+                task_role,
+                bucket,
+            ),
         )
         if same_account is False or not partitions_match:
             continue
@@ -939,7 +940,6 @@ def current_s3_bucket_topology_destruction_path(
         task_definition,
         (bucket,),
         context,
-        primary_account_id=_infer_primary_account_id(resources),
         unresolved_policy_sources=_unresolved_bucket_policy_sources(
             resources,
             context,
@@ -1123,11 +1123,19 @@ def _account_relationship(
     )
 
 
-def _infer_primary_account_id(
+def _provider_account_id_for_bucket_role(
     resources: Sequence[NormalizedResource],
+    role: NormalizedResource,
+    bucket: NormalizedResource,
 ) -> str | None:
+    provider_config_key = bucket.provider_config_key
+    if provider_config_key is None or role.provider_config_key != provider_config_key:
+        return None
+
     caller_identity_facts = [
-        aws_facts(resource) for resource in resources if resource.resource_type == _CALLER_IDENTITY
+        aws_facts(resource)
+        for resource in resources
+        if resource.resource_type == _CALLER_IDENTITY and resource.provider_config_key == provider_config_key
     ]
     caller_states = {facts.caller_identity_account_id_state for facts in caller_identity_facts}
     if caller_states & {"ambiguous", "invalid"}:

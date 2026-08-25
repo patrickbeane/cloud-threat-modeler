@@ -142,6 +142,7 @@ class TerraformResource:
     name: str
     provider_name: str
     values: dict[str, Any]
+    provider_config_key: str | None = None
     unknown_values: dict[str, Any] = field(default_factory=dict)
     reference_resolutions: tuple[TerraformReferenceResolution, ...] = field(default_factory=tuple)
 
@@ -337,6 +338,7 @@ class NormalizedResource:
     public_access_configured: bool = False
     public_exposure: bool = False
     data_sensitivity: str = "standard"
+    provider_config_key: str | None = None
     reference_resolutions: tuple[TerraformReferenceResolution, ...] = field(default_factory=tuple)
     _metadata: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _metadata_read_view: Mapping[str, Any] = field(init=False, repr=False)

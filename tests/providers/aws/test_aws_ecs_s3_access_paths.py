@@ -15,7 +15,13 @@ _BUCKET_ARN = "arn:aws:s3:::orders-data"
 _ARCHIVE_BUCKET_ARN = "arn:aws:s3:::orders-archive"
 
 
-def _resource(resource_type: str, name: str, values: dict[str, Any]) -> TerraformResource:
+def _resource(
+    resource_type: str,
+    name: str,
+    values: dict[str, Any],
+    *,
+    provider_config_key: str = "aws",
+) -> TerraformResource:
     return TerraformResource(
         address=f"{resource_type}.{name}",
         mode="managed",
@@ -23,15 +29,22 @@ def _resource(resource_type: str, name: str, values: dict[str, Any]) -> Terrafor
         name=name,
         provider_name="registry.terraform.io/hashicorp/aws",
         values=values,
+        provider_config_key=provider_config_key,
     )
 
 
-def _bucket(name: str = "orders", *, arn: str = _BUCKET_ARN) -> TerraformResource:
+def _bucket(
+    name: str = "orders",
+    *,
+    arn: str = _BUCKET_ARN,
+    provider_config_key: str = "aws",
+) -> TerraformResource:
     bucket_name = arn.removeprefix("arn:aws:s3:::")
     return _resource(
         "aws_s3_bucket",
         name,
         {"id": bucket_name, "bucket": bucket_name, "arn": arn},
+        provider_config_key=provider_config_key,
     )
 
 
@@ -39,6 +52,8 @@ def _role(
     name: str,
     arn: str,
     statements: list[dict[str, Any]] | None = None,
+    *,
+    provider_config_key: str = "aws",
 ) -> TerraformResource:
     values: dict[str, Any] = {"name": name, "arn": arn}
     if statements is not None:
@@ -48,7 +63,12 @@ def _role(
                 "policy": json.dumps({"Version": "2012-10-17", "Statement": statements}),
             }
         ]
-    return _resource("aws_iam_role", name, values)
+    return _resource(
+        "aws_iam_role",
+        name,
+        values,
+        provider_config_key=provider_config_key,
+    )
 
 
 def _role_policy_attachment(role_reference: str, policy_arn: str) -> TerraformResource:
@@ -80,6 +100,7 @@ def _task_definition(
     *,
     task_role_arn: str | None = _TASK_ROLE_ARN,
     execution_role_arn: str | None = _EXECUTION_ROLE_ARN,
+    provider_config_key: str = "aws",
 ) -> TerraformResource:
     values: dict[str, Any] = {
         "family": "orders",
@@ -90,14 +111,24 @@ def _task_definition(
         values["task_role_arn"] = task_role_arn
     if execution_role_arn is not None:
         values["execution_role_arn"] = execution_role_arn
-    return _resource("aws_ecs_task_definition", "orders", values)
+    return _resource(
+        "aws_ecs_task_definition",
+        "orders",
+        values,
+        provider_config_key=provider_config_key,
+    )
 
 
-def _service(task_definition: str = "orders:1") -> TerraformResource:
+def _service(
+    task_definition: str = "orders:1",
+    *,
+    provider_config_key: str = "aws",
+) -> TerraformResource:
     return _resource(
         "aws_ecs_service",
         "orders",
         {"name": "orders", "task_definition": task_definition},
+        provider_config_key=provider_config_key,
     )
 
 

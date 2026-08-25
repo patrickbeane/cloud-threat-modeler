@@ -22,6 +22,7 @@ class _ResourceConfiguration:
     resource_type: str
     name: str
     mode: str
+    provider_config_key: str | None
     expressions: _ObjectMapping
 
 
@@ -195,6 +196,8 @@ def _attach_resource_resolutions(
     binding: _ResourceBinding,
     context: _ModuleContext,
 ) -> None:
+    if binding.configuration.provider_config_key is not None:
+        resource.provider_config_key = binding.configuration.provider_config_key
     expressions = binding.configuration.expressions
 
     # Source expansion alone does not determine relationship confidence;
@@ -546,11 +549,16 @@ def _resource_configuration(value: object) -> _ResourceConfiguration | None:
     assert isinstance(resource_type, str)
     assert isinstance(name, str)
     assert isinstance(mode, str)
+    provider_config_key_value = raw_resource.get("provider_config_key")
+    provider_config_key = (
+        provider_config_key_value if isinstance(provider_config_key_value, str) and provider_config_key_value else None
+    )
     return _ResourceConfiguration(
         address=address,
         resource_type=resource_type,
         name=name,
         mode=mode,
+        provider_config_key=provider_config_key,
         expressions=_object_mapping(raw_resource.get("expressions", {})) or {},
     )
 

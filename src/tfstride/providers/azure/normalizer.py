@@ -193,6 +193,7 @@ class AzureNormalizer(ProviderNormalizer):
             if resource.resource_type not in SUPPORTED_AZURE_TYPES:
                 continue
             normalized_resource = self._resource_normalizers[resource.resource_type](resource)
+            normalized_resource.provider_config_key = resource.provider_config_key
             normalized_resource.reference_resolutions = resource.reference_resolutions
             normalized.append(normalized_resource)
         self._resource_decorator.decorate(normalized)
