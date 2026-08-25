@@ -671,6 +671,25 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-s3-bucket-topology-disruption",
+        title="Internet-facing ECS service can delete S3 bucket topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact "
+            "s3:DeleteBucket action and bucket ARNs required at runtime. Keep bucket-topology deletion with a "
+            "separate operational identity, and do not treat plan-local emptiness, access-point, or recovery "
+            "evidence as proof of successful deletion or restoration."
+        ),
+        tags=("aws", "ecs", "s3", "iam", "public-access", "object-storage", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-dynamodb-mutation-access",
         title="Internet-facing ECS service task role has a DynamoDB mutation allow",
         category=StrideCategory.TAMPERING,

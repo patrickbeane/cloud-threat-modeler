@@ -72,6 +72,7 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/ecs_s3_bucket_topology_destruction_paths.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_s3_object_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_s3_object_disruption_rules.py",
+  "src/tfstride/providers/aws/ecs_s3_bucket_topology_disruption_rules.py",
 
   # AWS structured-data deletion and recovery evidence.
   "src/tfstride/providers/aws/structured_data_deletion_evidence.py",

@@ -22,6 +22,9 @@ from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRule
 from tfstride.providers.aws.ecs_messaging_topology_disruption_rules import (
     AwsEcsMessagingTopologyDisruptionRuleDetectors,
 )
+from tfstride.providers.aws.ecs_s3_bucket_topology_disruption_rules import (
+    AwsEcsS3BucketTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.aws.ecs_s3_object_disruption_rules import (
     AwsEcsS3ObjectDisruptionRuleDetectors,
 )
@@ -108,6 +111,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-secret-disruption",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-s3-object-disruption",
+        "aws-public-ecs-s3-bucket-topology-disruption",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-item-disruption",
         "aws-public-ecs-dynamodb-read-access",
@@ -189,6 +193,7 @@ def build_aws_rule_contribution(
     ecs_secret_management_detectors = AwsEcsSecretManagementRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
     ecs_s3_object_disruption_detectors = AwsEcsS3ObjectDisruptionRuleDetectors(finding_factory)
+    ecs_s3_bucket_topology_disruption_detectors = AwsEcsS3BucketTopologyDisruptionRuleDetectors(finding_factory)
     ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
     ecs_dynamodb_item_disruption_detectors = AwsEcsDynamoDbItemDisruptionRuleDetectors(finding_factory)
     ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
@@ -273,6 +278,9 @@ def build_aws_rule_contribution(
         "aws-public-ecs-secret-disruption": (ecs_secret_management_detectors.detect_public_service_disruption),
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
         "aws-public-ecs-s3-object-disruption": (ecs_s3_object_disruption_detectors.detect_public_service_disruption),
+        "aws-public-ecs-s3-bucket-topology-disruption": (
+            ecs_s3_bucket_topology_disruption_detectors.detect_public_service_topology_disruption
+        ),
         "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-dynamodb-item-disruption": (
             ecs_dynamodb_item_disruption_detectors.detect_public_service_item_disruption

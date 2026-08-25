@@ -19,6 +19,31 @@ _AWS_ECS_SERVICE = "aws_ecs_service"
 _MUTATION_ACCESS_CLASSES = frozenset({"write", "delete", "administrative"})
 _OBJECT_DELETION_ACTIONS = frozenset({"s3:DeleteObject", "s3:DeleteObjectVersion"})
 _TAGGING_DELETION_ACTIONS = frozenset({"s3:DeleteObjectTagging", "s3:DeleteObjectVersionTagging"})
+_TOPOLOGY_DELETION_ACTIONS = frozenset({"s3:DeleteBucket"})
+_ADMINISTRATIVE_MUTATION_ACTIONS = frozenset(
+    {
+        "s3:CreateBucket",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketAcl",
+        "s3:PutBucketCORS",
+        "s3:PutBucketLogging",
+        "s3:PutBucketNotification",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutReplicationConfiguration",
+        "s3:BypassGovernanceRetention",
+        "s3:PutObjectAcl",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectVersionAcl",
+    }
+)
 
 
 class AwsEcsS3AccessRuleDetectors:
@@ -124,6 +149,8 @@ def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
     actions = set(_mutation_actions(path))
     if "delete" in classes and not actions & _TAGGING_DELETION_ACTIONS:
         classes.remove("delete")
+    if "administrative" in classes and not actions & _ADMINISTRATIVE_MUTATION_ACTIONS:
+        classes.remove("administrative")
     return [value for value in ("write", "delete", "administrative") if value in classes]
 
 
@@ -131,7 +158,11 @@ def _mutation_actions(path: Mapping[str, Any]) -> list[str]:
     return [
         action
         for action in _string_values(path.get("matched_actions"))
-        if not action.lower().startswith(("s3:get", "s3:list")) and action not in _OBJECT_DELETION_ACTIONS
+        if (
+            not action.lower().startswith(("s3:get", "s3:list"))
+            and action not in _OBJECT_DELETION_ACTIONS
+            and action not in _TOPOLOGY_DELETION_ACTIONS
+        )
     ]
 
 
