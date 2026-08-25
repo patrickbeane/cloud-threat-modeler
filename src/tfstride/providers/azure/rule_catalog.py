@@ -732,6 +732,34 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-storage-container-topology-disruption",
+        title="Public Azure App Service identity can delete Blob Storage containers",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Remove Azure RBAC container-delete permissions from public App Service runtime identities; scope "
+            "required topology access to exact containers, keep protected-content prerequisites explicit, and "
+            "restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "storage",
+            "blob",
+            "topology",
+            "managed-identity",
+            "public-access",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-cosmosdb-mutation-access",
         title="Public Azure App Service identity can mutate Cosmos DB for NoSQL data",
         category=StrideCategory.TAMPERING,

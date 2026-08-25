@@ -183,6 +183,7 @@ include = [
   "src/tfstride/providers/azure/app_service_blob_rules.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_blob_deletion_paths.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_storage_container_topology_destruction_paths.py",
+  "src/tfstride/providers/azure/app_service_storage_container_topology_disruption_rules.py",
 
   # Azure structured-data deletion and recovery evidence.
   "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
