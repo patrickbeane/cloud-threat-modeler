@@ -33,6 +33,20 @@ _WORKLOAD_ADDRESS = "azurerm_linux_web_app.orders"
 _ACCOUNT_ADDRESS = "azurerm_storage_account.orders"
 _CONTAINER_ADDRESS = "azurerm_storage_container.orders"
 _CONTROL_ROLE_ADDRESS = "azurerm_role_definition.storage_topology"
+_STORAGE_CONTAINER_DELETE_BUILT_IN_ROLES = (
+    (
+        "Storage Account Contributor",
+        "17d1049b-9a84-46fb-8f53-869881c3d3ab",
+    ),
+    (
+        "Storage Blob Data Contributor",
+        "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+    ),
+    (
+        "Storage Blob Data Owner",
+        "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+    ),
+)
 
 
 def _storage_account(
@@ -356,6 +370,21 @@ class AzureAppServiceStorageContainerTopologyDestructionPathTests(
             "built_in",
         )
 
+        _inventory_value, _workload, reader = _inventory(
+            _storage_account(),
+            _storage_container(),
+            _web_app(),
+            _role_assignment(
+                scope=("azurerm_storage_container.orders.resource_manager_id"),
+                role_name="Reader",
+                role_definition_id=None,
+            ),
+        )
+        self.assertEqual(
+            reader.app_service_storage_container_topology_destruction_paths,
+            [],
+        )
+
         _inventory_value, _workload, data_only = _inventory(
             _storage_account(),
             _storage_container(),
@@ -370,6 +399,84 @@ class AzureAppServiceStorageContainerTopologyDestructionPathTests(
             data_only.app_service_storage_container_topology_destruction_paths,
             [],
         )
+
+    def test_storage_built_in_roles_resolve_by_name_and_id_at_container_scope(
+        self,
+    ) -> None:
+        for role_name, role_id in _STORAGE_CONTAINER_DELETE_BUILT_IN_ROLES:
+            for reference_kind in ("name", "id"):
+                with self.subTest(role=role_name, reference=reference_kind):
+                    assignment = _role_assignment(
+                        scope=("azurerm_storage_container.orders.resource_manager_id"),
+                        role_name=(role_name if reference_kind == "name" else "Reader"),
+                        role_definition_id=(
+                            None
+                            if reference_kind == "name"
+                            else (
+                                f"/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/{role_id}"
+                            )
+                        ),
+                    )
+                    _inventory_value, _workload, facts = _inventory(
+                        _storage_account(),
+                        _storage_container(),
+                        _web_app(),
+                        assignment,
+                    )
+
+                    paths = facts.app_service_storage_container_topology_destruction_paths
+                    self.assertEqual(len(paths), 1)
+                    self.assertEqual(
+                        paths[0]["container_address"],
+                        _CONTAINER_ADDRESS,
+                    )
+                    grant = paths[0]["authorization_grant"]
+                    self.assertEqual(
+                        grant["role_evidence"]["role_kind"],
+                        "built_in",
+                    )
+                    self.assertEqual(
+                        grant["matched_actions"],
+                        [_DELETE_CONTAINER],
+                    )
+
+    def test_storage_built_in_roles_resolve_by_name_and_id_at_account_scope(
+        self,
+    ) -> None:
+        for role_name, role_id in _STORAGE_CONTAINER_DELETE_BUILT_IN_ROLES:
+            for reference_kind in ("name", "id"):
+                with self.subTest(role=role_name, reference=reference_kind):
+                    assignment = _role_assignment(
+                        scope="azurerm_storage_account.orders.id",
+                        role_name=(role_name if reference_kind == "name" else "Reader"),
+                        role_definition_id=(
+                            None
+                            if reference_kind == "name"
+                            else (
+                                f"/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/{role_id}"
+                            )
+                        ),
+                    )
+                    _inventory_value, _workload, facts = _inventory(
+                        _storage_account(),
+                        _storage_container(),
+                        _storage_container(name="archive"),
+                        _web_app(),
+                        assignment,
+                    )
+
+                    paths = facts.app_service_storage_container_topology_destruction_paths
+                    self.assertEqual(len(paths), 2)
+                    self.assertEqual(
+                        {path["container_address"] for path in paths},
+                        {
+                            _CONTAINER_ADDRESS,
+                            "azurerm_storage_container.archive",
+                        },
+                    )
+                    self.assertTrue(
+                        all(path["authorization_grant"]["matched_actions"] == [_DELETE_CONTAINER] for path in paths)
+                    )
 
     def test_conditions_exclusions_assignable_scope_and_identity_fail_closed(
         self,
