@@ -34,12 +34,24 @@ _AWS_ECS_TASK_DEFINITION = "aws_ecs_task_definition"
 _AWS_IAM_ROLE = "aws_iam_role"
 _AWS_S3_BUCKET = "aws_s3_bucket"
 _DELETE_BUCKET = "s3:DeleteBucket"
-_EXCLUDED_PROJECTION_FIELDS = frozenset(
-    {
-        "workload_address",
-        "workload_type",
-        "internet_facing_load_balancers",
-    }
+_AUTHORIZATION_RELATIONSHIP_FIELDS = (
+    "workload_address",
+    "workload_type",
+    "task_definition_address",
+    "role_kind",
+    "credential_context",
+    "role_address",
+    "role_arn",
+    "same_account",
+    "bucket_address",
+    "bucket_arn",
+    "operation",
+    "operation_class",
+    "internal_operation",
+    "management_effect",
+    "target_granularity",
+    "target_scope",
+    "authorization_bases",
 )
 
 
@@ -61,16 +73,16 @@ class AwsEcsS3BucketTopologyDisruptionRuleDetectors:
         findings: list[Finding] = []
         for service in context.inventory.by_type(_AWS_ECS_SERVICE):
             service_facts = aws_facts(service)
-            paths = [
-                path
-                for path in service_facts.ecs_s3_bucket_topology_destruction_paths
-                if _is_current_deterministic_path(
-                    path,
+            paths: list[AwsEcsS3BucketTopologyDestructionPath] = []
+            for cached_path in service_facts.ecs_s3_bucket_topology_destruction_paths:
+                current_path = _current_deterministic_path(
+                    cached_path,
                     service,
                     context,
                     decoration_context,
                 )
-            ]
+                if current_path is not None:
+                    paths.append(current_path)
             if not paths:
                 continue
 
@@ -122,7 +134,7 @@ class AwsEcsS3BucketTopologyDisruptionRuleDetectors:
                         ),
                         evidence_item(
                             "s3_bucket_topology_destruction_path_uncertainties",
-                            service_facts.ecs_s3_bucket_topology_destruction_path_uncertainties,
+                            _current_path_uncertainties(paths),
                         ),
                         evidence_item("assessment_scope", _assessment_scope()),
                     ),
@@ -132,75 +144,79 @@ class AwsEcsS3BucketTopologyDisruptionRuleDetectors:
         return findings
 
 
-def _is_current_deterministic_path(
-    path: AwsEcsS3BucketTopologyDestructionPath,
+def _current_deterministic_path(
+    cached_path: AwsEcsS3BucketTopologyDestructionPath,
     service: NormalizedResource,
     context: RuleEvaluationContext,
     decoration_context: AwsDecorationContext,
-) -> bool:
+) -> AwsEcsS3BucketTopologyDestructionPath | None:
     task_definition = _resource_for_path(
-        path,
+        cached_path,
         "task_definition_address",
         _AWS_ECS_TASK_DEFINITION,
         context,
     )
-    role = _resource_for_path(path, "role_address", _AWS_IAM_ROLE, context)
-    bucket = _resource_for_path(path, "bucket_address", _AWS_S3_BUCKET, context)
+    role = _resource_for_path(cached_path, "role_address", _AWS_IAM_ROLE, context)
+    bucket = _resource_for_path(cached_path, "bucket_address", _AWS_S3_BUCKET, context)
     if task_definition is None or role is None or bucket is None:
-        return False
+        return None
 
     role_arn = role.arn
     bucket_arn = bucket.arn
     if not isinstance(role_arn, str) or not isinstance(bucket_arn, str):
-        return False
+        return None
 
     service_facts = aws_facts(service)
+    if (
+        task_definition.address not in service_facts.resolved_task_definition_addresses
+        or cached_path.get("workload_address") != service.address
+        or cached_path.get("workload_type") != service.resource_type
+        or cached_path.get("task_definition_address") != task_definition.address
+        or cached_path.get("role_kind") != "ecs_task_role"
+        or cached_path.get("credential_context") != "workload_runtime"
+        or cached_path.get("role_address") != role.address
+        or cached_path.get("role_arn") != role_arn
+        or cached_path.get("same_account") is not True
+        or cached_path.get("bucket_address") != bucket.address
+        or cached_path.get("bucket_arn") != bucket_arn
+        or not _is_exact_iam_role_arn(role_arn)
+        or not _is_exact_bucket_arn(bucket_arn)
+        or cached_path.get("operation") != _DELETE_BUCKET
+        or cached_path.get("operation_class") != "bucket_deletion"
+        or cached_path.get("internal_operation") != "delete_bucket"
+        or cached_path.get("management_effect") != "disruption"
+        or cached_path.get("target_granularity") != "bucket_topology"
+        or cached_path.get("target_scope") != "exact_s3_bucket"
+        or cached_path.get("authorization_state") != "allowed"
+        or cached_path.get("evaluation_basis") != "modeled_identity_and_bucket_policies"
+        or cached_path.get("matched_actions") != [_DELETE_BUCKET]
+        or cached_path.get("identity_policy_complete") is not True
+        or cached_path.get("bucket_policy_complete") is not True
+        or cached_path.get("explicit_deny") is not False
+        or cached_path.get("conditional_evaluation_required") is not False
+        or cached_path.get("lifecycle_compatibility_state") != "bucket_emptiness_not_established"
+    ):
+        return None
+
     current_task_path = current_s3_bucket_topology_destruction_path(
         task_definition,
         bucket,
         decoration_context,
     )
     if current_task_path is None:
-        return False
+        return None
 
-    if (
-        task_definition.address not in service_facts.resolved_task_definition_addresses
-        or path.get("workload_address") != service.address
-        or path.get("workload_type") != service.resource_type
-        or path.get("task_definition_address") != task_definition.address
-        or path.get("task_definition_arn") != task_definition.arn
-        or path.get("role_kind") != "ecs_task_role"
-        or path.get("credential_context") != "workload_runtime"
-        or path.get("role_address") != role.address
-        or path.get("role_arn") != role_arn
-        or path.get("same_account") is not True
-        or path.get("bucket_address") != bucket.address
-        or path.get("bucket_arn") != bucket_arn
-        or not _is_exact_iam_role_arn(role_arn)
-        or not _is_exact_bucket_arn(bucket_arn)
-        or path.get("operation") != _DELETE_BUCKET
-        or path.get("operation_class") != "bucket_deletion"
-        or path.get("internal_operation") != "delete_bucket"
-        or path.get("management_effect") != "disruption"
-        or path.get("target_granularity") != "bucket_topology"
-        or path.get("target_scope") != "exact_s3_bucket"
-        or path.get("authorization_state") != "allowed"
-        or path.get("evaluation_basis") != "modeled_identity_and_bucket_policies"
-        or path.get("matched_actions") != [_DELETE_BUCKET]
-        or path.get("identity_policy_complete") is not True
-        or path.get("bucket_policy_complete") is not True
-        or path.get("explicit_deny") is not False
-        or path.get("conditional_evaluation_required") is not False
-        or path.get("lifecycle_compatibility_state") != "bucket_emptiness_not_established"
-        or not _current_load_balancers(
-            path,
-            service_facts.internet_facing_load_balancer_addresses,
-        )
-        or not _matches_current_task_path(path, (current_task_path,))
+    current_path = current_task_path.copy()
+    current_path["workload_address"] = service.address
+    current_path["workload_type"] = service.resource_type
+    current_path["task_definition_address"] = task_definition.address
+    current_path["task_definition_arn"] = task_definition.arn
+    current_path["internet_facing_load_balancers"] = service_facts.internet_facing_load_balancer_addresses
+    if not _authorization_relationship_matches(cached_path, current_path) or not _authorization_proof_identity_matches(
+        cached_path, current_path
     ):
-        return False
-
-    return True
+        return None
+    return current_path
 
 
 def _resource_for_path(
@@ -216,26 +232,50 @@ def _resource_for_path(
     return resource
 
 
-def _current_load_balancers(
+def _authorization_relationship_matches(
+    cached_path: Mapping[str, object],
+    current_path: Mapping[str, object],
+) -> bool:
+    return all(cached_path.get(field) == current_path.get(field) for field in _AUTHORIZATION_RELATIONSHIP_FIELDS)
+
+
+def _authorization_proof_identity_matches(
+    cached_path: Mapping[str, object],
+    current_path: Mapping[str, object],
+) -> bool:
+    cached_sources = _authorization_proof_sources(cached_path)
+    current_sources = _authorization_proof_sources(current_path)
+    return cached_sources is not None and cached_sources == current_sources
+
+
+def _authorization_proof_sources(
     path: Mapping[str, object],
-    current: Sequence[str],
-) -> bool:
-    values = path.get("internet_facing_load_balancers")
-    return isinstance(values, list) and set(values) == set(current)
+) -> frozenset[tuple[str, str]] | None:
+    raw_statements = path.get("authorization_statements")
+    if not isinstance(raw_statements, list) or not raw_statements:
+        return None
+
+    sources: set[tuple[str, str]] = set()
+    for raw_statement in cast(list[object], raw_statements):
+        if not isinstance(raw_statement, Mapping):
+            return None
+        statement = cast(Mapping[str, object], raw_statement)
+        source_address = statement.get("source_address")
+        source_kind = statement.get("source_kind")
+        if not isinstance(source_address, str) or source_kind not in {
+            "identity_policy",
+            "bucket_policy",
+        }:
+            return None
+        assert isinstance(source_kind, str)
+        sources.add((source_address, source_kind))
+    return frozenset(sources)
 
 
-def _matches_current_task_path(
-    projected_path: Mapping[str, object],
-    current_paths: Sequence[Mapping[str, object]],
-) -> bool:
-    projected_keys = set(projected_path) - _EXCLUDED_PROJECTION_FIELDS
-    for current_path in current_paths:
-        current_keys = set(current_path) - _EXCLUDED_PROJECTION_FIELDS
-        if projected_keys != current_keys:
-            continue
-        if all(projected_path[key] == current_path[key] for key in projected_keys):
-            return True
-    return False
+def _current_path_uncertainties(
+    paths: Sequence[Mapping[str, object]],
+) -> list[str]:
+    return sorted({uncertainty for path in paths for uncertainty in _string_values(path.get("posture_uncertainties"))})
 
 
 def _is_exact_iam_role_arn(value: str) -> bool:
