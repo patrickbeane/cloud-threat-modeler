@@ -334,6 +334,12 @@ def _assignment_scope(
             target = context.index.resolve(raw_scope)
             if target is None and facts.role_assignment_target_resource_address:
                 target = context.index.resources_by_address.get(facts.role_assignment_target_resource_address)
+            if (
+                target is not None
+                and target.resource_type == AzureResourceType.STORAGE_CONTAINER
+                and facts.role_assignment_target_resource_address != target.address
+            ):
+                target = None
             arm_scope = _resource_arm_id(target) if target is not None else None
 
     if arm_scope is None:

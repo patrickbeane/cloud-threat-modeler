@@ -91,7 +91,7 @@ class AzurePublicAppServiceStorageMutationRuleTests(unittest.TestCase):
                 _public(_function_app()),
                 _role_assignment(
                     principal_id=_USER_PRINCIPAL_ID,
-                    scope="azurerm_storage_container.orders.id",
+                    scope="azurerm_storage_container.orders.resource_manager_id",
                     role_name="Storage Blob Data Owner",
                     role_definition_id=(
                         "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/"

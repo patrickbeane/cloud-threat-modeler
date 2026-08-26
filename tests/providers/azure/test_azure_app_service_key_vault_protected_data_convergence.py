@@ -11,6 +11,9 @@ from tests.providers.azure.test_azure_app_service_service_bus_access_paths impor
 from tests.providers.azure.test_azure_app_service_service_bus_access_paths import (
     _role_assignment as service_bus_role_assignment,
 )
+from tests.providers.azure.test_azure_app_service_storage_access_paths import (
+    _STORAGE_ACCOUNT_ID,
+)
 from tests.providers.azure.test_azure_key_vault_encryption_dependencies import (
     _resource as dependency_resource,
 )
@@ -78,7 +81,11 @@ def _user_assigned_storage_resources() -> list[TerraformResource]:
 def _direct_storage_account_resources() -> list[TerraformResource]:
     resources = _azure_resources()
     assignment = next(resource for resource in resources if resource.address == "azurerm_role_assignment.orders_blob")
-    assignment.values["scope"] = "azurerm_storage_account.orders.id"
+    assignment.values["scope"] = _STORAGE_ACCOUNT_ID
+    assignment.unknown_values.pop("scope", None)
+    assignment.reference_resolutions = tuple(
+        resolution for resolution in assignment.reference_resolutions if resolution.path != ("scope",)
+    )
     return resources
 
 

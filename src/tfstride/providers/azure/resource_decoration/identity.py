@@ -64,6 +64,13 @@ class DecorateManagedIdentityRoleAssignmentsStage:
         facts = azure_facts(role_assignment)
         scope = facts.role_assignment_scope
         target_resource = context.index.resolve(scope)
+        if (
+            target_resource is not None
+            and target_resource.resource_type == AzureResourceType.STORAGE_CONTAINER
+            and not _native_arm_scope(scope)
+            and facts.role_assignment_target_resource_address != target_resource.address
+        ):
+            target_resource = None
         if target_resource is None and facts.role_assignment_target_resource_address:
             target_resource = context.index.resources_by_address.get(facts.role_assignment_target_resource_address)
         scope_kind = _classify_scope(scope)
@@ -194,6 +201,12 @@ def _classify_scope(scope: str | None) -> str | None:
     if _RESOURCE_GROUP_SCOPE_PATTERN.fullmatch(normalized) or normalized.startswith("azurerm_resource_group."):
         return "resource_group"
     return "resource"
+
+
+def _native_arm_scope(scope: str | None) -> bool:
+    if not scope:
+        return False
+    return scope.strip().casefold().startswith(("/subscriptions/", "/providers/"))
 
 
 def _breadth_signals(

@@ -31,6 +31,9 @@ from tests.providers.azure.test_azure_app_service_key_vault_protected_data_conve
 from tests.providers.azure.test_azure_app_service_key_vault_protected_data_convergence import (
     _versionless_storage_resources as _versionless_protected_data_resources,
 )
+from tests.providers.azure.test_azure_app_service_storage_access_paths import (
+    _symbolic_resolution as _storage_symbolic_resolution,
+)
 from tests.providers.azure.test_azure_public_app_service_storage_mutation_rules import _public
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
@@ -97,7 +100,10 @@ def _two_storage_container_protected_data_resources() -> list[TerraformResource]
     second_role_assignment = deepcopy(role_assignment)
     second_role_assignment.address = "azurerm_role_assignment.archive_blob"
     second_role_assignment.name = "archive_blob"
-    second_role_assignment.values["scope"] = "azurerm_storage_container.archive.resource_manager_id"
+    archive_scope = "azurerm_storage_container.archive.resource_manager_id"
+    second_role_assignment.values["scope"] = None
+    second_role_assignment.unknown_values["scope"] = True
+    second_role_assignment.reference_resolutions = (_storage_symbolic_resolution(("scope",), archive_scope),)
     resources.extend([second_container, second_role_assignment])
     return resources
 

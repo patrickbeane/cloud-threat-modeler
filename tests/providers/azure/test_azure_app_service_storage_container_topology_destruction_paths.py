@@ -9,6 +9,7 @@ from tests.providers.azure.test_azure_app_service_storage_access_paths import (
     _USER_PRINCIPAL_ID,
     _resource,
     _role_assignment,
+    _symbolic_resolution,
     _user_assigned_identity,
     _web_app,
 )
@@ -157,8 +158,9 @@ def _control_assignment(
     name: str = "storage_topology",
     unknown_values: dict[str, object] | None = None,
 ) -> TerraformResource:
+    scope_reference = scope if isinstance(scope, str) and scope.startswith("azurerm_") else None
     values: dict[str, object] = {
-        "scope": scope,
+        "scope": None if scope_reference is not None else scope,
         "role_definition_id": ("azurerm_role_definition.storage_topology.role_definition_resource_id"),
         "principal_id": principal_id,
         "principal_type": "ServicePrincipal",
@@ -166,11 +168,17 @@ def _control_assignment(
     if condition is not None:
         values["condition"] = condition
         values["condition_version"] = "2.0"
+    resolved_unknown_values = dict(unknown_values or {})
+    reference_resolutions = ()
+    if scope_reference is not None:
+        resolved_unknown_values["scope"] = True
+        reference_resolutions = (_symbolic_resolution(("scope",), scope_reference),)
     return _resource(
         AzureResourceType.ROLE_ASSIGNMENT,
         values,
         name=name,
-        unknown_values=unknown_values,
+        unknown_values=resolved_unknown_values,
+        reference_resolutions=reference_resolutions,
     )
 
 
@@ -306,6 +314,34 @@ class AzureAppServiceStorageContainerTopologyDestructionPathTests(
         self.assertEqual(path["posture_uncertainties"], [])
         serialized = json.dumps(path, sort_keys=True)
         self.assertNotIn('"successful_deletion_observed": true', serialized)
+
+    def test_container_scope_rejects_id_and_unproven_symbolic_values(
+        self,
+    ) -> None:
+        wrong_attribute = _control_assignment(
+            scope="azurerm_storage_container.orders.id",
+        )
+        raw_symbolic = _control_assignment()
+        raw_symbolic.values["scope"] = "azurerm_storage_container.orders.resource_manager_id"
+        raw_symbolic.unknown_values.pop("scope", None)
+        raw_symbolic.reference_resolutions = ()
+
+        for case, assignment in (
+            ("versioned id", wrong_attribute),
+            ("raw symbolic value", raw_symbolic),
+        ):
+            with self.subTest(case=case):
+                _inventory_value, _workload, facts = _inventory(
+                    _storage_account(),
+                    _storage_container(),
+                    _web_app(),
+                    _control_role(actions=[_DELETE_CONTAINER]),
+                    assignment,
+                )
+                self.assertEqual(
+                    facts.app_service_storage_container_topology_destruction_paths,
+                    [],
+                )
 
     def test_account_scope_fans_out_only_to_exact_modeled_containers(self) -> None:
         foreign_account_id = (

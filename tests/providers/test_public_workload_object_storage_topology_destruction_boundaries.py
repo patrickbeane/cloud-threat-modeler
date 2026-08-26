@@ -56,6 +56,9 @@ from tests.providers.azure.test_azure_app_service_storage_access_paths import (
     _storage_container as azure_storage_container,
 )
 from tests.providers.azure.test_azure_app_service_storage_access_paths import (
+    _symbolic_resolution as azure_symbolic_resolution,
+)
+from tests.providers.azure.test_azure_app_service_storage_access_paths import (
     _user_assigned_identity as azure_user_assigned_identity,
 )
 from tests.providers.azure.test_azure_app_service_storage_access_paths import (
@@ -444,8 +447,9 @@ def _azure_control_assignment(
     name: str = "storage_topology",
     unknown_values: dict[str, object] | None = None,
 ) -> TerraformResource:
+    scope_reference = scope if isinstance(scope, str) and scope.startswith("azurerm_") else None
     values: dict[str, object] = {
-        "scope": scope,
+        "scope": None if scope_reference is not None else scope,
         "role_definition_id": _AZURE_CONTROL_ROLE_ID,
         "principal_id": principal_id,
         "principal_type": "ServicePrincipal",
@@ -453,11 +457,17 @@ def _azure_control_assignment(
     if condition is not None:
         values["condition"] = condition
         values["condition_version"] = "2.0"
+    resolved_unknown_values = dict(unknown_values or {})
+    reference_resolutions = ()
+    if scope_reference is not None:
+        resolved_unknown_values["scope"] = True
+        reference_resolutions = (azure_symbolic_resolution(("scope",), scope_reference),)
     return azure_resource(
         AzureResourceType.ROLE_ASSIGNMENT,
         values,
         name=name,
-        unknown_values=unknown_values,
+        unknown_values=resolved_unknown_values,
+        reference_resolutions=reference_resolutions,
     )
 
 

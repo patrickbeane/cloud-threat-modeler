@@ -142,6 +142,7 @@ class ResolveAzureSymbolicRelationshipsStage:
             allowed_paths={("scope",)},
             expected_reference_suffixes=(
                 ".id",
+                ".resource_manager_id",
                 ".resource_versionless_id",
             ),
             reference_validator=_valid_role_assignment_scope_reference,
@@ -448,6 +449,8 @@ def _valid_role_assignment_scope_reference(
         return normalized.endswith(".resource_versionless_id")
     if target.resource_type == AzureResourceType.KEY_VAULT_SECRET:
         return normalized.endswith(".resource_versionless_id")
+    if target.resource_type == AzureResourceType.STORAGE_CONTAINER:
+        return normalized.endswith(".resource_manager_id")
     return normalized.endswith(".id")
 
 

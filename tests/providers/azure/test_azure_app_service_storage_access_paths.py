@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from tfstride.models import TerraformResource
+from tfstride.models import (
+    TerraformReferenceProvenance,
+    TerraformReferenceResolution,
+    TerraformReferenceResolutionState,
+    TerraformReferenceTarget,
+    TerraformResource,
+)
 from tfstride.providers.azure.normalizer import AzureNormalizer
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
@@ -26,6 +32,7 @@ def _resource(
     *,
     name: str,
     unknown_values: dict[str, object] | None = None,
+    reference_resolutions: tuple[TerraformReferenceResolution, ...] = (),
 ) -> TerraformResource:
     return TerraformResource(
         address=f"{resource_type}.{name}",
@@ -35,6 +42,36 @@ def _resource(
         provider_name="registry.terraform.io/hashicorp/azurerm",
         values=values,
         unknown_values=unknown_values or {},
+        reference_resolutions=reference_resolutions,
+    )
+
+
+def _symbolic_resolution(
+    path: tuple[str | int, ...],
+    reference: str,
+) -> TerraformReferenceResolution:
+    target_address = reference
+    for suffix in (
+        ".resource_manager_id",
+        ".resource_versionless_id",
+        ".role_definition_resource_id",
+        ".principal_id",
+        ".id",
+    ):
+        if reference.casefold().endswith(suffix):
+            target_address = reference[: -len(suffix)]
+            break
+    return TerraformReferenceResolution(
+        path=path,
+        state=TerraformReferenceResolutionState.SYMBOLIC,
+        provenance=TerraformReferenceProvenance.CONFIGURATION_REFERENCE,
+        references=(reference,),
+        targets=(
+            TerraformReferenceTarget(
+                address=target_address,
+                reference=reference,
+            ),
+        ),
     )
 
 
@@ -131,8 +168,9 @@ def _role_assignment(
     unknown_values: dict[str, object] | None = None,
     name: str = "orders_blob",
 ) -> TerraformResource:
+    scope_reference = scope if isinstance(scope, str) and scope.startswith("azurerm_") else None
     values: dict[str, object] = {
-        "scope": scope,
+        "scope": None if scope_reference is not None else scope,
         "role_definition_name": role_name,
         "role_definition_id": role_definition_id,
         "principal_id": principal_id,
@@ -140,11 +178,17 @@ def _role_assignment(
     }
     if condition is not None:
         values["condition"] = condition
+    resolved_unknown_values = dict(unknown_values or {})
+    reference_resolutions: tuple[TerraformReferenceResolution, ...] = ()
+    if scope_reference is not None:
+        resolved_unknown_values["scope"] = True
+        reference_resolutions = (_symbolic_resolution(("scope",), scope_reference),)
     return _resource(
         AzureResourceType.ROLE_ASSIGNMENT,
         values,
         name=name,
-        unknown_values=unknown_values,
+        unknown_values=resolved_unknown_values,
+        reference_resolutions=reference_resolutions,
     )
 
 

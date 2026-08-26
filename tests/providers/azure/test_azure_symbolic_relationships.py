@@ -35,6 +35,7 @@ _STORAGE_ID = (
     f"/subscriptions/{_SUBSCRIPTION_ID}/resourceGroups/{_RESOURCE_GROUP}/providers/"
     "Microsoft.Storage/storageAccounts/orders"
 )
+_STORAGE_CONTAINER_RESOURCE_MANAGER_ID = f"{_STORAGE_ID}/blobServices/default/containers/orders"
 _ROLE_DEFINITION_ID = (
     f"/subscriptions/{_SUBSCRIPTION_ID}/providers/Microsoft.Authorization/roleDefinitions/"
     "22222222-2222-2222-2222-222222222222"
@@ -232,6 +233,72 @@ class AzureSymbolicRelationshipTests(unittest.TestCase):
         assert facts.role_definition_id is not None
         self.assertFalse(facts.role_assignment_scope.startswith("azurerm_"))
         self.assertFalse(facts.role_definition_id.startswith("azurerm_"))
+
+    def test_storage_container_role_assignment_requires_resource_manager_id_provenance(
+        self,
+    ) -> None:
+        container = _terraform_resource(
+            "azurerm_storage_container.orders",
+            AzureResourceType.STORAGE_CONTAINER,
+            {
+                "id": "https://orders.blob.core.windows.net/orders",
+                "resource_manager_id": _STORAGE_CONTAINER_RESOURCE_MANAGER_ID,
+                "name": "orders",
+                "storage_account_id": _STORAGE_ID,
+            },
+        )
+        resource_manager_reference = f"{container.address}.resource_manager_id"
+        valid = _terraform_resource(
+            "azurerm_role_assignment.valid_container_scope",
+            AzureResourceType.ROLE_ASSIGNMENT,
+            {},
+            unknown_values={"scope": True},
+            reference_resolutions=(
+                _symbolic_resolution(
+                    ("scope",),
+                    container.address,
+                    ".resource_manager_id",
+                ),
+            ),
+        )
+        versioned_id = _terraform_resource(
+            "azurerm_role_assignment.versioned_container_scope",
+            AzureResourceType.ROLE_ASSIGNMENT,
+            {},
+            unknown_values={"scope": True},
+            reference_resolutions=(_symbolic_resolution(("scope",), container.address, ".id"),),
+        )
+        raw = _terraform_resource(
+            "azurerm_role_assignment.raw_container_scope",
+            AzureResourceType.ROLE_ASSIGNMENT,
+            {"scope": resource_manager_reference},
+        )
+
+        inventory = AzureNormalizer().normalize([container, valid, versioned_id, raw])
+        normalized_valid = inventory.get_by_address(valid.address)
+        normalized_versioned_id = inventory.get_by_address(versioned_id.address)
+        normalized_raw = inventory.get_by_address(raw.address)
+        assert normalized_valid is not None
+        assert normalized_versioned_id is not None
+        assert normalized_raw is not None
+
+        valid_facts = azure_facts(normalized_valid)
+        self.assertEqual(
+            valid_facts.role_assignment_scope,
+            _STORAGE_CONTAINER_RESOURCE_MANAGER_ID,
+        )
+        self.assertEqual(
+            valid_facts.role_assignment_target_resource_address,
+            container.address,
+        )
+
+        versioned_id_facts = azure_facts(normalized_versioned_id)
+        self.assertIsNone(versioned_id_facts.role_assignment_scope)
+        self.assertIsNone(versioned_id_facts.role_assignment_target_resource_address)
+
+        raw_facts = azure_facts(normalized_raw)
+        self.assertEqual(raw_facts.role_assignment_scope, resource_manager_reference)
+        self.assertIsNone(raw_facts.role_assignment_target_resource_address)
 
     def test_key_vault_key_resolves_exact_vault_parent(self) -> None:
         vault = _terraform_resource(
