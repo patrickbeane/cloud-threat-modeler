@@ -5,7 +5,8 @@ Object-storage analysis separates public-workload authority to mutate stored dat
 ## Shared boundary
 
 * Object writes and tag or metadata mutation produce Tampering paths.
-* Logical object deletion, version deletion, and generation deletion produce Denial of Service paths.
+* Logical object deletion, version deletion, and generation deletion produce object-level Denial of Service paths.
+* Bucket and container deletion produce topology-level Denial of Service paths, separately from object deletion.
 * Private workloads retain modeled authority paths but do not produce public-workload findings.
 * Conditional, denied, incomplete, ambiguous, and unresolved authority is not promoted into a deterministic deletion path.
 * Recovery evidence describes impact and compatibility; it does not establish that deletion will succeed or that recovery is guaranteed.
@@ -15,6 +16,7 @@ Object-storage analysis separates public-workload authority to mutate stored dat
 Deletion paths retain the narrowest modeled target available:
 
 * exact object or blob;
+* exact bucket or container topology;
 * bounded object or blob prefix;
 * bucket- or container-wide object namespace;
 * exact object version or generation;
@@ -32,6 +34,6 @@ These scopes come from provider-native authorization evidence. The model does no
 
 ## Scope limits
 
-This model does not cover bucket, account, or container destruction; policy delegation; retention-policy mutation; successful runtime deletion or recovery; or consumers and object instances outside the Terraform plan. Provider-specific recovery controls remain plan-local and may describe defaults or posture without proving the state of an existing object version.
+This model does not cover account destruction, policy delegation, retention-policy mutation, successful runtime deletion or recovery, or consumers and object instances outside the Terraform plan. Provider-specific recovery controls remain plan-local and may describe defaults or posture without proving the state of an existing object version.
 
 See [Cross-Provider Threat-Path Semantics](path-semantics.md) for the shared quiet-versus-promoted evidence rule, and the provider coverage maps ([AWS](../providers/aws.md), [GCP](../providers/gcp.md), [Azure](../providers/azure.md)) for current implementation scope.

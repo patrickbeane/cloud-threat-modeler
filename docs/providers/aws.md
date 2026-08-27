@@ -96,6 +96,7 @@ This is a concise coverage map. Reports identify unsupported AWS resource types 
 * Exact public ECS-to-SQS receive and message-removal paths; `DeleteMessage` requires receive authority for runtime receipt handles, while `PurgeQueue` is independent
 * Public ECS SQS queue and SNS topic topology-deletion paths for `DeleteQueue` and `DeleteTopic`
 * Public ECS S3 `DeleteObject` and `DeleteObjectVersion` disruption paths with exact object, prefix, bucket-namespace, and version/Object Lock evidence
+* Public ECS S3 bucket-topology disruption paths for exact `s3:DeleteBucket` authority, with emptiness and access-point state left unestablished
 * Public ECS DynamoDB item-deletion paths for `DeleteItem`, PartiQL deletion, and `BatchWriteItem`, with exact table item-namespace and point-in-time-recovery evidence
 * Public ECS secret-value tampering and secret-deletion disruption paths for task-role authority
 * Execution/task-role access broader than consumed references
