@@ -46,6 +46,12 @@ class AwsDynamoDbFacts(AwsBaseFacts):
         return _bool_from_state(self.dynamodb_deletion_protection_state)
 
     @property
+    def dynamodb_resource_policy_target_reference(self) -> str | None:
+        return self.get(
+            AwsResourceMetadata.DYNAMODB_RESOURCE_POLICY_TARGET_REFERENCE,
+        )
+
+    @property
     def dynamodb_replicas(self) -> list[dict[str, Any]]:
         return self.get(AwsResourceMetadata.DYNAMODB_REPLICAS)
 

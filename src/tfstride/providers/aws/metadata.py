@@ -28,6 +28,9 @@ from tfstride.providers.aws.secret_management_evidence import (
 from tfstride.providers.aws.structured_data_deletion_evidence import (
     AwsEcsDynamoDbItemDeletionPath,
 )
+from tfstride.providers.aws.structured_data_topology_destruction_evidence import (
+    AwsEcsDynamoDbTableTopologyDestructionPath,
+)
 from tfstride.resource_metadata import (
     BoolDictMetadataField,
     BoolMetadataField,
@@ -110,6 +113,9 @@ class AwsResourceMetadata:
     ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES = StringListMetadataField("ecs_dynamodb_access_path_uncertainties")
     ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES = StringListMetadataField(
         "ecs_dynamodb_item_deletion_path_uncertainties"
+    )
+    ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "ecs_dynamodb_table_topology_destruction_path_uncertainties"
     )
     ECS_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_operation_path_uncertainties")
     ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_management_path_uncertainties")
@@ -397,6 +403,7 @@ class AwsResourceMetadata:
     DYNAMODB_ENCRYPTION_CONFIGURATION_STATE = OptionalStringMetadataField("dynamodb_encryption_configuration_state")
     DYNAMODB_PITR_STATE = OptionalStringMetadataField("dynamodb_pitr_state")
     DYNAMODB_DELETION_PROTECTION_STATE = OptionalStringMetadataField("dynamodb_deletion_protection_state")
+    DYNAMODB_RESOURCE_POLICY_TARGET_REFERENCE = OptionalStringMetadataField("dynamodb_resource_policy_target_reference")
     KMS_KEY_ID = OptionalStringMetadataField("kms_key_id")
     KMS_KEY_ARN = OptionalStringMetadataField("kms_key_arn")
     KMS_KEY_USAGE = OptionalStringMetadataField("kms_key_usage")
@@ -510,6 +517,9 @@ class AwsResourceMetadata:
     ECS_DYNAMODB_ACCESS_PATHS = DictListMetadataField("ecs_dynamodb_access_paths")
     ECS_DYNAMODB_ITEM_DELETION_PATHS = RecordListMetadataField[AwsEcsDynamoDbItemDeletionPath](
         "ecs_dynamodb_item_deletion_paths"
+    )
+    ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[AwsEcsDynamoDbTableTopologyDestructionPath](
+        "ecs_dynamodb_table_topology_destruction_paths"
     )
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
     ECS_KMS_MANAGEMENT_PATHS = RecordListMetadataField[AwsEcsKmsManagementPath]("ecs_kms_management_paths")

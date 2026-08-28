@@ -78,6 +78,7 @@ include = [
   "src/tfstride/providers/aws/structured_data_deletion_evidence.py",
   "src/tfstride/providers/aws/structured_data_topology_destruction_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_item_deletion_paths.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_table_topology_destruction_paths.py",
   "src/tfstride/providers/aws/ecs_dynamodb_item_disruption_rules.py",
 
   # AWS messaging removal and delivery evidence.

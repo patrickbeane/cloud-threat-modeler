@@ -17,6 +17,10 @@ from tfstride.providers.aws.resource_decoration.ecs_dynamodb_item_deletion_paths
     ModelEcsDynamoDbItemDeletionPathsStage,
     ProjectEcsDynamoDbItemDeletionPathsOntoServicesStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_dynamodb_table_topology_destruction_paths import (
+    ModelEcsDynamoDbTableTopologyDestructionPathsStage,
+    ProjectEcsDynamoDbTableTopologyDestructionPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_kms_operation_paths import (
     ModelEcsKmsManagementPathsStage,
     ModelEcsKmsOperationPathsStage,
@@ -123,6 +127,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelEcsMessagingAccessPathsStage(),
         ModelEcsDynamoDbAccessPathsStage(),
         ModelEcsDynamoDbItemDeletionPathsStage(),
+        ModelEcsDynamoDbTableTopologyDestructionPathsStage(),
         ModelWorkloadEcrWritePathsStage(),
         ResolveApiGatewayRelationshipsStage(),
         MergeResourcePolicyResourcesStage(),
@@ -153,5 +158,6 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsMessagingTopologyDestructionPathsOntoServicesStage(),
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbItemDeletionPathsOntoServicesStage(),
+        ProjectEcsDynamoDbTableTopologyDestructionPathsOntoServicesStage(),
         ModelEcsS3ProtectedDataConvergenceStage(),
     )

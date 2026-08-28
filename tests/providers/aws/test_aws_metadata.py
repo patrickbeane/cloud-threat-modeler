@@ -77,6 +77,9 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "ECS_MESSAGING_ACCESS_PATH_UNCERTAINTIES": "ecs_messaging_access_path_uncertainties",
             "ECS_DYNAMODB_ACCESS_PATH_UNCERTAINTIES": "ecs_dynamodb_access_path_uncertainties",
             "ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES": ("ecs_dynamodb_item_deletion_path_uncertainties"),
+            "ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES": (
+                "ecs_dynamodb_table_topology_destruction_path_uncertainties"
+            ),
             "ECS_KMS_OPERATION_PATH_UNCERTAINTIES": "ecs_kms_operation_path_uncertainties",
             "ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES": "ecs_kms_management_path_uncertainties",
             "ECR_REPOSITORY_URL": "ecr_repository_url",
@@ -101,6 +104,7 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "DYNAMODB_ENCRYPTION_CONFIGURATION_STATE": "dynamodb_encryption_configuration_state",
             "DYNAMODB_PITR_STATE": "dynamodb_pitr_state",
             "DYNAMODB_DELETION_PROTECTION_STATE": "dynamodb_deletion_protection_state",
+            "DYNAMODB_RESOURCE_POLICY_TARGET_REFERENCE": ("dynamodb_resource_policy_target_reference"),
             "DYNAMODB_PITR_RECOVERY_PERIOD_DAYS": "dynamodb_pitr_recovery_period_days",
             "DYNAMODB_REPLICAS": "dynamodb_replicas",
             "RDS_BACKUP_RETENTION_PERIOD": "rds_backup_retention_period",
@@ -189,6 +193,7 @@ class AwsResourceMetadataTests(unittest.TestCase):
             "ECS_MESSAGING_ACCESS_PATHS": "ecs_messaging_access_paths",
             "ECS_DYNAMODB_ACCESS_PATHS": "ecs_dynamodb_access_paths",
             "ECS_DYNAMODB_ITEM_DELETION_PATHS": ("ecs_dynamodb_item_deletion_paths"),
+            "ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATHS": ("ecs_dynamodb_table_topology_destruction_paths"),
             "ECS_KMS_OPERATION_PATHS": "ecs_kms_operation_paths",
             "ECS_KMS_MANAGEMENT_PATHS": "ecs_kms_management_paths",
             "ECS_DYNAMODB_INDEX_RELATIONSHIPS": "ecs_dynamodb_index_relationships",

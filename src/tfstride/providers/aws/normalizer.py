@@ -50,7 +50,10 @@ from tfstride.providers.aws.data_normalizers import (
     normalize_sqs_queue,
     normalize_sqs_queue_redrive_policy,
 )
-from tfstride.providers.aws.dynamodb_normalizers import normalize_dynamodb_table
+from tfstride.providers.aws.dynamodb_normalizers import (
+    normalize_dynamodb_resource_policy,
+    normalize_dynamodb_table,
+)
 from tfstride.providers.aws.ecr_normalizers import (
     normalize_ecr_registry_scanning_configuration,
     normalize_ecr_repository,
@@ -113,6 +116,7 @@ _AWS_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     "aws_config_configuration_recorder_status": normalize_config_configuration_recorder_status,
     "aws_config_delivery_channel": normalize_config_delivery_channel,
     "aws_db_instance": normalize_db_instance,
+    "aws_dynamodb_resource_policy": normalize_dynamodb_resource_policy,
     "aws_dynamodb_table": normalize_dynamodb_table,
     "aws_ecs_cluster": normalize_ecs_cluster,
     "aws_ecs_service": normalize_ecs_service,

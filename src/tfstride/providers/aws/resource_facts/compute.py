@@ -24,6 +24,9 @@ from tfstride.providers.aws.secret_management_evidence import (
 from tfstride.providers.aws.structured_data_deletion_evidence import (
     AwsEcsDynamoDbItemDeletionPath,
 )
+from tfstride.providers.aws.structured_data_topology_destruction_evidence import (
+    AwsEcsDynamoDbTableTopologyDestructionPath,
+)
 from tfstride.resource_metadata import DictListMetadataField
 
 
@@ -195,6 +198,14 @@ class AwsComputeFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATHS)
 
     @property
+    def ecs_dynamodb_table_topology_destruction_paths(
+        self,
+    ) -> list[AwsEcsDynamoDbTableTopologyDestructionPath]:
+        return self.get(
+            AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATHS,
+        )
+
+    @property
     def ecs_kms_operation_paths(self) -> list[AwsEcsKmsOperationPath]:
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS)
 
@@ -213,6 +224,14 @@ class AwsComputeFacts(AwsBaseFacts):
     @property
     def ecs_dynamodb_item_deletion_path_uncertainties(self) -> list[str]:
         return self.get(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES)
+
+    @property
+    def ecs_dynamodb_table_topology_destruction_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(
+            AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+        )
 
     @property
     def ecs_kms_operation_path_uncertainties(self) -> list[str]:
@@ -733,6 +752,15 @@ class AwsComputeFacts(AwsBaseFacts):
     ) -> None:
         self.set(AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATHS, values)
 
+    def set_ecs_dynamodb_table_topology_destruction_paths(
+        self,
+        values: list[AwsEcsDynamoDbTableTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
     def set_ecs_kms_operation_paths(self, values: list[AwsEcsKmsOperationPath]) -> None:
         self.set(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS, values)
 
@@ -757,6 +785,15 @@ class AwsComputeFacts(AwsBaseFacts):
     ) -> None:
         self.extend(
             AwsResourceMetadata.ECS_DYNAMODB_ITEM_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    def extend_ecs_dynamodb_table_topology_destruction_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
             values,
         )
 

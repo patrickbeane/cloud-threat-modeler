@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
-from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
+from tfstride.models import (
+    IAMPolicyStatement,
+    NormalizedResource,
+    ResourceCategory,
+    TerraformResource,
+)
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.network_normalizers import AWS_PROVIDER
+from tfstride.providers.aws.policy_documents import (
+    parse_policy_statements,
+    policy_statement_is_fully_representable,
+)
 from tfstride.providers.aws.resource_mutations import aws_mutations
 from tfstride.providers.coercion import (
     STATE_DISABLED,
@@ -20,6 +30,7 @@ from tfstride.providers.coercion import (
     known_block_string,
     known_bool,
     known_string,
+    value_is_unknown,
 )
 
 
@@ -80,6 +91,115 @@ def normalize_dynamodb_table(resource: TerraformResource) -> NormalizedResource:
     # DynamoDB is encrypted at rest by default, including when the table uses an AWS-owned key.
     aws_mutations(normalized).set_storage_encrypted(True)
     return normalized
+
+
+def normalize_dynamodb_resource_policy(
+    resource: TerraformResource,
+) -> NormalizedResource:
+    values = resource.values
+    unknown_values = resource.unknown_values
+    uncertainties: list[str] = []
+    target_reference = known_string(
+        values,
+        unknown_values,
+        "resource_arn",
+        uncertainties,
+        require_string=True,
+    )
+    statements, policy_document, complete, policy_uncertainties = _dynamodb_resource_policy_details(
+        values.get("policy"),
+        unknown=value_is_unknown(unknown_values.get("policy")),
+    )
+    uncertainties.extend(policy_uncertainties)
+    return NormalizedResource(
+        address=resource.address,
+        provider=AWS_PROVIDER,
+        resource_type=resource.resource_type,
+        name=resource.name,
+        category=ResourceCategory.DATA,
+        identifier=target_reference or values.get("id") or resource.address,
+        arn=(target_reference if _is_exact_dynamodb_table_arn(target_reference) else None),
+        policy_statements=tuple(statements),
+        metadata={
+            AwsResourceMetadata.DYNAMODB_RESOURCE_POLICY_TARGET_REFERENCE: (target_reference),
+            AwsResourceMetadata.POLICY_DOCUMENT: policy_document,
+            AwsResourceMetadata.IAM_POLICY_COMPLETENESS_STATE: ("complete" if complete else "unknown"),
+            AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES: uncertainties,
+        },
+    )
+
+
+def _dynamodb_resource_policy_details(
+    raw_policy: object,
+    *,
+    unknown: bool,
+) -> tuple[list[IAMPolicyStatement], dict[str, Any], bool, list[str]]:
+    if unknown:
+        return [], {}, False, ["policy is unknown after planning"]
+
+    document: dict[str, Any]
+    if isinstance(raw_policy, Mapping):
+        document = {str(key): value for key, value in raw_policy.items()}
+    elif isinstance(raw_policy, str) and raw_policy.strip():
+        try:
+            decoded = json.loads(raw_policy)
+        except json.JSONDecodeError:
+            decoded = None
+        if not isinstance(decoded, dict):
+            return [], {}, False, ["policy is not a valid JSON document"]
+        document = {str(key): value for key, value in decoded.items()}
+    else:
+        return [], {}, False, ["policy is missing or has an unrecognized value shape"]
+
+    raw_statements = document.get("Statement")
+    if isinstance(raw_statements, Mapping):
+        statement_documents = [raw_statements]
+    elif isinstance(raw_statements, list) and all(isinstance(statement, Mapping) for statement in raw_statements):
+        statement_documents = [statement for statement in raw_statements if isinstance(statement, Mapping)]
+    else:
+        return [], document, False, ["policy statements have an unrecognized value shape"]
+
+    statements = parse_policy_statements(document)
+    complete = bool(
+        statement_documents
+        and len(statements) == len(statement_documents)
+        and all(
+            policy_statement_is_fully_representable(
+                raw_statement,
+                statement,
+                principal_mode="required",
+            )
+            for raw_statement, statement in zip(
+                statement_documents,
+                statements,
+                strict=True,
+            )
+        )
+    )
+    return (
+        statements,
+        document,
+        complete,
+        [] if complete else ["policy contains incomplete or unsupported statements"],
+    )
+
+
+def _is_exact_dynamodb_table_arn(value: str | None) -> bool:
+    if value is None or "*" in value or "?" in value:
+        return False
+    parts = value.split(":", 5)
+    return bool(
+        len(parts) == 6
+        and parts[0] == "arn"
+        and parts[1]
+        and parts[2] == "dynamodb"
+        and parts[3]
+        and len(parts[4]) == 12
+        and parts[4].isdigit()
+        and parts[5].startswith("table/")
+        and len(parts[5]) > len("table/")
+        and "/" not in parts[5][len("table/") :]
+    )
 
 
 def _server_side_encryption_posture(
