@@ -74,8 +74,9 @@ include = [
   "src/tfstride/providers/aws/ecs_s3_object_disruption_rules.py",
   "src/tfstride/providers/aws/ecs_s3_bucket_topology_disruption_rules.py",
 
-  # AWS structured-data deletion and recovery evidence.
+  # AWS structured-data deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/aws/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/aws/structured_data_topology_destruction_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_item_deletion_paths.py",
   "src/tfstride/providers/aws/ecs_dynamodb_item_disruption_rules.py",
 
@@ -133,8 +134,9 @@ include = [
   "src/tfstride/providers/gcp/cloud_run_gcs_bucket_topology_disruption_rules.py",
   "src/tfstride/providers/gcp/cloud_run_gcs_rules.py",
 
-  # GCP structured-data deletion and recovery evidence.
+  # GCP structured-data deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/gcp/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/gcp/structured_data_topology_destruction_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_firestore_entity_deletion_paths.py",
 
   # GCP messaging removal and delivery evidence.
@@ -185,8 +187,9 @@ include = [
   "src/tfstride/providers/azure/resource_decoration/app_service_storage_container_topology_destruction_paths.py",
   "src/tfstride/providers/azure/app_service_storage_container_topology_disruption_rules.py",
 
-  # Azure structured-data deletion and recovery evidence.
+  # Azure structured-data deletion, topology destruction, and recovery evidence.
   "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
+  "src/tfstride/providers/azure/structured_data_topology_destruction_evidence.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_item_deletion_paths.py",
 
   # Azure messaging removal and delivery evidence.
