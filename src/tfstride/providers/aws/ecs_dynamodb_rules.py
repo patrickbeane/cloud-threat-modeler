@@ -33,6 +33,7 @@ _MUTATION_ACCESS_CLASSES = frozenset(_MUTATION_CLASS_ORDER)
 _DISCLOSURE_CLASS_ORDER = ("read", "return_value_read", "bulk_export")
 _DISCLOSURE_ACCESS_CLASSES = frozenset(_DISCLOSURE_CLASS_ORDER)
 _TABLE_SCAN_ACTIONS = frozenset({"dynamodb:scan", "dynamodb:partiqlselect"})
+_TOPOLOGY_DELETION_ACTIONS = frozenset({"dynamodb:deletetable"})
 _CLASS_PRIVILEGE_BREADTH = {
     "entity_write": 1,
     "configuration_administration": 2,
@@ -595,7 +596,11 @@ def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
 
 
 def _mutation_actions(path: Mapping[str, Any]) -> list[str]:
-    return [action for action in _string_values(path.get("matched_actions")) if _action_has_mutation_effect(action)]
+    return [
+        action
+        for action in _string_values(path.get("matched_actions"))
+        if action.casefold() not in _TOPOLOGY_DELETION_ACTIONS and _action_has_mutation_effect(action)
+    ]
 
 
 def _action_has_mutation_effect(action: str) -> bool:

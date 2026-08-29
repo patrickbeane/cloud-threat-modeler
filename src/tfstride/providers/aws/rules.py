@@ -17,6 +17,9 @@ from tfstride.providers.aws.ecs_dynamodb_item_disruption_rules import (
 from tfstride.providers.aws.ecs_dynamodb_rules import (
     AwsEcsDynamoDbAccessRuleDetectors,
 )
+from tfstride.providers.aws.ecs_dynamodb_table_topology_disruption_rules import (
+    AwsEcsDynamoDbTableTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.aws.ecs_kms_rules import AwsEcsKmsOperationRuleDetectors
 from tfstride.providers.aws.ecs_messaging_rules import AwsEcsMessagingAccessRuleDetectors
 from tfstride.providers.aws.ecs_messaging_topology_disruption_rules import (
@@ -114,6 +117,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-s3-bucket-topology-disruption",
         "aws-public-ecs-dynamodb-mutation-access",
         "aws-public-ecs-dynamodb-item-disruption",
+        "aws-public-ecs-dynamodb-table-topology-disruption",
         "aws-public-ecs-dynamodb-read-access",
         "aws-public-ecs-kms-decrypt-access",
         "aws-public-ecs-kms-signing-access",
@@ -196,6 +200,9 @@ def build_aws_rule_contribution(
     ecs_s3_bucket_topology_disruption_detectors = AwsEcsS3BucketTopologyDisruptionRuleDetectors(finding_factory)
     ecs_dynamodb_detectors = AwsEcsDynamoDbAccessRuleDetectors(finding_factory)
     ecs_dynamodb_item_disruption_detectors = AwsEcsDynamoDbItemDisruptionRuleDetectors(finding_factory)
+    ecs_dynamodb_table_topology_disruption_detectors = AwsEcsDynamoDbTableTopologyDisruptionRuleDetectors(
+        finding_factory
+    )
     ecs_kms_detectors = AwsEcsKmsOperationRuleDetectors(finding_factory)
     ecs_messaging_detectors = AwsEcsMessagingAccessRuleDetectors(finding_factory)
     ecs_sqs_message_disruption_detectors = AwsEcsSqsMessageDisruptionRuleDetectors(finding_factory)
@@ -284,6 +291,9 @@ def build_aws_rule_contribution(
         "aws-public-ecs-dynamodb-mutation-access": (ecs_dynamodb_detectors.detect_public_service_mutation_access),
         "aws-public-ecs-dynamodb-item-disruption": (
             ecs_dynamodb_item_disruption_detectors.detect_public_service_item_disruption
+        ),
+        "aws-public-ecs-dynamodb-table-topology-disruption": (
+            ecs_dynamodb_table_topology_disruption_detectors.detect_public_service_table_topology_disruption
         ),
         "aws-public-ecs-dynamodb-read-access": (ecs_dynamodb_detectors.detect_public_service_read_access),
         "aws-public-ecs-kms-decrypt-access": (ecs_kms_detectors.detect_public_service_decrypt_access),

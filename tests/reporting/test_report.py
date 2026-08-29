@@ -84,8 +84,8 @@ class MarkdownReportTests(unittest.TestCase):
 
         self.assertIn("- Terraform resources seen: `24`", report)
         self.assertIn("- Provider resources considered: `24`", report)
-        self.assertIn("- Registered provider rules (AWS): `102`", report)
-        self.assertIn("- Enabled provider rules (AWS): `102`", report)
+        self.assertIn("- Registered provider rules (AWS): `103`", report)
+        self.assertIn("- Enabled provider rules (AWS): `103`", report)
         self.assertIn("- Resources with plan-time unknown values: `0`", report)
         self.assertIn(
             "- Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`",
@@ -518,7 +518,7 @@ class JsonReportTests(unittest.TestCase):
             coverage["resources"]["unsupported_resource_types"],
             {"aws_cloudwatch_log_group": 1},
         )
-        self.assertEqual(coverage["rules"]["registered_rule_count"], 102)
+        self.assertEqual(coverage["rules"]["registered_rule_count"], 103)
         self.assertIn("aws-database-permissive-ingress", coverage["rules"]["enabled_rules"])
         self.assertTrue(all(rule_id.startswith("aws-") for rule_id in coverage["rules"]["enabled_rules"]))
         self.assertEqual(coverage["rules"]["disabled_rules"], [])

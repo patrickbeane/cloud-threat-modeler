@@ -153,7 +153,7 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
                 8,
                 ("change DynamoDB table configuration or controls without directly modifying item contents"),
             ),
-            "dynamodb:DeleteTable": (
+            "dynamodb:DeleteTableReplica": (
                 "destructive_administration",
                 3,
                 2,
@@ -202,7 +202,7 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
                 )
 
         self.assertGreater(
-            findings["dynamodb:DeleteTable"].severity_reasoning.final_score,
+            findings["dynamodb:DeleteTableReplica"].severity_reasoning.final_score,
             findings["dynamodb:PutItem"].severity_reasoning.final_score,
         )
         self.assertNotIn(
@@ -322,11 +322,11 @@ class AwsPublicEcsDynamoDbMutationRuleTests(unittest.TestCase):
         )
         self.assertIn(f"table_arn={_TABLE_ARN}", mutation_path)
         self.assertIn(
-            ("mutation_classes=entity_write,destructive_administration,configuration_administration"),
+            ("mutation_classes=entity_write,configuration_administration"),
             mutation_path,
         )
         self.assertIn(
-            ("actions=dynamodb:PutItem,dynamodb:DeleteTable,dynamodb:UpdateTable"),
+            ("actions=dynamodb:PutItem,dynamodb:UpdateTable"),
             mutation_path,
         )
         self.assertIn("resource_scopes=exact_table", mutation_path)

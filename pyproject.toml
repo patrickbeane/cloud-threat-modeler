@@ -80,6 +80,7 @@ include = [
   "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_item_deletion_paths.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_dynamodb_table_topology_destruction_paths.py",
   "src/tfstride/providers/aws/ecs_dynamodb_item_disruption_rules.py",
+  "src/tfstride/providers/aws/ecs_dynamodb_table_topology_disruption_rules.py",
 
   # AWS messaging removal and delivery evidence.
   "src/tfstride/providers/aws/message_removal_evidence.py",

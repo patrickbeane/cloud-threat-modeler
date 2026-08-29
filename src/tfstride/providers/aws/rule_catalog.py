@@ -747,6 +747,34 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-dynamodb-table-topology-disruption",
+        title="Internet-facing ECS service can delete DynamoDB table topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and restrict its task role to only the exact "
+            "dynamodb:DeleteTable action and modeled table scopes required at runtime. Keep table-topology "
+            "deletion with a separate operational identity, enable deletion protection and point-in-time "
+            "recovery, and do not treat recovery configuration as proof of successful deletion or restoration."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "dynamodb",
+            "iam",
+            "public-access",
+            "nosql",
+            "structured-data",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-dynamodb-read-access",
         title="Internet-facing ECS service task role has a DynamoDB read allow",
         category=StrideCategory.INFORMATION_DISCLOSURE,
