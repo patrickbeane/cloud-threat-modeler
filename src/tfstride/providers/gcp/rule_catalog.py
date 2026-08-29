@@ -776,6 +776,25 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-firestore-database-topology-disruption",
+        title="Public Cloud Run identity can disrupt Firestore database topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact Firestore database-deletion permission and database scope required. Keep database "
+            "topology administration off public workloads, and treat content prerequisites and recovery as "
+            "separate operational controls."
+        ),
+        tags=("gcp", "cloud-run", "firestore", "iam", "public-access", "nosql", "topology", "denial-of-service"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-public-cloud-run-firestore-read-access",
         title="Public Cloud Run identity has Firestore entity read grants",
         category=StrideCategory.INFORMATION_DISCLOSURE,

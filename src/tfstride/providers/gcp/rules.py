@@ -6,6 +6,9 @@ from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.rule_definitions import RuleContribution, RuleDetector, build_rule_contribution
 from tfstride.analysis.rule_registry import RuleRegistry, default_rule_registry
 from tfstride.providers.gcp.audit_rules import GcpAuditRuleDetectors
+from tfstride.providers.gcp.cloud_run_firestore_database_topology_disruption_rules import (
+    GcpCloudRunFirestoreDatabaseTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.gcp.cloud_run_firestore_rules import GcpCloudRunFirestoreAccessRuleDetectors
 from tfstride.providers.gcp.cloud_run_gcs_bucket_topology_disruption_rules import (
     GcpCloudRunGcsBucketTopologyDisruptionRuleDetectors,
@@ -92,6 +95,7 @@ GCP_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "gcp-cloud-run-secret-access-blast-radius",
         "gcp-public-cloud-run-firestore-mutation-access",
         "gcp-public-cloud-run-firestore-entity-disruption",
+        "gcp-public-cloud-run-firestore-database-topology-disruption",
         "gcp-public-cloud-run-firestore-read-access",
         "gcp-public-cloud-run-kms-decrypt-access",
         "gcp-public-cloud-run-kms-signing-access",
@@ -137,6 +141,9 @@ def build_gcp_rule_contribution(
     gcp_detectors = GcpRuleDetectors(finding_factory)
     audit_detectors = GcpAuditRuleDetectors(finding_factory)
     cloud_run_firestore_detectors = GcpCloudRunFirestoreAccessRuleDetectors(finding_factory)
+    cloud_run_firestore_database_topology_detectors = GcpCloudRunFirestoreDatabaseTopologyDisruptionRuleDetectors(
+        finding_factory
+    )
     cloud_run_kms_detectors = GcpCloudRunKmsOperationRuleDetectors(finding_factory)
     cloud_run_secret_management_detectors = GcpCloudRunSecretManagementRuleDetectors(finding_factory)
     cloud_run_gcs_detectors = GcpCloudRunGcsAccessRuleDetectors(finding_factory)
@@ -266,6 +273,9 @@ def build_gcp_rule_contribution(
         ),
         "gcp-public-cloud-run-firestore-entity-disruption": (
             cloud_run_firestore_detectors.detect_public_cloud_run_firestore_entity_disruption
+        ),
+        "gcp-public-cloud-run-firestore-database-topology-disruption": (
+            cloud_run_firestore_database_topology_detectors.detect_public_cloud_run_firestore_database_topology_disruption
         ),
         "gcp-public-cloud-run-firestore-read-access": (
             cloud_run_firestore_detectors.detect_public_cloud_run_firestore_read_access
