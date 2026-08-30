@@ -195,6 +195,7 @@ include = [
   "src/tfstride/providers/azure/structured_data_deletion_evidence.py",
   "src/tfstride/providers/azure/structured_data_topology_destruction_evidence.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_item_deletion_paths.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_topology_destruction_paths.py",
 
   # Azure messaging removal and delivery evidence.
   "src/tfstride/providers/azure/message_removal_evidence.py",

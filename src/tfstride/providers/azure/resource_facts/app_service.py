@@ -32,6 +32,9 @@ from tfstride.providers.azure.secret_management_evidence import (
 from tfstride.providers.azure.structured_data_deletion_evidence import (
     AzureAppServiceCosmosDbItemDeletionPath,
 )
+from tfstride.providers.azure.structured_data_topology_destruction_evidence import (
+    AzureAppServiceCosmosDbTopologyDestructionPath,
+)
 
 
 class AzureAppServiceFacts(AzureBaseFacts):
@@ -368,6 +371,36 @@ class AzureAppServiceFacts(AzureBaseFacts):
     ) -> None:
         self.extend(
             AzureResourceMetadata.APP_SERVICE_COSMOSDB_ITEM_DELETION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    @property
+    def app_service_cosmosdb_topology_destruction_paths(
+        self,
+    ) -> list[AzureAppServiceCosmosDbTopologyDestructionPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATHS)
+
+    @property
+    def app_service_cosmosdb_topology_destruction_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
+
+    def set_app_service_cosmosdb_topology_destruction_paths(
+        self,
+        values: list[AzureAppServiceCosmosDbTopologyDestructionPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATHS,
+            values,
+        )
+
+    def extend_app_service_cosmosdb_topology_destruction_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
             values,
         )
 
