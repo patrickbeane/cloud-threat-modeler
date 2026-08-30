@@ -13,7 +13,12 @@ from tfstride.analysis.finding_helpers import (
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.coercion import dedupe
-from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
+from tfstride.providers.gcp.cloud_run_public_invocation import (
+    cloud_run_public_exposure_configuration,
+    cloud_run_public_invoker_evidence,
+    current_cloud_run_public_exposure_reasons,
+    current_cloud_run_public_invokers,
+)
 from tfstride.providers.gcp.iam_reference_utils import (
     custom_role_reference_keys,
     gcs_bucket_target_matches,
@@ -40,7 +45,6 @@ from tfstride.providers.gcp.resource_utils import (
 
 _MUTATION_ACCESS_CLASSES = frozenset({"write", "administrative"})
 _MUTATING_ROLE_KINDS = frozenset({"creator", "user", "admin", "custom"})
-_PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker"})
 
 
 class GcpCloudRunGcsAccessRuleDetectors:
@@ -55,10 +59,15 @@ class GcpCloudRunGcsAccessRuleDetectors:
         if context.inventory.provider != "gcp":
             return []
 
+        current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
-            if not workload.public_exposure or not public_invokers:
+            public_invokers = current_cloud_run_public_invokers(
+                workload,
+                current_resources,
+            )
+            invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             paths = [
@@ -98,11 +107,19 @@ class GcpCloudRunGcsAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            current_cloud_run_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
+                        ),
+                        evidence_item(
+                            "public_exposure_configuration",
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -134,10 +151,15 @@ class GcpCloudRunGcsAccessRuleDetectors:
         if context.inventory.provider != "gcp":
             return []
 
+        current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
-            if not workload.public_exposure or not public_invokers:
+            public_invokers = current_cloud_run_public_invokers(
+                workload,
+                current_resources,
+            )
+            invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             mutation_paths = [
@@ -186,11 +208,19 @@ class GcpCloudRunGcsAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            current_cloud_run_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
+                        ),
+                        evidence_item(
+                            "public_exposure_configuration",
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -205,19 +235,6 @@ class GcpCloudRunGcsAccessRuleDetectors:
                 )
             )
         return findings
-
-
-def _unconditional_public_invokers(resource: NormalizedResource) -> list[dict[str, str]]:
-    invokers: list[dict[str, str]] = []
-    for binding in gcp_facts(resource).bindings:
-        role = _known_string(binding.get("role"))
-        source = _known_string(binding.get("source"))
-        if role not in _PUBLIC_INVOKER_ROLES or source is None or binding.get("condition"):
-            continue
-        for member in binding_members(binding):
-            if member in PUBLIC_GCP_IAM_MEMBERS:
-                invokers.append({"source": source, "role": role, "member": member})
-    return invokers
 
 
 def _is_deterministic_mutation_path(
@@ -325,15 +342,6 @@ def _path_mutation_classes(path: Mapping[str, Any]) -> list[str]:
 
 def _path_string_values(paths: Sequence[Mapping[str, Any]], key: str) -> list[str]:
     return sorted({value for path in paths if (value := _known_string(path.get(key))) is not None})
-
-
-def _public_invoker_evidence(invokers: list[dict[str, str]]) -> list[str]:
-    return sorted(
-        {
-            f"source={invoker['source']}; role={invoker['role']}; member={invoker['member']}; condition=none"
-            for invoker in invokers
-        }
-    )
 
 
 def _runtime_identity_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:

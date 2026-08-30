@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from tfstride.analysis.finding_factory import FindingFactory
 from tfstride.analysis.finding_helpers import (
@@ -12,9 +12,13 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
-from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
+from tfstride.providers.gcp.cloud_run_public_invocation import (
+    cloud_run_public_exposure_configuration,
+    cloud_run_public_invoker_evidence,
+    current_cloud_run_public_exposure_reasons,
+    current_cloud_run_public_invokers,
+)
 from tfstride.providers.gcp.iam_reference_utils import custom_role_reference_keys
-from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_message_removal_paths import (
     _custom_role_lifecycles_by_reference,
     _delivery_evidence,
@@ -28,18 +32,13 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_message_removal
     _subscription_reference,
     _topic_reference,
 )
-from tfstride.providers.gcp.resource_decoration.iam import (
-    iam_bindings,
-    resource_iam_target_reference,
-)
+from tfstride.providers.gcp.resource_decoration.iam import iam_bindings
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.resource_index import (
     GcpDecorationContext,
     GcpResourceIndexBuilder,
-    gcp_resource_references,
 )
 from tfstride.providers.gcp.resource_types import (
-    GCP_CLOUD_RUN_IAM_RESOURCE_TYPES,
     GCP_CLOUD_RUN_RESOURCE_TYPES,
     GCP_CUSTOM_ROLE_RESOURCE_TYPES,
     GCP_PROJECT_IAM_RESOURCE_TYPES,
@@ -48,14 +47,12 @@ from tfstride.providers.gcp.resource_types import (
     GcpResourceType,
 )
 from tfstride.providers.gcp.resource_utils import (
-    GCP_NETWORK_REFERENCE_SUFFIXES,
     GCP_ROLE_REFERENCE_SUFFIXES,
     binding_members,
     gcp_reference_key,
 )
 
 _MUTATION_ACCESS_CLASSES = frozenset({"publish", "administrative"})
-_PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
 _SUBSCRIPTION_CONSUMER_ROLES = frozenset(
     {
         "roles/pubsub.subscriber",
@@ -102,7 +99,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
         current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(
+            public_invokers = current_cloud_run_public_invokers(
                 workload,
                 current_resources,
             )
@@ -147,11 +144,11 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            _current_public_exposure_reasons(
+                            current_cloud_run_public_exposure_reasons(
                                 workload,
                                 public_invokers,
                                 invoker_iam_check_disabled=invoker_iam_check_disabled,
@@ -159,7 +156,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -186,7 +183,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
         current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(
+            public_invokers = current_cloud_run_public_invokers(
                 workload,
                 current_resources,
             )
@@ -238,11 +235,11 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            _current_public_exposure_reasons(
+                            current_cloud_run_public_exposure_reasons(
                                 workload,
                                 public_invokers,
                                 invoker_iam_check_disabled=invoker_iam_check_disabled,
@@ -250,7 +247,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -287,7 +284,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
         current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(
+            public_invokers = current_cloud_run_public_invokers(
                 workload,
                 current_resources,
             )
@@ -333,11 +330,11 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            _current_public_exposure_reasons(
+                            current_cloud_run_public_exposure_reasons(
                                 workload,
                                 public_invokers,
                                 invoker_iam_check_disabled=invoker_iam_check_disabled,
@@ -345,7 +342,7 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -375,252 +372,6 @@ class GcpCloudRunPubsubAccessRuleDetectors:
                 )
             )
         return findings
-
-
-def _unconditional_public_invokers(
-    resource: NormalizedResource,
-    current_resources: Sequence[NormalizedResource],
-) -> list[dict[str, str]]:
-    managers: list[
-        tuple[
-            NormalizedResource,
-            Literal[
-                "authoritative_policy",
-                "authoritative_role_binding",
-                "additive_member",
-            ],
-            tuple[str, ...],
-        ]
-    ] = []
-    unresolved_authoritative_roles: set[str] = set()
-    unresolved_authoritative_scope = False
-
-    for iam_resource in current_resources:
-        if iam_resource.resource_type not in GCP_CLOUD_RUN_IAM_RESOURCE_TYPES:
-            continue
-        target_state = _cloud_run_iam_target_state(
-            iam_resource,
-            resource,
-            current_resources,
-        )
-        if target_state == "unrelated":
-            continue
-
-        management_mode = _cloud_run_iam_management_mode(iam_resource)
-        roles = _cloud_run_iam_manager_roles(iam_resource)
-        manager_state = _cloud_run_iam_manager_state(
-            iam_resource,
-            management_mode,
-        )
-        if target_state == "unknown" or manager_state == "unknown":
-            if management_mode == "authoritative_policy":
-                unresolved_authoritative_scope = True
-            elif management_mode == "authoritative_role_binding":
-                if roles:
-                    unresolved_authoritative_roles.update(roles)
-                else:
-                    unresolved_authoritative_scope = True
-            continue
-
-        managers.append((iam_resource, management_mode, roles))
-        if management_mode == "authoritative_role_binding" and not roles:
-            unresolved_authoritative_scope = True
-
-    if unresolved_authoritative_scope or _cloud_run_iam_scope_is_ambiguous(managers):
-        return []
-
-    ambiguous_roles = _cloud_run_iam_ambiguous_roles(managers)
-    ambiguous_roles.update(unresolved_authoritative_roles)
-    invokers: dict[tuple[str, str, str], dict[str, str]] = {}
-    for iam_resource, _management_mode, _roles in managers:
-        for binding in iam_bindings(iam_resource):
-            role = _known_string(binding.get("role"))
-            if (
-                role not in _PUBLIC_INVOKER_ROLES
-                or role in ambiguous_roles
-                or binding.get("role_state") == "unknown"
-                or binding.get("members_state") == "unknown"
-                or binding.get("condition")
-                or binding.get("condition_state") not in {None, "not_configured"}
-            ):
-                continue
-            for member in binding_members(binding):
-                if member not in PUBLIC_GCP_IAM_MEMBERS:
-                    continue
-                key = (iam_resource.address, role, member)
-                invokers[key] = {
-                    "source": iam_resource.address,
-                    "role": role,
-                    "member": member,
-                }
-    return [invokers[key] for key in sorted(invokers)]
-
-
-def _cloud_run_iam_target_state(
-    iam_resource: NormalizedResource,
-    workload: NormalizedResource,
-    current_resources: Sequence[NormalizedResource],
-) -> Literal["exact", "unrelated", "unknown"]:
-    scope_may_match = _cloud_run_iam_scope_matches_workload(
-        iam_resource,
-        workload,
-    )
-    if gcp_facts(iam_resource).iam_scope_reference_state in {
-        "unknown",
-        "not_configured",
-    }:
-        return "unknown" if scope_may_match else "unrelated"
-
-    target_reference = _known_string(resource_iam_target_reference(iam_resource))
-    if target_reference is None:
-        return "unknown" if scope_may_match else "unrelated"
-
-    target_key = gcp_reference_key(
-        target_reference,
-        GCP_NETWORK_REFERENCE_SUFFIXES,
-    )
-    if target_key not in set(gcp_resource_references(workload)):
-        return "unrelated"
-
-    candidates = [
-        candidate
-        for candidate in current_resources
-        if candidate.resource_type in GCP_CLOUD_RUN_RESOURCE_TYPES
-        and target_key in set(gcp_resource_references(candidate))
-        and _cloud_run_iam_scope_matches_workload(iam_resource, candidate)
-    ]
-    if len(candidates) != 1:
-        return "unknown" if candidates else "unrelated"
-    return "exact" if candidates[0].address == workload.address else "unrelated"
-
-
-def _cloud_run_iam_scope_matches_workload(
-    iam_resource: NormalizedResource,
-    workload: NormalizedResource,
-) -> bool:
-    iam_facts = gcp_facts(iam_resource)
-    workload_facts = gcp_facts(workload)
-    iam_project = _normalize_project(iam_facts.project)
-    workload_project = _normalize_project(workload_facts.project)
-    if iam_project is not None and workload_project is not None and iam_project != workload_project:
-        return False
-
-    iam_region = _known_string(iam_facts.get(GcpResourceMetadata.REGION))
-    workload_region = _known_string(workload_facts.get(GcpResourceMetadata.REGION))
-    return not (
-        iam_region is not None and workload_region is not None and iam_region.casefold() != workload_region.casefold()
-    )
-
-
-def _cloud_run_iam_management_mode(
-    resource: NormalizedResource,
-) -> Literal[
-    "authoritative_policy",
-    "authoritative_role_binding",
-    "additive_member",
-]:
-    if resource.resource_type.endswith("_iam_policy"):
-        return "authoritative_policy"
-    if resource.resource_type.endswith("_iam_binding"):
-        return "authoritative_role_binding"
-    return "additive_member"
-
-
-def _cloud_run_iam_manager_state(
-    resource: NormalizedResource,
-    management_mode: Literal[
-        "authoritative_policy",
-        "authoritative_role_binding",
-        "additive_member",
-    ],
-) -> Literal["configured", "unknown"]:
-    facts = gcp_facts(resource)
-    if management_mode == "authoritative_policy" and facts.iam_policy_data_state in {
-        "unknown",
-        "invalid",
-        "not_configured",
-    }:
-        return "unknown"
-    if any(
-        binding.get("role_state") == "unknown" or binding.get("members_state") == "unknown"
-        for binding in iam_bindings(resource)
-    ):
-        return "unknown"
-    return "configured"
-
-
-def _cloud_run_iam_manager_roles(
-    resource: NormalizedResource,
-) -> tuple[str, ...]:
-    roles = {role for binding in iam_bindings(resource) if (role := _known_string(binding.get("role"))) is not None}
-    configured_role = _known_string(gcp_facts(resource).get(GcpResourceMetadata.IAM_ROLE))
-    if configured_role is not None:
-        roles.add(configured_role)
-    return tuple(sorted(roles))
-
-
-def _cloud_run_iam_scope_is_ambiguous(
-    managers: Sequence[
-        tuple[
-            NormalizedResource,
-            Literal[
-                "authoritative_policy",
-                "authoritative_role_binding",
-                "additive_member",
-            ],
-            tuple[str, ...],
-        ]
-    ],
-) -> bool:
-    policy_sources = {resource.address for resource, mode, _roles in managers if mode == "authoritative_policy"}
-    other_sources = {resource.address for resource, mode, _roles in managers if mode != "authoritative_policy"}
-    return len(policy_sources) > 1 or bool(policy_sources and other_sources)
-
-
-def _cloud_run_iam_ambiguous_roles(
-    managers: Sequence[
-        tuple[
-            NormalizedResource,
-            Literal[
-                "authoritative_policy",
-                "authoritative_role_binding",
-                "additive_member",
-            ],
-            tuple[str, ...],
-        ]
-    ],
-) -> set[str]:
-    ambiguous_roles: set[str] = set()
-    roles = {role for _resource, _mode, manager_roles in managers for role in manager_roles}
-    for role in roles:
-        binding_sources = {
-            resource.address
-            for resource, mode, manager_roles in managers
-            if mode == "authoritative_role_binding" and role in manager_roles
-        }
-        member_sources = {
-            resource.address
-            for resource, mode, manager_roles in managers
-            if mode == "additive_member" and role in manager_roles
-        }
-        if len(binding_sources) > 1 or (binding_sources and member_sources):
-            ambiguous_roles.add(role)
-    return ambiguous_roles
-
-
-def _current_public_exposure_reasons(
-    workload: NormalizedResource,
-    public_invokers: Sequence[Mapping[str, str]],
-    *,
-    invoker_iam_check_disabled: bool,
-) -> list[str]:
-    reasons: list[str] = []
-    if invoker_iam_check_disabled:
-        reasons.append(f"{workload.address} disables the Cloud Run Invoker IAM check")
-    reasons.extend(
-        f"{binding['source']} grants {binding['role']} to {binding['member']}" for binding in public_invokers
-    )
-    return reasons
 
 
 def _is_deterministic_mutation_path(
@@ -1177,22 +928,6 @@ def _mutation_matched_permissions(path: Mapping[str, Any]) -> list[str]:
 
 def _path_string_values(paths: Sequence[Mapping[str, Any]], key: str) -> list[str]:
     return sorted({value for path in paths if (value := _known_string(path.get(key))) is not None})
-
-
-def _public_exposure_configuration(resource: NormalizedResource) -> list[str]:
-    if gcp_facts(resource).cloud_run_invoker_iam_disabled is not True:
-        return []
-    ingress = gcp_facts(resource).serverless_ingress or "unknown"
-    return [f"invoker_iam_check=disabled; ingress={ingress}"]
-
-
-def _public_invoker_evidence(invokers: list[dict[str, str]]) -> list[str]:
-    return sorted(
-        {
-            f"source={invoker['source']}; role={invoker['role']}; member={invoker['member']}; condition=none"
-            for invoker in invokers
-        }
-    )
 
 
 def _runtime_identity_evidence(paths: Sequence[Mapping[str, Any]]) -> list[str]:

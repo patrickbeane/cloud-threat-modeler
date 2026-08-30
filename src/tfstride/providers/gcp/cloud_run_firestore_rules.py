@@ -14,7 +14,12 @@ from tfstride.analysis.finding_helpers import (
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.coercion import STATE_DISABLED, STATE_ENABLED, STATE_NOT_CONFIGURED
-from tfstride.providers.gcp.constants import PUBLIC_GCP_IAM_MEMBERS
+from tfstride.providers.gcp.cloud_run_public_invocation import (
+    cloud_run_public_exposure_configuration,
+    cloud_run_public_invoker_evidence,
+    current_cloud_run_public_exposure_reasons,
+    current_cloud_run_public_invokers,
+)
 from tfstride.providers.gcp.iam_reference_utils import (
     custom_role_reference_keys,
     normalize_gcp_project,
@@ -32,7 +37,6 @@ from tfstride.providers.gcp.resource_utils import (
     gcp_reference_key,
 )
 
-_PUBLIC_INVOKER_ROLES = frozenset({"roles/run.invoker", "roles/run.servicesInvoker"})
 _ENTITY_READ_PERMISSION_OPERATIONS = {
     "datastore.entities.get": "get",
     "datastore.entities.list": "list",
@@ -82,11 +86,15 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
         if context.inventory.provider != "gcp":
             return []
 
+        current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
+            public_invokers = current_cloud_run_public_invokers(
+                workload,
+                current_resources,
+            )
             invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
-            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             mutation_paths = [
@@ -140,15 +148,19 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            current_cloud_run_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -196,11 +208,15 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
         if context.inventory.provider != "gcp":
             return []
 
+        current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
+            public_invokers = current_cloud_run_public_invokers(
+                workload,
+                current_resources,
+            )
             invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
-            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             deletion_paths = [
@@ -254,15 +270,19 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            current_cloud_run_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -305,11 +325,15 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
         if context.inventory.provider != "gcp":
             return []
 
+        current_resources = list(context.inventory.resources)
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
+            public_invokers = current_cloud_run_public_invokers(
+                workload,
+                current_resources,
+            )
             invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
-            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             read_paths = [
@@ -361,15 +385,19 @@ class GcpCloudRunFirestoreAccessRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            current_cloud_run_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
@@ -689,26 +717,6 @@ def _firestore_recovery_evidence_is_current(
         and dict(actual) == expected
         and path.get("posture_uncertainties") == expected["uncertainties"]
     )
-
-
-def _unconditional_public_invokers(
-    resource: NormalizedResource,
-) -> list[dict[str, str]]:
-    invokers: list[dict[str, str]] = []
-    for binding in gcp_facts(resource).bindings:
-        role = _known_string(binding.get("role"))
-        source = _known_string(binding.get("source"))
-        if (
-            role not in _PUBLIC_INVOKER_ROLES
-            or source is None
-            or binding.get("condition")
-            or binding.get("condition_state") == "unknown"
-        ):
-            continue
-        for member in binding_members(binding):
-            if member in PUBLIC_GCP_IAM_MEMBERS:
-                invokers.append({"source": source, "role": role, "member": member})
-    return invokers
 
 
 def _is_deterministic_entity_mutation_path(
@@ -1104,22 +1112,6 @@ def _database_administration_classes(
 
 def _path_string_values(paths: list[dict[str, Any]], key: str) -> list[str]:
     return sorted({value for path in paths if (value := _known_string(path.get(key))) is not None})
-
-
-def _public_exposure_configuration(resource: NormalizedResource) -> list[str]:
-    if gcp_facts(resource).cloud_run_invoker_iam_disabled is not True:
-        return []
-    ingress = gcp_facts(resource).serverless_ingress or "unknown"
-    return [f"invoker_iam_check=disabled; ingress={ingress}"]
-
-
-def _public_invoker_evidence(invokers: list[dict[str, str]]) -> list[str]:
-    return sorted(
-        {
-            f"source={invoker['source']}; role={invoker['role']}; member={invoker['member']}; condition=none"
-            for invoker in invokers
-        }
-    )
 
 
 def _runtime_identity_evidence(paths: list[dict[str, Any]]) -> list[str]:

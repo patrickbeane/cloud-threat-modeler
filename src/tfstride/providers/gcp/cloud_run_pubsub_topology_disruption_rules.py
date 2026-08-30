@@ -12,11 +12,11 @@ from tfstride.analysis.finding_helpers import (
 )
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
-from tfstride.providers.gcp.cloud_run_pubsub_rules import (
-    _current_public_exposure_reasons,
-    _public_exposure_configuration,
-    _public_invoker_evidence,
-    _unconditional_public_invokers,
+from tfstride.providers.gcp.cloud_run_public_invocation import (
+    cloud_run_public_exposure_configuration,
+    cloud_run_public_invoker_evidence,
+    current_cloud_run_public_exposure_reasons,
+    current_cloud_run_public_invokers,
 )
 from tfstride.providers.gcp.messaging_topology_destruction_evidence import (
     GcpPubsubTopologyDestructionOperation,
@@ -100,7 +100,7 @@ class GcpCloudRunPubsubTopologyDisruptionRuleDetectors:
         findings: list[Finding] = []
 
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(
+            public_invokers = current_cloud_run_public_invokers(
                 workload,
                 resources,
             )
@@ -155,11 +155,11 @@ class GcpCloudRunPubsubTopologyDisruptionRuleDetectors:
                     evidence=collect_evidence(
                         evidence_item(
                             "public_invoker_bindings",
-                            _public_invoker_evidence(public_invokers),
+                            cloud_run_public_invoker_evidence(public_invokers),
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            _current_public_exposure_reasons(
+                            current_cloud_run_public_exposure_reasons(
                                 workload,
                                 public_invokers,
                                 invoker_iam_check_disabled=invoker_iam_check_disabled,
@@ -167,7 +167,7 @@ class GcpCloudRunPubsubTopologyDisruptionRuleDetectors:
                         ),
                         evidence_item(
                             "public_exposure_configuration",
-                            _public_exposure_configuration(workload),
+                            cloud_run_public_exposure_configuration(workload),
                         ),
                         evidence_item(
                             "runtime_identity",
