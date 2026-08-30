@@ -171,6 +171,53 @@ class GcpPublicCloudRunFirestoreEntityDisruptionRuleTests(unittest.TestCase):
             path_evidence,
         )
 
+    def test_mixed_entity_create_and_bulk_delete_stay_separate(self) -> None:
+        role = f"projects/{_PROJECT}/roles/firestoreCreateBulkDelete"
+        _, findings = _evaluate(
+            [
+                _public_cloud_run(),
+                _public_invoker(),
+                _as_resource(_database()),
+                _as_resource(
+                    _custom_role(
+                        role_id="firestoreCreateBulkDelete",
+                        permissions=[
+                            "datastore.entities.create",
+                            "datastore.databases.bulkDelete",
+                        ],
+                    )
+                ),
+                _as_resource(_project_iam_member(role=role)),
+            ],
+            _MUTATION_RULE_ID,
+            _RULE_ID,
+        )
+
+        self.assertEqual(
+            [finding.rule_id for finding in findings],
+            [_MUTATION_RULE_ID, _RULE_ID],
+        )
+        mutation_finding = findings[0]
+        mutation_evidence = _evidence(mutation_finding)["firestore_mutation_paths"]
+        self.assertEqual(len(mutation_evidence), 1)
+        self.assertIn("entity_mutation_operations=create", mutation_evidence[0])
+        self.assertIn("matched_permissions=datastore.entities.create", mutation_evidence[0])
+        self.assertIn("database_administration_classes=none", mutation_evidence[0])
+        self.assertNotIn("datastore.databases.bulkDelete", mutation_evidence[0])
+        self.assertNotIn("destructive_administration", mutation_finding.rationale)
+        assert mutation_finding.severity_reasoning is not None
+        self.assertEqual(mutation_finding.severity_reasoning.privilege_breadth, 1)
+        self.assertEqual(mutation_finding.severity_reasoning.final_score, 8)
+
+        disruption_evidence = _evidence(findings[1])["firestore_entity_deletion_paths"]
+        self.assertTrue(
+            any(
+                "operation=datastore.databases.bulkDelete" in record
+                and "matched_permissions=datastore.databases.bulkDelete" in record
+                for record in disruption_evidence
+            )
+        )
+
     def test_one_owner_grant_is_counted_once_across_deletion_operations(self) -> None:
         _, findings = _evaluate(
             [

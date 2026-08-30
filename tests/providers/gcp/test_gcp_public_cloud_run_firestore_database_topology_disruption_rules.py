@@ -156,9 +156,15 @@ class GcpPublicCloudRunFirestoreDatabaseTopologyDisruptionRuleTests(unittest.Tes
             [finding.rule_id for finding in findings],
             [_MUTATION_RULE_ID, _RULE_ID],
         )
-        mutation_evidence = _evidence(findings[0])["firestore_mutation_paths"]
+        mutation_finding = findings[0]
+        mutation_evidence = _evidence(mutation_finding)["firestore_mutation_paths"]
         self.assertTrue(mutation_evidence)
         self.assertTrue(all(_DELETE_DATABASE not in record for record in mutation_evidence))
+        self.assertTrue(all("database_administration_classes=none" in record for record in mutation_evidence))
+        assert mutation_finding.severity_reasoning is not None
+        self.assertEqual(mutation_finding.severity_reasoning.privilege_breadth, 1)
+        self.assertEqual(mutation_finding.severity_reasoning.final_score, 8)
+        self.assertNotIn("destructive_administration", mutation_finding.rationale)
         topology_evidence = _evidence(findings[1])["firestore_database_topology_destruction_paths"]
         self.assertTrue(any(_DELETE_DATABASE in record for record in topology_evidence))
 

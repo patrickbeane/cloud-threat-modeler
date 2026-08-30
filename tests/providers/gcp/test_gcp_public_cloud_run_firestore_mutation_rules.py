@@ -294,6 +294,12 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         )
         self.assertNotIn("datastore.entities.delete", path_evidence)
         self.assertNotIn("datastore.databases.bulkDelete", path_evidence)
+        self.assertIn("database_administration_classes=none", path_evidence)
+        finding = findings[0]
+        assert finding.severity_reasoning is not None
+        self.assertEqual(finding.severity_reasoning.privilege_breadth, 1)
+        self.assertEqual(finding.severity_reasoning.final_score, 8)
+        self.assertNotIn("destructive_administration", finding.rationale)
 
     def test_database_administration_remains_separate_from_entity_mutation(self) -> None:
         findings = _evaluate(
@@ -311,7 +317,7 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
         assert finding.severity_reasoning is not None
         self.assertEqual(finding.severity_reasoning.privilege_breadth, 2)
         self.assertIn(
-            "destructive_administration, configuration_administration database capabilities",
+            "configuration_administration database capabilities",
             finding.rationale,
         )
         path_evidence = _evidence(finding)["firestore_mutation_paths"][0]
@@ -320,9 +326,11 @@ class GcpPublicCloudRunFirestoreMutationRuleTests(unittest.TestCase):
             path_evidence,
         )
         self.assertIn(
-            "database_administration_classes=destructive_administration,configuration_administration",
+            "database_administration_classes=configuration_administration",
             path_evidence,
         )
+        self.assertNotIn("destructive_administration", finding.rationale)
+        self.assertNotIn("destructive_administration", path_evidence)
 
     def test_supported_public_invocation_mechanisms_are_detected(self) -> None:
         cases = {

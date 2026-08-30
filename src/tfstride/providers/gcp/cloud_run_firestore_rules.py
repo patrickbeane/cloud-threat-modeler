@@ -43,7 +43,22 @@ _ENTITY_MUTATION_PERMISSION_OPERATIONS = {
     "datastore.entities.update": "update",
 }
 _ENTITY_MUTATION_WILDCARDS = frozenset({"*", "datastore.*", "datastore.entities.*"})
-_DATABASE_ADMINISTRATION_CLASSES = frozenset({"destructive_administration", "configuration_administration"})
+_MUTATION_DATABASE_ADMINISTRATION_PERMISSIONS = frozenset(
+    {
+        "datastore.databases.update",
+        "datastore.schemas.create",
+        "datastore.schemas.delete",
+        "datastore.schemas.update",
+    }
+)
+_MUTATION_DATABASE_ADMINISTRATION_WILDCARDS = frozenset(
+    {
+        "*",
+        "datastore.*",
+        "datastore.databases.*",
+        "datastore.schemas.*",
+    }
+)
 _ENTITY_DELETION_OPERATION_CLASSES = {
     "datastore.entities.delete": "entity_deletion",
     "datastore.databases.bulkDelete": "bulk_entity_deletion",
@@ -1083,20 +1098,8 @@ def _path_entity_mutation_permissions(path: Mapping[str, Any]) -> list[str]:
 def _database_administration_classes(
     paths: list[dict[str, Any]],
 ) -> list[str]:
-    classes = {
-        access_class
-        for path in paths
-        for access_class in _string_values(path.get("access_classes"))
-        if access_class in _DATABASE_ADMINISTRATION_CLASSES
-    }
-    return [
-        access_class
-        for access_class in (
-            "destructive_administration",
-            "configuration_administration",
-        )
-        if access_class in classes
-    ]
+    classes = {access_class for path in paths for access_class in _path_database_administration_classes(path)}
+    return ["configuration_administration"] if "configuration_administration" in classes else []
 
 
 def _path_string_values(paths: list[dict[str, Any]], key: str) -> list[str]:
@@ -1195,11 +1198,10 @@ def _mutation_path_evidence(paths: list[dict[str, Any]]) -> list[str]:
 
 
 def _path_database_administration_classes(path: Mapping[str, Any]) -> list[str]:
-    return [
-        access_class
-        for access_class in _string_values(path.get("access_classes"))
-        if access_class in _DATABASE_ADMINISTRATION_CLASSES
-    ]
+    permissions = {permission.strip().lower() for permission in _string_values(path.get("matched_permissions"))}
+    if permissions & (_MUTATION_DATABASE_ADMINISTRATION_PERMISSIONS | _MUTATION_DATABASE_ADMINISTRATION_WILDCARDS):
+        return ["configuration_administration"]
+    return []
 
 
 def _scope_breadth_evidence(
