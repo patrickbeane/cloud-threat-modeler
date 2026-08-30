@@ -13,6 +13,9 @@ from tfstride.providers.azure.aks_rules import AzureAksRuleDetectors
 from tfstride.providers.azure.app_service_blob_rules import AzureAppServiceBlobRuleDetectors
 from tfstride.providers.azure.app_service_container_rules import AzureAppServiceContainerRuleDetectors
 from tfstride.providers.azure.app_service_cosmosdb_rules import AzureAppServiceCosmosDbRuleDetectors
+from tfstride.providers.azure.app_service_cosmosdb_topology_disruption_rules import (
+    AzureAppServiceCosmosDbTopologyDisruptionRuleDetectors,
+)
 from tfstride.providers.azure.app_service_key_vault_management_rules import (
     AzureAppServiceKeyVaultManagementRuleDetectors,
 )
@@ -117,6 +120,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-public-app-service-storage-container-topology-disruption",
         "azure-public-app-service-cosmosdb-mutation-access",
         "azure-public-app-service-cosmosdb-item-disruption",
+        "azure-public-app-service-cosmosdb-topology-disruption",
         "azure-public-app-service-cosmosdb-read-access",
         "azure-public-app-service-service-bus-mutation-access",
         "azure-public-app-service-service-bus-receive-access",
@@ -185,6 +189,7 @@ def build_azure_rule_contribution(
     app_service_detectors = AzureAppServiceRuleDetectors(finding_factory)
     app_service_container_detectors = AzureAppServiceContainerRuleDetectors(finding_factory)
     app_service_cosmosdb_detectors = AzureAppServiceCosmosDbRuleDetectors(finding_factory)
+    app_service_cosmosdb_topology_detectors = AzureAppServiceCosmosDbTopologyDisruptionRuleDetectors(finding_factory)
     app_service_secret_detectors = AzureAppServiceSecretDeliveryRuleDetectors(finding_factory)
     app_service_messaging_detectors = AzureAppServiceMessagingRuleDetectors(finding_factory)
     app_service_service_bus_topology_detectors = AzureAppServiceServiceBusTopologyDisruptionRuleDetectors(
@@ -330,6 +335,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-cosmosdb-item-disruption": (
             app_service_cosmosdb_detectors.detect_public_app_service_cosmosdb_item_disruption
+        ),
+        "azure-public-app-service-cosmosdb-topology-disruption": (
+            app_service_cosmosdb_topology_detectors.detect_public_app_service_cosmosdb_topology_disruption
         ),
         "azure-public-app-service-cosmosdb-read-access": (
             app_service_cosmosdb_detectors.detect_public_app_service_cosmosdb_read_access

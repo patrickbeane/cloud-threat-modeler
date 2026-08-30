@@ -814,6 +814,34 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-cosmosdb-topology-disruption",
+        title="Public Azure App Service identity can delete Cosmos DB for NoSQL topology",
+        category=StrideCategory.DENIAL_OF_SERVICE,
+        recommended_mitigation=(
+            "Remove Cosmos DB control-plane delete Actions from public App Service runtime identities; scope "
+            "required topology access to exact accounts, databases, or containers, keep backup and restore "
+            "controls explicit, and restrict public ingress."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "cosmosdb",
+            "nosql",
+            "topology",
+            "managed-identity",
+            "public-access",
+            "denial-of-service",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-public-app-service-cosmosdb-read-access",
         title="Public Azure App Service identity can read Cosmos DB for NoSQL data",
         category=StrideCategory.INFORMATION_DISCLOSURE,
