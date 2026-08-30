@@ -13,6 +13,7 @@ from tfstride.analysis.finding_helpers import (
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import BoundaryType, Finding, NormalizedResource
 from tfstride.providers.gcp.cloud_run_pubsub_rules import (
+    _current_public_exposure_reasons,
     _public_exposure_configuration,
     _public_invoker_evidence,
     _unconditional_public_invokers,
@@ -82,9 +83,12 @@ class GcpCloudRunFirestoreDatabaseTopologyDisruptionRuleDetectors:
         decoration_context = GcpDecorationContext(GcpResourceIndexBuilder().build(resources))
         findings: list[Finding] = []
         for workload in context.inventory.by_type(*GCP_CLOUD_RUN_RESOURCE_TYPES):
-            public_invokers = _unconditional_public_invokers(workload)
+            public_invokers = _unconditional_public_invokers(
+                workload,
+                resources,
+            )
             invoker_iam_check_disabled = gcp_facts(workload).cloud_run_invoker_iam_disabled is True
-            if not workload.public_exposure or (not public_invokers and not invoker_iam_check_disabled):
+            if not workload.public_access_configured or (not public_invokers and not invoker_iam_check_disabled):
                 continue
 
             paths: list[GcpCloudRunFirestoreDatabaseTopologyDestructionPath] = []
@@ -144,7 +148,11 @@ class GcpCloudRunFirestoreDatabaseTopologyDisruptionRuleDetectors:
                         ),
                         evidence_item(
                             "public_exposure_reasons",
-                            workload.public_exposure_reasons,
+                            _current_public_exposure_reasons(
+                                workload,
+                                public_invokers,
+                                invoker_iam_check_disabled=invoker_iam_check_disabled,
+                            ),
                         ),
                         evidence_item(
                             "public_exposure_configuration",
