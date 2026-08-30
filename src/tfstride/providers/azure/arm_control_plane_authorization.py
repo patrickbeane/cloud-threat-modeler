@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from typing import Literal
 
-from tfstride.models import NormalizedResource
+from tfstride.models import (
+    NormalizedResource,
+    TerraformReferenceProvenance,
+    TerraformReferenceResolutionState,
+)
 from tfstride.providers.azure.arm_control_plane_evidence import (
     AzureArmControlPlaneAuthorityState,
     AzureArmControlPlaneGrant,
@@ -391,15 +395,10 @@ def _assignment_scope(
     else:
         arm_scope = _arm_id(raw_scope)
         if arm_scope is None:
-            target = context.index.resolve(raw_scope)
-            if target is None and facts.role_assignment_target_resource_address:
-                target = context.index.resources_by_address.get(facts.role_assignment_target_resource_address)
-            if (
-                target is not None
-                and target.resource_type == AzureResourceType.STORAGE_CONTAINER
-                and facts.role_assignment_target_resource_address != target.address
-            ):
-                target = None
+            target = _proven_symbolic_assignment_scope_target(
+                assignment,
+                context,
+            )
             arm_scope = _resource_arm_id(target) if target is not None else None
 
     if arm_scope is None:
@@ -415,6 +414,50 @@ def _assignment_scope(
     if not azure_arm_scope_contains(arm_scope, target_arm_id):
         return _ScopeResolution("unrelated", scope_type, arm_scope)
     return _ScopeResolution("resolved", scope_type, arm_scope)
+
+
+def _proven_symbolic_assignment_scope_target(
+    assignment: NormalizedResource,
+    context: AzureDecorationContext,
+) -> NormalizedResource | None:
+    facts = azure_facts(assignment)
+    target_address = _known_string(facts.role_assignment_target_resource_address)
+    if target_address is None:
+        return None
+
+    resolution = assignment.reference_resolution("scope")
+    if (
+        resolution.state != TerraformReferenceResolutionState.SYMBOLIC
+        or resolution.provenance != TerraformReferenceProvenance.CONFIGURATION_REFERENCE
+        or len(resolution.targets) != 1
+    ):
+        return None
+
+    resolved_target = resolution.targets[0]
+    if resolved_target.address != target_address:
+        return None
+    target = context.index.resources_by_address.get(target_address)
+    if target is None or not _valid_symbolic_assignment_scope_reference(
+        target,
+        resolved_target.reference,
+    ):
+        return None
+    return target
+
+
+def _valid_symbolic_assignment_scope_reference(
+    target: NormalizedResource,
+    reference: str,
+) -> bool:
+    normalized = reference.casefold()
+    if target.resource_type in {
+        AzureResourceType.KEY_VAULT_KEY,
+        AzureResourceType.KEY_VAULT_SECRET,
+    }:
+        return normalized.endswith(".resource_versionless_id")
+    if target.resource_type == AzureResourceType.STORAGE_CONTAINER:
+        return normalized.endswith(".resource_manager_id")
+    return normalized.endswith(".id")
 
 
 def _resolve_role(

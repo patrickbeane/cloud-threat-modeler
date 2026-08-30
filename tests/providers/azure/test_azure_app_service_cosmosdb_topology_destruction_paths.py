@@ -19,6 +19,7 @@ from tests.providers.test_public_workload_structured_data_deletion_boundaries im
     _azure_account,
 )
 from tests.providers.test_public_workload_structured_data_topology_destruction_boundaries import (
+    _AZURE_CONTROL_ROLE_ID,
     _AZURE_DELETE_ACCOUNT,
     _AZURE_DELETE_CONTAINER,
     _AZURE_DELETE_DATABASE,
@@ -85,6 +86,23 @@ def _workload_facts(resources: list[TerraformResource]):
     workload = inventory.get_by_address("azurerm_linux_web_app.orders")
     assert workload is not None
     return azure_facts(workload)
+
+
+def _raw_symbolic_scope_assignment(
+    scope: str,
+    *,
+    name: str,
+) -> TerraformResource:
+    return _resource(
+        AzureResourceType.ROLE_ASSIGNMENT,
+        {
+            "scope": scope,
+            "role_definition_id": _AZURE_CONTROL_ROLE_ID,
+            "principal_id": SYSTEM_PRINCIPAL_ID,
+            "principal_type": "ServicePrincipal",
+        },
+        name=name,
+    )
 
 
 class AzureAppServiceCosmosDbTopologyDestructionPathTests(unittest.TestCase):
@@ -201,6 +219,71 @@ class AzureAppServiceCosmosDbTopologyDestructionPathTests(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         self.assertEqual(paths[0]["cosmosdb_resource_kind"], "container")
         self.assertEqual(paths[0]["cosmosdb_resource_id"], _CONTAINER_ID)
+
+    def test_symbolic_scopes_require_configuration_reference_provenance(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "account",
+                "azurerm_cosmosdb_account.orders.id",
+                {"account", "database", "container"},
+            ),
+            (
+                "database",
+                "azurerm_cosmosdb_sql_database.app.id",
+                {"database", "container"},
+            ),
+            (
+                "container",
+                "azurerm_cosmosdb_sql_container.events.id",
+                {"container"},
+            ),
+        )
+        actions = [
+            _AZURE_DELETE_ACCOUNT,
+            _AZURE_DELETE_DATABASE,
+            _AZURE_DELETE_CONTAINER,
+        ]
+
+        for kind, scope, expected_targets in cases:
+            with self.subTest(kind=kind, provenance="configuration_reference"):
+                trusted = _workload_facts(
+                    [
+                        _azure_account(),
+                        azure_database(),
+                        azure_container(),
+                        _azure_workload(),
+                        _azure_control_role(actions=actions),
+                        _azure_control_assignment(scope=scope),
+                    ]
+                )
+                self.assertEqual(
+                    {
+                        path["cosmosdb_resource_kind"]
+                        for path in trusted.app_service_cosmosdb_topology_destruction_paths
+                    },
+                    expected_targets,
+                )
+
+            with self.subTest(kind=kind, provenance="raw_literal"):
+                unproven = _workload_facts(
+                    [
+                        _azure_account(),
+                        azure_database(),
+                        azure_container(),
+                        _azure_workload(),
+                        _azure_control_role(actions=actions),
+                        _raw_symbolic_scope_assignment(
+                            scope,
+                            name=f"raw_{kind}_scope",
+                        ),
+                    ]
+                )
+                self.assertEqual(
+                    unproven.app_service_cosmosdb_topology_destruction_paths,
+                    [],
+                )
 
     def test_control_plane_actions_never_use_cosmos_native_data_actions(self) -> None:
         data_only = _workload_facts(

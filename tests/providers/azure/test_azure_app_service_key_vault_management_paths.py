@@ -82,7 +82,7 @@ def _control_role(
 
 def _control_assignment(
     *,
-    scope: object = "azurerm_key_vault.orders.id",
+    scope: object = _VAULT_ID,
     principal_id: object = _SYSTEM_PRINCIPAL_ID,
     condition: str | None = None,
 ) -> TerraformResource:
@@ -103,7 +103,7 @@ def _built_in_assignment(
     role_id: str,
     role_name: str,
     *,
-    scope: object = "azurerm_key_vault.orders.id",
+    scope: object = _VAULT_ID,
 ) -> TerraformResource:
     return _role_assignment(
         principal_id=_SYSTEM_PRINCIPAL_ID,
@@ -446,7 +446,7 @@ class AzureAppServiceKeyVaultManagementPathTests(unittest.TestCase):
                 _key(key_opts=("encrypt",)),
                 _web_app(),
                 _control_role(actions=("Microsoft.Authorization/roleAssignments/write",)),
-                _control_assignment(scope="azurerm_key_vault_key.signing.resource_versionless_id"),
+                _control_assignment(scope=_KEY_VERSIONLESS_RESOURCE_ID),
             ]
         )
 

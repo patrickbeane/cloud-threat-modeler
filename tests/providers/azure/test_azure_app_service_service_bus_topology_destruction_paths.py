@@ -67,7 +67,7 @@ def _control_role(
 
 def _control_assignment(
     *,
-    scope: object = "azurerm_servicebus_namespace.orders.id",
+    scope: object = _NAMESPACE_ID,
     principal_id: object = _SYSTEM_PRINCIPAL_ID,
     condition: object | None = None,
     name: str = "messaging_topology",
@@ -94,7 +94,7 @@ def _contributor_assignment() -> TerraformResource:
     return _resource(
         AzureResourceType.ROLE_ASSIGNMENT,
         {
-            "scope": "azurerm_servicebus_queue.orders.id",
+            "scope": _QUEUE_ID,
             "role_definition_name": "Contributor",
             "principal_id": _SYSTEM_PRINCIPAL_ID,
             "principal_type": "ServicePrincipal",
@@ -296,11 +296,11 @@ class AzureAppServiceServiceBusTopologyDestructionPathTests(unittest.TestCase):
                 workload,
                 _control_role(actions=[_DELETE_QUEUE]),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                     name="system_topology",
                 ),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                     principal_id=_USER_PRINCIPAL_ID,
                     name="user_topology",
                 ),
@@ -335,21 +335,21 @@ class AzureAppServiceServiceBusTopologyDestructionPathTests(unittest.TestCase):
             "condition": (
                 _control_role(actions=[_DELETE_QUEUE]),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                     condition="@Resource[Microsoft.ServiceBus/namespaces/queues:Name] StringEquals 'orders'",
                 ),
             ),
             "unknown condition": (
                 _control_role(actions=[_DELETE_QUEUE]),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                     unknown_values={"condition": True},
                 ),
             ),
             "unknown condition version": (
                 _control_role(actions=[_DELETE_QUEUE]),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                     unknown_values={"condition_version": True},
                 ),
             ),
@@ -359,7 +359,7 @@ class AzureAppServiceServiceBusTopologyDestructionPathTests(unittest.TestCase):
                     assignable_scopes=["/subscriptions/other-subscription"],
                 ),
                 _control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=_QUEUE_ID,
                 ),
             ),
         }
@@ -401,7 +401,7 @@ class AzureAppServiceServiceBusTopologyDestructionPathTests(unittest.TestCase):
                         _entity(AzureResourceType.SERVICE_BUS_QUEUE, _QUEUE_ID),
                         _workload(),
                         role,
-                        _control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                        _control_assignment(scope=_QUEUE_ID),
                     ]
                 )
                 self.assertEqual(

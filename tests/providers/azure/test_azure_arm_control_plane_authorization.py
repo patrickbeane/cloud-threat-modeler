@@ -109,6 +109,7 @@ class AzureArmControlPlaneAuthorizationTests(unittest.TestCase):
             [
                 _vault(rbac_enabled=True),
                 _role_assignment(
+                    scope=_VAULT_ID,
                     role_id=_CONTRIBUTOR_ID,
                     role_name="Contributor",
                 ),
@@ -175,6 +176,7 @@ class AzureArmControlPlaneAuthorizationTests(unittest.TestCase):
             [
                 _vault(rbac_enabled=True),
                 _role_assignment(
+                    scope=_VAULT_ID,
                     role_id=_DATA_ACCESS_ADMIN_ID,
                     role_name="Key Vault Data Access Administrator",
                 ),

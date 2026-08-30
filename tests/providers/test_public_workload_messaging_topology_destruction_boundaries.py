@@ -299,7 +299,7 @@ def _azure_control_role(
 
 def _azure_control_assignment(
     *,
-    scope: object = "azurerm_servicebus_namespace.orders.id",
+    scope: object = AZURE_NAMESPACE_ID,
     principal_id: object = AZURE_SYSTEM_PRINCIPAL_ID,
     condition: object | None = None,
     name: str = "messaging_topology",
@@ -420,7 +420,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                 azure_entity(AzureResourceType.SERVICE_BUS_QUEUE, AZURE_QUEUE_ID),
                 _azure_workload(),
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
             ]
         )
         azure_workload = azure_inventory.get_by_address("azurerm_linux_web_app.orders")
@@ -912,7 +912,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                 actions=[_AZURE_DELETE_QUEUE],
                 data_actions=[_AZURE_RECEIVE],
             ),
-            _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+            _azure_control_assignment(scope=AZURE_QUEUE_ID),
         ]
         inventory, context = _azure_inventory_and_context(resources)
         workload = inventory.get_by_address("azurerm_linux_web_app.orders")
@@ -941,7 +941,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                     actions=[],
                     data_actions=[_AZURE_DELETE_QUEUE],
                 ),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
             ]
         )
         self.assertEqual(
@@ -1042,7 +1042,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             "condition": (
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                 _azure_control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=AZURE_QUEUE_ID,
                     condition="@Resource[Microsoft.ServiceBus/namespaces/queues:Name] StringEquals 'orders'",
                 ),
                 AZURE_SYSTEM_PRINCIPAL_ID,
@@ -1051,7 +1051,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             "unknown condition": (
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                 _azure_control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=AZURE_QUEUE_ID,
                     unknown_values={"condition": True},
                 ),
                 AZURE_SYSTEM_PRINCIPAL_ID,
@@ -1060,7 +1060,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             "unknown condition version": (
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                 _azure_control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=AZURE_QUEUE_ID,
                     unknown_values={"condition_version": True},
                 ),
                 AZURE_SYSTEM_PRINCIPAL_ID,
@@ -1071,7 +1071,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                     actions=["Microsoft.ServiceBus/namespaces/*"],
                     not_actions=[_AZURE_DELETE_QUEUE],
                 ),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
                 AZURE_SYSTEM_PRINCIPAL_ID,
                 "not_granted",
             ),
@@ -1080,14 +1080,14 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                     actions=[_AZURE_DELETE_QUEUE],
                     assignable_scopes=["/subscriptions/other-subscription"],
                 ),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
                 AZURE_SYSTEM_PRINCIPAL_ID,
                 "unknown",
             ),
             "unknown identity": (
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                 _azure_control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=AZURE_QUEUE_ID,
                     principal_id=None,
                     unknown_values={"principal_id": True},
                 ),
@@ -1097,7 +1097,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             "other identity": (
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                 _azure_control_assignment(
-                    scope="azurerm_servicebus_queue.orders.id",
+                    scope=AZURE_QUEUE_ID,
                     principal_id="other-principal",
                 ),
                 AZURE_SYSTEM_PRINCIPAL_ID,
@@ -1147,11 +1147,11 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
             app,
             _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
             _azure_control_assignment(
-                scope="azurerm_servicebus_queue.orders.id",
+                scope=AZURE_QUEUE_ID,
                 name="system_topology",
             ),
             _azure_control_assignment(
-                scope="azurerm_servicebus_queue.orders.id",
+                scope=AZURE_QUEUE_ID,
                 principal_id=AZURE_USER_PRINCIPAL_ID,
                 name="user_topology",
             ),
@@ -1228,7 +1228,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                 azure_entity(AzureResourceType.SERVICE_BUS_QUEUE, AZURE_QUEUE_ID),
                 app,
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
             ]
         )
         workload = inventory.get_by_address("azurerm_linux_web_app.orders")
@@ -1277,7 +1277,7 @@ class PublicWorkloadMessagingTopologyDestructionBoundaryTests(unittest.TestCase)
                 azure_entity(AzureResourceType.SERVICE_BUS_QUEUE, AZURE_QUEUE_ID),
                 _azure_workload(),
                 _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
-                _azure_control_assignment(scope="azurerm_servicebus_queue.orders.id"),
+                _azure_control_assignment(scope=AZURE_QUEUE_ID),
             ]
         )
         azure_result = _azure_authority(

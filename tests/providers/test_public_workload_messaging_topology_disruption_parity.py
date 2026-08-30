@@ -727,7 +727,7 @@ class PublicWorkloadMessagingTopologyDisruptionParityTests(unittest.TestCase):
                     _azure_workload(),
                     _azure_control_role(actions=[_AZURE_DELETE_QUEUE]),
                     _azure_control_assignment(
-                        scope="azurerm_servicebus_queue.orders.id",
+                        scope=AZURE_QUEUE_ID,
                         unknown_values={"condition_version": True},
                     ),
                 ],
@@ -748,7 +748,7 @@ class PublicWorkloadMessagingTopologyDisruptionParityTests(unittest.TestCase):
                         assignable_scopes=["/subscriptions/other-subscription"],
                     ),
                     _azure_control_assignment(
-                        scope="azurerm_servicebus_queue.orders.id",
+                        scope=AZURE_QUEUE_ID,
                     ),
                 ],
             ),

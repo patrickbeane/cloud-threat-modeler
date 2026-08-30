@@ -680,6 +680,7 @@ class PublicWorkloadManagedKeyAdministrationBoundaryTests(unittest.TestCase):
                     "authorization_admin",
                     role_id=_AZURE_CONTROL_PLANE_ROLE_ID,
                     role_name="Orders Key Authorization Administrator",
+                    scope=_AZURE_VAULT_ID,
                 ),
             ]
         )
