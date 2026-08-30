@@ -1,34 +1,34 @@
-# Public Workload Structured-Data Disruption and Recovery Paths
+# Public Workload Structured-Data Disruption, Recovery, and Topology Paths
 
-Structured-data analysis separates public-workload authority to mutate records from authority to delete them. The model preserves provider-native table, database, account, and container scopes without inventing item, entity, or document instances.
+Structured-data analysis separates public-workload authority to mutate records, delete records, and delete their enclosing provider-native topology. It does not invent item, entity, or document instances.
 
 ## Shared boundary
 
 * Create, update, replace, and upsert authority produces Tampering paths.
-* Item or entity deletion authority produces Denial of Service paths.
-* One workload may produce both findings when both operation families are deterministic.
-* Private workloads retain modeled deletion paths but do not produce public-workload findings.
-* Deletion-only operations are excluded from mutation evidence.
-* Conditional, denied, incomplete, ambiguous, unresolved, and unsupported authority is not promoted into a deterministic deletion path.
+* Item or entity deletion authority produces item-level Denial of Service paths.
+* Table, database, account, or container deletion authority produces topology-level Denial of Service paths.
+* Deletion-only operations are excluded from mutation evidence; deterministic mixed authority may produce separate findings.
+* Private workloads retain modeled paths but do not produce public-workload findings.
+* Conditional, denied, incomplete, ambiguous, unresolved, and unsupported authority is not promoted.
 
 ## Target granularity
 
-Deletion paths retain exact provider-native namespaces rather than inventing records:
+Item-level paths retain exact provider-native namespaces:
 
 * AWS DynamoDB: exact table item namespace;
-* GCP Firestore: exact database entity namespace or database bulk-entity namespace, with project- or exact-database-conditioned IAM evidence;
+* GCP Firestore: exact database entity or bulk-entity namespace;
 * Azure Cosmos DB for NoSQL: account, database, or container item namespace.
 
-Whole-table, database, account, container, and ARM/control-plane destruction are outside this path family. Policy delegation and retention-policy mutation are also separate concerns.
+Topology paths target exact modeled DynamoDB tables, Firestore databases, or Cosmos DB accounts, databases, and containers. Broad grants fan out only to exact in-plan targets; parent authority preserves ancestry without manufacturing unmodeled descendants.
 
-## Provider-native recovery
+## Protection and recovery
 
-| Provider | Native recovery boundary |
+| Provider | Native boundary |
 | --- | --- |
-| AWS | DynamoDB point-in-time recovery is retained as recovery evidence for table item deletion; unknown or unobserved posture qualifies impact without proving item-level restoration. |
-| GCP | Firestore point-in-time recovery and native historical-version posture remain provider-native evidence; unknown recovery stays unknown and does not suppress deterministic deletion authority. |
-| Azure | Cosmos DB continuous, periodic, provider-default, and unknown backup posture remain distinct; backup evidence qualifies impact without proving successful restore or immediate item-level undo. |
+| AWS | DynamoDB deletion protection can make `DeleteTable` incompatible; point-in-time recovery qualifies impact without proving restoration. |
+| GCP | Firestore delete protection can block database deletion; point-in-time recovery, native history, and Terraform deletion policy remain distinct from IAM authority. |
+| Azure | Applicable `CanNotDelete` and `ReadOnly` locks block control-plane deletion; continuous, periodic, provider-default, and unknown backup posture remain recovery evidence only. |
 
-Recovery evidence does not establish successful deletion, successful restoration, or guaranteed runtime recovery. It also does not infer out-of-plan records or downstream item instances.
+Protection and recovery evidence is plan-local. It does not establish successful deletion, immediate item-level undo, successful restoration, or out-of-plan records and descendants. Project/subscription destruction, policy delegation, and backup-policy mutation remain outside this path family.
 
-See [Cross-Provider Threat-Path Semantics](path-semantics.md) for the shared quiet-versus-promoted rule, and the provider coverage maps ([AWS](../providers/aws.md), [GCP](../providers/gcp.md), [Azure](../providers/azure.md)) for current implementation scope.
+See [Cross-Provider Threat-Path Semantics](path-semantics.md) for the shared quiet-versus-promoted rule, and the provider coverage maps ([AWS](../providers/aws.md), [GCP](../providers/gcp.md), [Azure](../providers/azure.md)) for current scope.

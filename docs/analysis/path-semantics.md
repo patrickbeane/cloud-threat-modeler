@@ -10,13 +10,13 @@ A relationship only becomes a finding when it is backed by deterministic modeled
 * Cryptographic-operation paths (decrypt, unwrap, sign, MAC-generate), which additionally require compatible key capabilities and effective operation authorization
 * Managed-key administration paths (disruption, authorization delegation), which additionally require exact modeled key or management-target resolution
 * Object-storage paths, which distinguish object writes and metadata mutation, object-level deletion, and bucket or container topology deletion while retaining provider-native recovery and prerequisite uncertainty
-* Structured-data deletion paths, which distinguish item/entity mutation from item/entity deletion while retaining provider-native scope and recovery evidence
+* Structured-data paths, which separate record mutation, item/entity deletion, and table/database/account/container topology deletion while retaining provider-native protection and recovery evidence
 * Messaging paths, which separate send/publish mutation, receive/pull disclosure, message removal, and modeled topology deletion while retaining provider-native delivery and replay evidence
 * Secret values themselves, which are never retained in evidence or reports
 
 For object-storage paths, recovery uncertainty affects impact evidence, not deterministic deletion authority. Explicitly denied or incompatible deletion paths stay quiet; conditional, incomplete, ambiguous, or unresolved paths remain uncertainty where modeled. See [Object-Storage Paths](object-storage-paths.md) for the provider-native target and recovery boundaries.
 
-For structured-data paths, recovery evidence qualifies the impact of deterministic item/entity deletion authority; it does not prove successful restoration or immediate item-level undo. Whole-table, database, account, container, and control-plane destruction remain outside this path family. See [Structured-Data Paths](structured-data-paths.md) for provider-native target and recovery boundaries.
+For structured-data paths, protection controls can make topology deletion incompatible, while recovery evidence qualifies deterministic item/entity or topology deletion authority. It does not prove successful deletion, restoration, immediate item-level undo, or out-of-plan descendants. See [Structured-Data Paths](structured-data-paths.md) for provider-native target and recovery boundaries.
 
 For messaging paths, delivery and replay posture qualifies impact without proving payload retrieval, successful removal, topology deletion, replay, or recovery. Only modeled queue, topic, subscription, and namespace deletion belongs to this path family; broader service or account destruction remains outside it. See [Messaging Paths](messaging-paths.md) for provider-native boundaries.
 

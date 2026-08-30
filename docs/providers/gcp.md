@@ -99,7 +99,7 @@ GCP trust-boundary coverage includes public compute, GKE control planes, Cloud R
 * Public Cloud Run Pub/Sub topic and subscription topology-deletion paths with exact target and cross-project ancestry
 * Public Cloud Run GCS logical-object and generation deletion paths with project/bucket scope and soft-delete/versioning evidence
 * Public Cloud Run GCS bucket-topology disruption paths for exact `storage.buckets.delete` authority, with bucket emptiness left unestablished
-* Public Cloud Run Firestore entity and bulk-entity deletion paths with project/database IAM scope and point-in-time-recovery evidence
+* Public Cloud Run Firestore entity/bulk-entity deletion and database-topology disruption paths with project/database IAM scope, delete-protection, Terraform deletion policy, and point-in-time-recovery evidence
 * Public Cloud Run secret-version tampering and secret/version disruption paths for runtime IAM authority
 * Service-account access broader than consumed references
 * External or explicitly denied Secret Manager paths stay quiet; condition-dependent, incomplete, ambiguous, or unresolved expected paths remain uncertainty where modeled
