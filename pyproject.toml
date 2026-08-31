@@ -82,6 +82,9 @@ include = [
   "src/tfstride/providers/aws/ecs_dynamodb_item_disruption_rules.py",
   "src/tfstride/providers/aws/ecs_dynamodb_table_topology_disruption_rules.py",
 
+  # AWS audit-telemetry disruption evidence.
+  "src/tfstride/providers/aws/audit_telemetry_disruption_evidence.py",
+
   # AWS messaging removal and delivery evidence.
   "src/tfstride/providers/aws/message_removal_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/ecs_sqs_message_removal_paths.py",
@@ -143,6 +146,9 @@ include = [
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_firestore_database_topology_destruction_paths.py",
   "src/tfstride/providers/gcp/cloud_run_firestore_database_topology_disruption_rules.py",
 
+  # GCP audit-telemetry disruption evidence.
+  "src/tfstride/providers/gcp/audit_telemetry_disruption_evidence.py",
+
   # GCP messaging removal and delivery evidence.
   "src/tfstride/providers/gcp/message_removal_evidence.py",
   "src/tfstride/providers/gcp/resource_decoration/cloud_run_pubsub_message_removal_paths.py",
@@ -197,6 +203,9 @@ include = [
   "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_item_deletion_paths.py",
   "src/tfstride/providers/azure/resource_decoration/app_service_cosmosdb_topology_destruction_paths.py",
   "src/tfstride/providers/azure/app_service_cosmosdb_topology_disruption_rules.py",
+
+  # Azure audit-telemetry disruption evidence.
+  "src/tfstride/providers/azure/audit_telemetry_disruption_evidence.py",
 
   # Azure messaging removal and delivery evidence.
   "src/tfstride/providers/azure/message_removal_evidence.py",
