@@ -169,6 +169,31 @@ class AwsAuditDetectionNormalizerTests(unittest.TestCase):
             recorder_facts.config_recorder_recording_strategy, {"use_only": "ALL_SUPPORTED_RESOURCE_TYPES"}
         )
 
+    def test_cloudtrail_applies_known_provider_lifecycle_defaults(self) -> None:
+        cloudtrail = normalize_cloudtrail(
+            _resource(
+                "aws_cloudtrail",
+                {"name": "audit"},
+            )
+        )
+
+        facts = aws_facts(cloudtrail)
+        self.assertEqual(facts.cloudtrail_enable_logging_state, "enabled")
+        self.assertTrue(facts.cloudtrail_enable_logging)
+        self.assertEqual(
+            facts.cloudtrail_organization_trail_state,
+            "disabled",
+        )
+        self.assertFalse(facts.cloudtrail_organization_trail)
+        self.assertNotIn(
+            "enable_logging",
+            " ".join(facts.audit_detection_posture_uncertainties),
+        )
+        self.assertNotIn(
+            "is_organization_trail",
+            " ".join(facts.audit_detection_posture_uncertainties),
+        )
+
     def test_unknown_audit_detection_values_are_explicit(self) -> None:
         cloudtrail = normalize_cloudtrail(
             _resource(

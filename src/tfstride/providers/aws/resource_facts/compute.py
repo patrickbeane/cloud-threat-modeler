@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from tfstride.providers.aws.audit_telemetry_disruption_evidence import (
+    AwsEcsCloudTrailAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.aws.kms_evidence import AwsEcsKmsManagementPath, AwsEcsKmsOperationPath
 from tfstride.providers.aws.message_removal_evidence import AwsEcsSqsMessageRemovalPath
 from tfstride.providers.aws.messaging_topology_destruction_evidence import (
@@ -206,6 +209,14 @@ class AwsComputeFacts(AwsBaseFacts):
         )
 
     @property
+    def ecs_cloudtrail_audit_telemetry_disruption_paths(
+        self,
+    ) -> list[AwsEcsCloudTrailAuditTelemetryDisruptionPath]:
+        return self.get(
+            AwsResourceMetadata.ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATHS,
+        )
+
+    @property
     def ecs_kms_operation_paths(self) -> list[AwsEcsKmsOperationPath]:
         return self.get(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS)
 
@@ -231,6 +242,14 @@ class AwsComputeFacts(AwsBaseFacts):
     ) -> list[str]:
         return self.get(
             AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+        )
+
+    @property
+    def ecs_cloudtrail_audit_telemetry_disruption_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(
+            AwsResourceMetadata.ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES,
         )
 
     @property
@@ -761,6 +780,15 @@ class AwsComputeFacts(AwsBaseFacts):
             values,
         )
 
+    def set_ecs_cloudtrail_audit_telemetry_disruption_paths(
+        self,
+        values: list[AwsEcsCloudTrailAuditTelemetryDisruptionPath],
+    ) -> None:
+        self.set(
+            AwsResourceMetadata.ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATHS,
+            values,
+        )
+
     def set_ecs_kms_operation_paths(self, values: list[AwsEcsKmsOperationPath]) -> None:
         self.set(AwsResourceMetadata.ECS_KMS_OPERATION_PATHS, values)
 
@@ -794,6 +822,15 @@ class AwsComputeFacts(AwsBaseFacts):
     ) -> None:
         self.extend(
             AwsResourceMetadata.ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    def extend_ecs_cloudtrail_audit_telemetry_disruption_path_uncertainties(
+        self,
+        values: Sequence[str | None],
+    ) -> None:
+        self.extend(
+            AwsResourceMetadata.ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES,
             values,
         )
 

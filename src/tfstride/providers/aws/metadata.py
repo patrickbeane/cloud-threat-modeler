@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from tfstride.providers.aws.audit_telemetry_disruption_evidence import (
+    AwsEcsCloudTrailAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.aws.kms_dependency_evidence import AwsKmsEncryptionDependency
 from tfstride.providers.aws.kms_evidence import (
     AwsEcsKmsManagementPath,
@@ -116,6 +119,9 @@ class AwsResourceMetadata:
     )
     ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
         "ecs_dynamodb_table_topology_destruction_path_uncertainties"
+    )
+    ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "ecs_cloudtrail_audit_telemetry_disruption_path_uncertainties"
     )
     ECS_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_operation_path_uncertainties")
     ECS_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("ecs_kms_management_path_uncertainties")
@@ -521,6 +527,9 @@ class AwsResourceMetadata:
     ECS_DYNAMODB_TABLE_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[AwsEcsDynamoDbTableTopologyDestructionPath](
         "ecs_dynamodb_table_topology_destruction_paths"
     )
+    ECS_CLOUDTRAIL_AUDIT_TELEMETRY_DISRUPTION_PATHS = RecordListMetadataField[
+        AwsEcsCloudTrailAuditTelemetryDisruptionPath
+    ]("ecs_cloudtrail_audit_telemetry_disruption_paths")
     ECS_KMS_OPERATION_PATHS = RecordListMetadataField[AwsEcsKmsOperationPath]("ecs_kms_operation_paths")
     ECS_KMS_MANAGEMENT_PATHS = RecordListMetadataField[AwsEcsKmsManagementPath]("ecs_kms_management_paths")
     ECS_DYNAMODB_INDEX_RELATIONSHIPS = DictListMetadataField("ecs_dynamodb_index_relationships")

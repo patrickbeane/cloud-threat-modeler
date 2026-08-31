@@ -175,6 +175,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "model_ecs_dynamodb_access_paths",
                 "model_ecs_dynamodb_item_deletion_paths",
                 "model_ecs_dynamodb_table_topology_destruction_paths",
+                "model_ecs_cloudtrail_audit_telemetry_disruption_paths",
                 "model_workload_ecr_write_paths",
                 "resolve_api_gateway_relationships",
                 "merge_resource_policy_resources",
@@ -206,6 +207,7 @@ class AwsResourceDecoratorTests(unittest.TestCase):
                 "project_ecs_dynamodb_access_paths_onto_services",
                 "project_ecs_dynamodb_item_deletion_paths_onto_services",
                 "project_ecs_dynamodb_table_topology_destruction_paths_onto_services",
+                "project_ecs_cloudtrail_audit_telemetry_disruption_paths_onto_services",
                 "model_ecs_s3_protected_data_convergence",
             ],
         )

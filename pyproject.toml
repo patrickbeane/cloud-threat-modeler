@@ -84,6 +84,7 @@ include = [
 
   # AWS audit-telemetry disruption evidence.
   "src/tfstride/providers/aws/audit_telemetry_disruption_evidence.py",
+  "src/tfstride/providers/aws/resource_decoration/ecs_cloudtrail_audit_telemetry_disruption_paths.py",
 
   # AWS messaging removal and delivery evidence.
   "src/tfstride/providers/aws/message_removal_evidence.py",

@@ -9,6 +9,10 @@ from tfstride.providers.aws.resource_decoration.ecs import (
     MarkEcsLoadBalancerExposureStage,
     ResolveEcsServiceRelationshipsStage,
 )
+from tfstride.providers.aws.resource_decoration.ecs_cloudtrail_audit_telemetry_disruption_paths import (
+    ModelEcsCloudTrailAuditTelemetryDisruptionPathsStage,
+    ProjectEcsCloudTrailAuditTelemetryDisruptionPathsOntoServicesStage,
+)
 from tfstride.providers.aws.resource_decoration.ecs_dynamodb_access_paths import (
     ModelEcsDynamoDbAccessPathsStage,
     ProjectEcsDynamoDbAccessPathsOntoServicesStage,
@@ -128,6 +132,7 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ModelEcsDynamoDbAccessPathsStage(),
         ModelEcsDynamoDbItemDeletionPathsStage(),
         ModelEcsDynamoDbTableTopologyDestructionPathsStage(),
+        ModelEcsCloudTrailAuditTelemetryDisruptionPathsStage(),
         ModelWorkloadEcrWritePathsStage(),
         ResolveApiGatewayRelationshipsStage(),
         MergeResourcePolicyResourcesStage(),
@@ -159,5 +164,6 @@ def default_aws_decoration_stages() -> tuple[AwsDecorationStage, ...]:
         ProjectEcsDynamoDbAccessPathsOntoServicesStage(),
         ProjectEcsDynamoDbItemDeletionPathsOntoServicesStage(),
         ProjectEcsDynamoDbTableTopologyDestructionPathsOntoServicesStage(),
+        ProjectEcsCloudTrailAuditTelemetryDisruptionPathsOntoServicesStage(),
         ModelEcsS3ProtectedDataConvergenceStage(),
     )

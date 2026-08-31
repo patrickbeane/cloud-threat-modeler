@@ -67,6 +67,7 @@ def normalize_cloudtrail(resource: TerraformResource) -> NormalizedResource:
                 unknown_values,
                 "enable_logging",
                 uncertainties,
+                default=True,
             ),
             AwsResourceMetadata.CLOUDTRAIL_LOG_FILE_VALIDATION_STATE: _known_bool_state(
                 values,
@@ -91,6 +92,7 @@ def normalize_cloudtrail(resource: TerraformResource) -> NormalizedResource:
                 unknown_values,
                 "is_organization_trail",
                 uncertainties,
+                default=False,
             ),
             AwsResourceMetadata.CLOUDTRAIL_EVENT_SELECTORS: _known_dict_records(
                 values,
@@ -411,11 +413,15 @@ def _known_bool_state(
     unknown_values: Mapping[str, Any],
     key: str,
     uncertainties: list[str],
+    *,
+    default: bool | None = None,
 ) -> str | None:
     if attribute_unknown(unknown_values, key):
         uncertainties.append(f"{key} is unknown after planning")
         return STATE_UNKNOWN
     value = values.get(key)
+    if value is None:
+        value = default
     if value is None:
         return None
     if isinstance(value, bool):
