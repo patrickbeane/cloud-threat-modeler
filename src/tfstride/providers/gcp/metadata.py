@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from tfstride.providers.gcp.audit_telemetry_disruption_evidence import (
+    GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.gcp.kms_dependency_evidence import GcpKmsEncryptionDependency
 from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsManagementPath,
@@ -138,6 +141,9 @@ class GcpResourceMetadata:
     )
     CLOUD_RUN_FIRESTORE_DATABASE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
         "cloud_run_firestore_database_topology_destruction_path_uncertainties"
+    )
+    CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties"
     )
     CLOUD_RUN_KMS_OPERATION_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_operation_path_uncertainties")
     CLOUD_RUN_KMS_MANAGEMENT_PATH_UNCERTAINTIES = StringListMetadataField("cloud_run_kms_management_path_uncertainties")
@@ -392,6 +398,7 @@ class GcpResourceMetadata:
     GKE_CLIENT_CERTIFICATE_AUTH_ENABLED = BoolMetadataField("gke_client_certificate_auth_enabled")
     GKE_BASIC_AUTH_PASSWORD_CONFIGURED = BoolMetadataField("gke_basic_auth_password_configured")
     GKE_SHIELDED_NODES_ENABLED = BoolMetadataField("gke_shielded_nodes_enabled")
+    LOGGING_SINK_DISABLED = BoolMetadataField("logging_sink_disabled")
     LOGGING_SINK_INCLUDE_CHILDREN = BoolMetadataField("logging_sink_include_children")
     LOGGING_SINK_UNIQUE_WRITER_IDENTITY = BoolMetadataField("logging_sink_unique_writer_identity")
     LOGGING_EXCLUSION_DISABLED = BoolMetadataField("logging_exclusion_disabled")
@@ -479,6 +486,7 @@ class GcpResourceMetadata:
     FIREWALL_DENY = DictListMetadataField("deny")
     FIREWALL_POLICY_MATCH = DictMetadataField("firewall_policy_match")
     IAM_BINDINGS = DictListMetadataField("iam_bindings")
+    LOGGING_SINK_EXCLUSIONS = DictListMetadataField("logging_sink_exclusions")
     KMS_ENCRYPTION_DEPENDENCIES = RecordListMetadataField[GcpKmsEncryptionDependency]("kms_encryption_dependencies")
     KMS_IAM_GRANTS = RecordListMetadataField[GcpKmsIamGrant]("kms_iam_grants")
     KMS_KEY_RING_IAM_GRANTS = RecordListMetadataField[GcpKmsKeyRingIamGrant]("kms_key_ring_iam_grants")
@@ -567,6 +575,9 @@ class GcpResourceMetadata:
     CLOUD_RUN_FIRESTORE_DATABASE_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[
         GcpCloudRunFirestoreDatabaseTopologyDestructionPath
     ]("cloud_run_firestore_database_topology_destruction_paths")
+    CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATHS = RecordListMetadataField[
+        GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath
+    ]("cloud_run_logging_sink_audit_telemetry_disruption_paths")
     CLOUD_RUN_KMS_OPERATION_PATHS = RecordListMetadataField[GcpCloudRunKmsOperationPath](
         "cloud_run_kms_operation_paths"
     )

@@ -6,7 +6,10 @@ from typing import Any
 
 from tfstride.models import NormalizedResource, ResourceCategory, TerraformResource
 from tfstride.providers.coercion import (
+    as_list,
+    attribute_unknown,
     first_mapping,
+    known_block_bool,
     known_block_string,
     known_block_strings,
     known_bool,
@@ -127,12 +130,23 @@ def _normalize_logging_sink(
     values = resource.values
     unknown_values = resource.unknown_values
     uncertainties: list[str] = []
-    name = known_string(values, unknown_values, "name", uncertainties) or resource_name(resource)
+    name = known_string(values, unknown_values, "name", uncertainties)
+    if name is None and not attribute_unknown(unknown_values, "name"):
+        name = resource_name(resource)
+    if scope_type == "project" and attribute_unknown(unknown_values, "project"):
+        uncertainties.append("project is unknown after planning")
+        scope = None
     destination = known_string(values, unknown_values, "destination", uncertainties)
     sink_filter = known_string(values, unknown_values, "filter", uncertainties)
     writer_identity = known_string(values, unknown_values, "writer_identity", uncertainties)
+    disabled = known_bool(values, unknown_values, "disabled", uncertainties)
     include_children = known_bool(values, unknown_values, "include_children", uncertainties)
     unique_writer_identity = known_bool(values, unknown_values, "unique_writer_identity", uncertainties)
+    exclusions = _normalize_logging_sink_exclusions(
+        values,
+        unknown_values,
+        uncertainties,
+    )
 
     metadata = _scope_metadata(scope_type, scope)
     metadata.update(
@@ -145,9 +159,12 @@ def _normalize_logging_sink(
             GcpResourceMetadata.LOGGING_SINK_WRITER_IDENTITY: writer_identity,
             GcpResourceMetadata.LOGGING_SINK_SCOPE_TYPE: scope_type,
             GcpResourceMetadata.LOGGING_SINK_SCOPE: scope,
+            GcpResourceMetadata.LOGGING_SINK_EXCLUSIONS: exclusions,
             GcpResourceMetadata.AUDIT_SECURITY_POSTURE_UNCERTAINTIES: uncertainties,
         }
     )
+    if disabled is not None:
+        metadata[GcpResourceMetadata.LOGGING_SINK_DISABLED] = disabled
     if include_children is not None:
         metadata[GcpResourceMetadata.LOGGING_SINK_INCLUDE_CHILDREN] = include_children
     if unique_writer_identity is not None:
@@ -164,6 +181,83 @@ def _normalize_logging_sink(
         identifier=resource_identifier(resource),
         metadata=metadata,
     )
+
+
+def _normalize_logging_sink_exclusions(
+    values: Mapping[str, Any],
+    unknown_values: Mapping[str, Any],
+    uncertainties: list[str],
+) -> list[dict[str, Any]]:
+    raw_exclusions = values.get("exclusions")
+    raw_unknown_exclusions = unknown_values.get("exclusions")
+    if raw_unknown_exclusions is True:
+        uncertainties.append("exclusions is unknown after planning")
+        return []
+
+    exclusion_blocks = as_list(raw_exclusions)
+    unknown_blocks = as_list(raw_unknown_exclusions)
+    if raw_exclusions is None and unknown_blocks:
+        uncertainties.append("exclusions contain unresolved blocks after planning")
+        return []
+    if raw_exclusions is not None and not isinstance(
+        raw_exclusions,
+        (Mapping, list, tuple),
+    ):
+        uncertainties.append("exclusions have an unrecognized value shape")
+        return []
+    if len(unknown_blocks) > len(exclusion_blocks):
+        uncertainties.append("exclusions contain unresolved blocks after planning")
+
+    normalized: list[dict[str, Any]] = []
+    for index, raw_block in enumerate(exclusion_blocks):
+        path = f"exclusions[{index}]"
+        if not isinstance(raw_block, Mapping):
+            uncertainties.append(f"{path} has an unrecognized value shape")
+            continue
+        unknown_block = unknown_blocks[index] if index < len(unknown_blocks) else None
+        unknown_fields: list[str] = []
+        exclusion_filter = known_block_string(
+            raw_block,
+            unknown_block,
+            "filter",
+            uncertainties,
+            path=path,
+            unknown_fields=unknown_fields,
+        )
+        uncertainty_count = len(uncertainties)
+        disabled = known_block_bool(
+            raw_block,
+            unknown_block,
+            "disabled",
+            uncertainties,
+            path=path,
+            unknown_fields=unknown_fields,
+        )
+        if len(uncertainties) > uncertainty_count and "disabled" not in unknown_fields:
+            unknown_fields.append("disabled")
+        exclusion: dict[str, Any] = {
+            "name": first_non_empty(raw_block.get("name")),
+            "description": first_non_empty(raw_block.get("description")),
+            "filter": exclusion_filter,
+            "filter_state": (
+                "unknown"
+                if "filter" in unknown_fields
+                else "configured"
+                if exclusion_filter is not None
+                else "not_configured"
+            ),
+            "disabled_state": (
+                "unknown"
+                if "disabled" in unknown_fields
+                else "configured"
+                if disabled is not None
+                else "not_configured"
+            ),
+        }
+        if disabled is not None:
+            exclusion["disabled"] = disabled
+        normalized.append(exclusion)
+    return normalized
 
 
 def _normalize_logging_exclusion(

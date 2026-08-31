@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from tfstride.providers.gcp.audit_telemetry_disruption_evidence import (
+    GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.gcp.kms_evidence import (
     GcpCloudRunKmsManagementPath,
     GcpCloudRunKmsOperationPath,
@@ -197,6 +200,18 @@ class GcpComputeFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.CLOUD_RUN_FIRESTORE_DATABASE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES)
 
     @property
+    def cloud_run_logging_sink_audit_telemetry_disruption_paths(
+        self,
+    ) -> list[GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATHS)
+
+    @property
+    def cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(GcpResourceMetadata.CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES)
+
+    @property
     def cloud_run_kms_operation_paths(self) -> list[GcpCloudRunKmsOperationPath]:
         return self.get(GcpResourceMetadata.CLOUD_RUN_KMS_OPERATION_PATHS)
 
@@ -367,6 +382,24 @@ class GcpComputeFacts(GcpBaseFacts):
     ) -> None:
         self.extend(
             GcpResourceMetadata.CLOUD_RUN_FIRESTORE_DATABASE_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    def set_cloud_run_logging_sink_audit_telemetry_disruption_paths(
+        self,
+        values: list[GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath],
+    ) -> None:
+        self.set(
+            GcpResourceMetadata.CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATHS,
+            values,
+        )
+
+    def extend_cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            GcpResourceMetadata.CLOUD_RUN_LOGGING_SINK_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES,
             values,
         )
 

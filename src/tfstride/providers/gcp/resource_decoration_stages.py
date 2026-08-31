@@ -31,6 +31,9 @@ from tfstride.providers.gcp.resource_decoration.cloud_run_kms_operation_paths im
     ModelCloudRunKmsManagementPathsStage,
     ModelCloudRunKmsOperationPathsStage,
 )
+from tfstride.providers.gcp.resource_decoration.cloud_run_logging_sink_audit_telemetry_disruption_paths import (
+    ModelCloudRunLoggingSinkAuditTelemetryDisruptionPathsStage,
+)
 from tfstride.providers.gcp.resource_decoration.cloud_run_pubsub_access_paths import (
     ModelCloudRunPubsubAccessPathsStage,
 )
@@ -81,6 +84,7 @@ def default_gcp_decoration_stages() -> tuple[GcpDecorationStage, ...]:
         DeriveNetworkPostureStage(),
         DerivePublicExposureStage(),
         DecorateSensitiveIamBindingsStage(),
+        ModelCloudRunLoggingSinkAuditTelemetryDisruptionPathsStage(),
         NormalizeSecretManagerVersionPostureStage(),
         NormalizeSecretManagerIamPostureStage(),
         NormalizeKmsIamPostureStage(),

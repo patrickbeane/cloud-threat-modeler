@@ -38,6 +38,14 @@ class GcpAuditFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.LOGGING_SINK_SCOPE)
 
     @property
+    def logging_sink_disabled(self) -> bool | None:
+        return self.optional_bool(GcpResourceMetadata.LOGGING_SINK_DISABLED)
+
+    @property
+    def logging_sink_exclusions(self) -> list[dict[str, Any]]:
+        return self.get(GcpResourceMetadata.LOGGING_SINK_EXCLUSIONS)
+
+    @property
     def logging_sink_include_children(self) -> bool | None:
         return self.optional_bool(GcpResourceMetadata.LOGGING_SINK_INCLUDE_CHILDREN)
 

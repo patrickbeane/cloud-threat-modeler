@@ -446,6 +446,7 @@ class GcpProviderTests(unittest.TestCase):
                 "LOGGING_SINK_WRITER_IDENTITY",
                 "LOGGING_SINK_SCOPE_TYPE",
                 "LOGGING_SINK_SCOPE",
+                "LOGGING_SINK_EXCLUSIONS",
                 "LOGGING_SINK_INCLUDE_CHILDREN",
                 "LOGGING_SINK_UNIQUE_WRITER_IDENTITY",
                 "LOGGING_EXCLUSION_NAME",

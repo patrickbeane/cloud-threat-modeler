@@ -29,8 +29,17 @@ class GcpAuditNormalizerTests(unittest.TestCase):
                     "destination": "storage.googleapis.com/tfstride-logs",
                     "filter": "severity>=ERROR",
                     "writer_identity": "serviceAccount:cloud-logs@example.iam.gserviceaccount.com",
+                    "disabled": False,
                     "include_children": False,
                     "unique_writer_identity": True,
+                    "exclusions": [
+                        {
+                            "name": "drop-debug",
+                            "description": "Ignore debug records",
+                            "filter": "severity=DEBUG",
+                            "disabled": True,
+                        }
+                    ],
                 },
             )
         )
@@ -47,8 +56,22 @@ class GcpAuditNormalizerTests(unittest.TestCase):
         )
         self.assertEqual(facts.logging_sink_scope_type, "project")
         self.assertEqual(facts.logging_sink_scope, "tfstride-demo")
+        self.assertFalse(facts.logging_sink_disabled)
         self.assertFalse(facts.logging_sink_include_children)
         self.assertTrue(facts.logging_sink_unique_writer_identity)
+        self.assertEqual(
+            facts.logging_sink_exclusions,
+            [
+                {
+                    "name": "drop-debug",
+                    "description": "Ignore debug records",
+                    "filter": "severity=DEBUG",
+                    "filter_state": "configured",
+                    "disabled_state": "configured",
+                    "disabled": True,
+                }
+            ],
+        )
         self.assertEqual(facts.audit_security_posture_uncertainties, [])
 
     def test_logging_organization_sink_preserves_scope_evidence(self) -> None:
@@ -156,11 +179,22 @@ class GcpAuditNormalizerTests(unittest.TestCase):
             _terraform_resource(
                 "google_logging_project_sink.processor",
                 GcpResourceType.LOGGING_PROJECT_SINK,
-                {"name": "processor-logs", "project": "tfstride-demo"},
+                {
+                    "name": "processor-logs",
+                    "project": "tfstride-demo",
+                    "exclusions": [
+                        {
+                            "name": "drop-audit",
+                            "filter": "logName:cloudaudit.googleapis.com",
+                        }
+                    ],
+                },
                 unknown_values={
                     "destination": True,
                     "writer_identity": True,
+                    "disabled": True,
                     "include_children": True,
+                    "exclusions": [{"disabled": True}],
                 },
             )
         )
@@ -181,8 +215,14 @@ class GcpAuditNormalizerTests(unittest.TestCase):
             [
                 "destination is unknown after planning",
                 "writer_identity is unknown after planning",
+                "disabled is unknown after planning",
                 "include_children is unknown after planning",
+                "exclusions[0].disabled is unknown after planning",
             ],
+        )
+        self.assertEqual(
+            gcp_facts(sink).logging_sink_exclusions[0]["disabled_state"],
+            "unknown",
         )
         self.assertEqual(gcp_facts(scc).scc_asset_discovery_state, "unknown")
         self.assertEqual(

@@ -263,6 +263,7 @@ class GcpResourceDecoratorTests(unittest.TestCase):
                 "derive_network_posture",
                 "derive_public_exposure",
                 "decorate_sensitive_iam_bindings",
+                "model_cloud_run_logging_sink_audit_telemetry_disruption_paths",
                 "normalize_secret_manager_version_posture",
                 "normalize_secret_manager_iam_posture",
                 "normalize_kms_iam_posture",
