@@ -11,6 +11,9 @@ from tfstride.providers.aws.cloudfront_rules import AwsCloudFrontRuleDetectors
 from tfstride.providers.aws.container_rules import AwsContainerDeploymentRuleDetectors
 from tfstride.providers.aws.dynamodb_rules import AwsDynamoDbRuleDetectors
 from tfstride.providers.aws.ecr_rules import AwsEcrRuleDetectors
+from tfstride.providers.aws.ecs_cloudtrail_disruption_rules import (
+    AwsEcsCloudTrailDisruptionRuleDetectors,
+)
 from tfstride.providers.aws.ecs_dynamodb_item_disruption_rules import (
     AwsEcsDynamoDbItemDisruptionRuleDetectors,
 )
@@ -112,6 +115,7 @@ AWS_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "aws-public-ecs-secret-access",
         "aws-public-ecs-secret-tampering",
         "aws-public-ecs-secret-disruption",
+        "aws-public-ecs-cloudtrail-disruption",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-s3-object-disruption",
         "aws-public-ecs-s3-bucket-topology-disruption",
@@ -195,6 +199,7 @@ def build_aws_rule_contribution(
     container_deployment_detectors = AwsContainerDeploymentRuleDetectors(finding_factory)
     ecs_secret_detectors = AwsEcsSecretDeliveryRuleDetectors(finding_factory)
     ecs_secret_management_detectors = AwsEcsSecretManagementRuleDetectors(finding_factory)
+    ecs_cloudtrail_disruption_detectors = AwsEcsCloudTrailDisruptionRuleDetectors(finding_factory)
     ecs_s3_detectors = AwsEcsS3AccessRuleDetectors(finding_factory)
     ecs_s3_object_disruption_detectors = AwsEcsS3ObjectDisruptionRuleDetectors(finding_factory)
     ecs_s3_bucket_topology_disruption_detectors = AwsEcsS3BucketTopologyDisruptionRuleDetectors(finding_factory)
@@ -283,6 +288,9 @@ def build_aws_rule_contribution(
         "aws-public-ecs-secret-access": ecs_secret_detectors.detect_public_service_secret_access,
         "aws-public-ecs-secret-tampering": (ecs_secret_management_detectors.detect_public_service_tampering),
         "aws-public-ecs-secret-disruption": (ecs_secret_management_detectors.detect_public_service_disruption),
+        "aws-public-ecs-cloudtrail-disruption": (
+            ecs_cloudtrail_disruption_detectors.detect_public_service_cloudtrail_disruption
+        ),
         "aws-public-ecs-s3-mutation-access": ecs_s3_detectors.detect_public_service_mutation_access,
         "aws-public-ecs-s3-object-disruption": (ecs_s3_object_disruption_detectors.detect_public_service_disruption),
         "aws-public-ecs-s3-bucket-topology-disruption": (

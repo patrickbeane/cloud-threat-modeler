@@ -633,6 +633,33 @@ AWS_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="aws-public-ecs-cloudtrail-disruption",
+        title="Internet-facing ECS service can disrupt CloudTrail audit telemetry",
+        category=StrideCategory.REPUDIATION,
+        recommended_mitigation=(
+            "Reduce public ingress to the ECS service and remove cloudtrail:StopLogging and "
+            "cloudtrail:DeleteTrail from its task role. Keep audit-trail administration with a separate "
+            "operational identity, protect logging destinations independently, and do not treat retained "
+            "historical logs as proof that future audit-event collection cannot be disrupted."
+        ),
+        tags=(
+            "aws",
+            "ecs",
+            "cloudtrail",
+            "iam",
+            "public-access",
+            "audit-telemetry",
+            "repudiation",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="aws-public-ecs-s3-mutation-access",
         title="Internet-facing ECS service can modify S3 object storage",
         category=StrideCategory.TAMPERING,

@@ -38,7 +38,7 @@
       }
     },
     "rules": {
-      "registered_rule_count": 103,
+      "registered_rule_count": 104,
       "enabled_rules": [
         "aws-public-compute-broad-ingress",
         "aws-lambda-public-invocation",
@@ -93,6 +93,7 @@
         "aws-public-ecs-secret-access",
         "aws-public-ecs-secret-tampering",
         "aws-public-ecs-secret-disruption",
+        "aws-public-ecs-cloudtrail-disruption",
         "aws-public-ecs-s3-mutation-access",
         "aws-public-ecs-s3-object-disruption",
         "aws-public-ecs-s3-bucket-topology-disruption",
@@ -200,6 +201,7 @@
         "aws-public-ecs-secret-access": 0,
         "aws-public-ecs-secret-tampering": 0,
         "aws-public-ecs-secret-disruption": 0,
+        "aws-public-ecs-cloudtrail-disruption": 0,
         "aws-public-ecs-s3-mutation-access": 0,
         "aws-public-ecs-s3-object-disruption": 0,
         "aws-public-ecs-s3-bucket-topology-disruption": 0,
