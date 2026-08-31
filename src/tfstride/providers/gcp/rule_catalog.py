@@ -1052,6 +1052,25 @@ GCP_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="gcp-public-cloud-run-logging-sink-disruption",
+        title="Public Cloud Run identity can disrupt audit telemetry export",
+        category=StrideCategory.REPUDIATION,
+        recommended_mitigation=(
+            "Restrict public invocation of the Cloud Run service and grant its runtime service account only "
+            "the exact logging.sinks.delete permission and project logging-sink scope required. Keep audit "
+            "sink administration on separate operational identities, and protect audit/security export paths "
+            "from public workload credentials."
+        ),
+        tags=("gcp", "cloud-run", "logging", "audit", "iam", "public-access", "repudiation"),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="gcp-service-account-iam-broad-principal",
         title="GCP service account IAM grants access to broad principals",
         category=StrideCategory.ELEVATION_OF_PRIVILEGE,

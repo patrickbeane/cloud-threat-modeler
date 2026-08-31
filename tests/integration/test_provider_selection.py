@@ -195,8 +195,8 @@ class ProviderSelectionIntegrationTests(TFSIntegrationTestCase):
         self.assertEqual(result.inventory.resources[0].address, "google_storage_bucket.logs")
         self.assertEqual(result.inventory.unsupported_resources, [])
         self.assertEqual(result.findings, [])
-        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 96)
-        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 96)
+        self.assertEqual(result.analysis_coverage.rules.registered_rule_count, 97)
+        self.assertEqual(len(result.analysis_coverage.rules.enabled_rules), 97)
         self.assertTrue(all(rule_id.startswith("gcp-") for rule_id in result.analysis_coverage.rules.enabled_rules))
         self.assertIn("GCP support covers a curated set", result.limitations[0])
 

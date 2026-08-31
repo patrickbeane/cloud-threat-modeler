@@ -20,8 +20,8 @@ This run identified **2 trust boundaries** and **2 findings** across **11 normal
 - Normalized resources: `11`
 - Unsupported resources: `0`
 - Resources with plan-time unknown values: `0`
-- Registered provider rules (GCP): `96`
-- Enabled provider rules (GCP): `96`
+- Registered provider rules (GCP): `97`
+- Enabled provider rules (GCP): `97`
 - Disabled rules: `0`
 - Severity overrides: `0`
 - Configuration-reference resolution: `0 symbolic`, `0 ambiguous`, `0 unresolved`, `0 unsupported`
