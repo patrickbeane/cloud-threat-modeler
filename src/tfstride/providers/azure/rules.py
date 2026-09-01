@@ -16,6 +16,9 @@ from tfstride.providers.azure.app_service_cosmosdb_rules import AzureAppServiceC
 from tfstride.providers.azure.app_service_cosmosdb_topology_disruption_rules import (
     AzureAppServiceCosmosDbTopologyDisruptionRuleDetectors,
 )
+from tfstride.providers.azure.app_service_diagnostic_setting_disruption_rules import (
+    AzureAppServiceDiagnosticSettingDisruptionRuleDetectors,
+)
 from tfstride.providers.azure.app_service_key_vault_management_rules import (
     AzureAppServiceKeyVaultManagementRuleDetectors,
 )
@@ -135,6 +138,7 @@ AZURE_RULE_GROUP_IDS: tuple[tuple[str, ...], ...] = (
         "azure-public-app-service-key-vault-signing-access",
         "azure-public-app-service-key-vault-key-disruption",
         "azure-public-app-service-key-vault-authorization-delegation",
+        "azure-public-app-service-diagnostic-setting-disruption",
         "azure-diagnostic-settings-missing",
         "azure-diagnostic-setting-no-log-destination",
         "azure-diagnostic-setting-audit-logs-incomplete",
@@ -197,6 +201,7 @@ def build_azure_rule_contribution(
     )
     app_service_storage_detectors = AzureAppServiceStorageRuleDetectors(finding_factory)
     app_service_blob_detectors = AzureAppServiceBlobRuleDetectors(finding_factory)
+    app_service_diagnostic_setting_detectors = AzureAppServiceDiagnosticSettingDisruptionRuleDetectors(finding_factory)
     app_service_storage_container_topology_detectors = AzureAppServiceStorageContainerTopologyDisruptionRuleDetectors(
         finding_factory
     )
@@ -380,6 +385,9 @@ def build_azure_rule_contribution(
         ),
         "azure-public-app-service-key-vault-authorization-delegation": (
             app_service_key_vault_management_detectors.detect_public_app_service_key_vault_authorization_delegation
+        ),
+        "azure-public-app-service-diagnostic-setting-disruption": (
+            app_service_diagnostic_setting_detectors.detect_public_app_service_diagnostic_setting_disruption
         ),
         "azure-diagnostic-settings-missing": audit_detectors.detect_missing_diagnostic_settings,
         "azure-diagnostic-setting-no-log-destination": audit_detectors.detect_diagnostic_setting_no_log_destination,

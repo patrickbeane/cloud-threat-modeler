@@ -302,6 +302,7 @@ EXPECTED_DEFAULT_RULE_METADATA_IDS = (
     "azure-public-app-service-key-vault-signing-access",
     "azure-public-app-service-key-vault-key-disruption",
     "azure-public-app-service-key-vault-authorization-delegation",
+    "azure-public-app-service-diagnostic-setting-disruption",
     "azure-diagnostic-settings-missing",
     "azure-diagnostic-setting-no-log-destination",
     "azure-diagnostic-setting-audit-logs-incomplete",
@@ -383,7 +384,7 @@ class RuleRegistryTests(unittest.TestCase):
             tuple(item.rule_id for item in metadata),
             EXPECTED_DEFAULT_RULE_METADATA_IDS,
         )
-        self.assertEqual(len(metadata), 316)
+        self.assertEqual(len(metadata), 317)
 
     def test_default_rule_metadata_is_partitioned_by_provider(self) -> None:
         metadata_ids = tuple(metadata.rule_id for metadata in default_rule_registry().rules())
@@ -394,7 +395,7 @@ class RuleRegistryTests(unittest.TestCase):
         self.assertEqual(metadata_ids, aws_metadata_ids + gcp_metadata_ids + azure_metadata_ids)
         self.assertEqual(len(aws_metadata_ids), 104)
         self.assertEqual(len(gcp_metadata_ids), 97)
-        self.assertEqual(len(azure_metadata_ids), 115)
+        self.assertEqual(len(azure_metadata_ids), 116)
         self.assertEqual(set(aws_metadata_ids), set(_flatten_rule_groups(AWS_RULE_GROUP_IDS)))
         self.assertEqual(set(gcp_metadata_ids), set(_flatten_rule_groups(GCP_RULE_GROUP_IDS)))
         self.assertEqual(set(azure_metadata_ids), set(_flatten_rule_groups(AZURE_RULE_GROUP_IDS)))

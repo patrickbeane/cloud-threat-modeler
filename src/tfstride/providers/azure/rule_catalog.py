@@ -1172,6 +1172,34 @@ AZURE_RULE_METADATA = (
         ),
     ),
     RuleMetadata(
+        rule_id="azure-public-app-service-diagnostic-setting-disruption",
+        title="Public Azure App Service identity can disrupt audit telemetry export",
+        category=StrideCategory.REPUDIATION,
+        recommended_mitigation=(
+            "Restrict public App Service ingress and grant its runtime identity only the exact "
+            "Microsoft.Insights/DiagnosticSettings/Delete action and diagnostic-setting target required. "
+            "Keep diagnostic-setting administration on separate operational identities and preserve a "
+            "modeled audit/security telemetry destination protected from public workload credentials."
+        ),
+        tags=(
+            "azure",
+            "app-service",
+            "function-app",
+            "diagnostic-settings",
+            "audit",
+            "iam",
+            "public-access",
+            "repudiation",
+        ),
+        severity_factors=(
+            "internet_exposure",
+            "privilege_breadth",
+            "data_sensitivity",
+            "lateral_movement",
+            "blast_radius",
+        ),
+    ),
+    RuleMetadata(
         rule_id="azure-diagnostic-settings-missing",
         title="Azure resource lacks diagnostic settings",
         category=StrideCategory.REPUDIATION,
