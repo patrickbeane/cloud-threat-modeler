@@ -63,6 +63,18 @@ class AwsIamFacts(AwsBaseFacts):
         return self.get(AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES)
 
     @property
+    def iam_permissions_boundary_arn(self) -> str | None:
+        return self.get(AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_ARN)
+
+    @property
+    def iam_permissions_boundary_state(self) -> str | None:
+        return self.get(AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_STATE)
+
+    @property
+    def iam_permissions_boundary_uncertainties(self) -> list[str]:
+        return self.get(AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_UNCERTAINTIES)
+
+    @property
     def trust_statements(self) -> list[dict[str, Any]]:
         return self.get(AwsResourceMetadata.TRUST_STATEMENTS)
 

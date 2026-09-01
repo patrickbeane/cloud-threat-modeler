@@ -162,6 +162,29 @@ class AwsPublicEcsCloudTrailDisruptionRuleTests(unittest.TestCase):
         )
         self.assertEqual(_reevaluate(inventory), [])
 
+    def test_current_permissions_boundary_suppresses_cached_finding(self) -> None:
+        inventory, findings = _evaluate(_runtime_resources(_STOP_LOGGING))
+        self.assertEqual(len(findings), 1)
+        role = inventory.get_by_address("aws_iam_role.orders_task")
+        service = inventory.get_by_address("aws_ecs_service.orders")
+        assert role is not None
+        assert service is not None
+        self.assertEqual(
+            len(aws_facts(service).ecs_cloudtrail_audit_telemetry_disruption_paths),
+            1,
+        )
+
+        role.set_metadata_field(
+            AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_ARN,
+            "arn:aws:iam::111122223333:policy/orders-boundary",
+        )
+        role.set_metadata_field(
+            AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_STATE,
+            "configured",
+        )
+
+        self.assertEqual(_reevaluate(inventory), [])
+
     def test_current_lifecycle_and_target_drift_suppress_cached_finding(self) -> None:
         inventory, findings = _evaluate(_runtime_resources(_STOP_LOGGING))
         self.assertEqual(len(findings), 1)

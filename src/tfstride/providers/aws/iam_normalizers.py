@@ -15,6 +15,9 @@ from tfstride.providers.aws.policy_documents import (
     policy_statement_is_fully_representable,
 )
 from tfstride.providers.coercion import (
+    STATE_CONFIGURED,
+    STATE_NOT_CONFIGURED,
+    STATE_UNKNOWN,
     block_attribute_unknown,
     known_string,
     known_string_list,
@@ -26,6 +29,20 @@ from tfstride.providers.json_documents import load_json_document
 
 def normalize_iam_role(resource: TerraformResource) -> NormalizedResource:
     values = resource.values
+    permissions_boundary_uncertainties: list[str] = []
+    permissions_boundary_arn = known_string(
+        values,
+        resource.unknown_values,
+        "permissions_boundary",
+        permissions_boundary_uncertainties,
+        require_string=True,
+    )
+    if permissions_boundary_uncertainties:
+        permissions_boundary_state = STATE_UNKNOWN
+    elif permissions_boundary_arn is not None:
+        permissions_boundary_state = STATE_CONFIGURED
+    else:
+        permissions_boundary_state = STATE_NOT_CONFIGURED
     assume_role_policy = load_json_document(values.get("assume_role_policy"))
     raw_inline_policies = as_list(values.get("inline_policy"))
     statements: list[IAMPolicyStatement] = []
@@ -74,6 +91,9 @@ def normalize_iam_role(resource: TerraformResource) -> NormalizedResource:
             AwsResourceMetadata.INLINE_POLICY_NAMES: inline_policy_names,
             AwsResourceMetadata.IAM_POLICY_COMPLETENESS_STATE: ("complete" if complete else "unknown"),
             AwsResourceMetadata.IAM_POLICY_POSTURE_UNCERTAINTIES: uncertainties,
+            AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_ARN: permissions_boundary_arn,
+            AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_STATE: permissions_boundary_state,
+            AwsResourceMetadata.IAM_PERMISSIONS_BOUNDARY_UNCERTAINTIES: permissions_boundary_uncertainties,
         },
     )
 

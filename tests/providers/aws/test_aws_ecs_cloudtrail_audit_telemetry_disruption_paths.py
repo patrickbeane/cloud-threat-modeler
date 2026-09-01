@@ -98,9 +98,13 @@ def _role(
     arn: str | None = _ROLE_ARN,
     name: str = "orders_task",
     provider_config_key: str = _PROVIDER,
+    permissions_boundary: str | None = None,
+    permissions_boundary_unknown: bool = False,
     reference_resolutions: tuple[TerraformReferenceResolution, ...] = (),
 ) -> TerraformResource:
     values: dict[str, Any] = {"name": name, "arn": arn}
+    if permissions_boundary is not None:
+        values["permissions_boundary"] = permissions_boundary
     if statements:
         values["inline_policy"] = [
             {
@@ -118,6 +122,7 @@ def _role(
         name,
         values,
         provider_config_key=provider_config_key,
+        unknown_values=({"permissions_boundary": True} if permissions_boundary_unknown else None),
         reference_resolutions=reference_resolutions,
     )
 
@@ -391,6 +396,45 @@ class AwsEcsCloudTrailAuditTelemetryDisruptionPathTests(
                     [],
                 )
                 self.assertTrue(aws_facts(task).ecs_cloudtrail_audit_telemetry_disruption_path_uncertainties)
+
+    def test_configured_or_unresolved_permissions_boundary_fails_closed(
+        self,
+    ) -> None:
+        boundary_arn = f"arn:aws:iam::{_ACCOUNT_ID}:policy/orders-permissions-boundary"
+        cases = {
+            "configured": _role(
+                [_statement("Allow", _STOP_LOGGING, _TRAIL_ARN)],
+                permissions_boundary=boundary_arn,
+            ),
+            "unresolved": _role(
+                [_statement("Allow", _STOP_LOGGING, _TRAIL_ARN)],
+                permissions_boundary_unknown=True,
+            ),
+        }
+        for case, role_resource in cases.items():
+            with self.subTest(case=case):
+                inventory, task, service = _normalize([], role=role_resource)
+                role = inventory.get_by_address("aws_iam_role.orders_task")
+                assert role is not None
+
+                self.assertEqual(
+                    aws_facts(task).ecs_cloudtrail_audit_telemetry_disruption_paths,
+                    [],
+                )
+                self.assertEqual(
+                    aws_facts(service).ecs_cloudtrail_audit_telemetry_disruption_paths,
+                    [],
+                )
+                uncertainties = aws_facts(task).ecs_cloudtrail_audit_telemetry_disruption_path_uncertainties
+                self.assertTrue(any("permissions-boundary" in value for value in uncertainties))
+                self.assertEqual(
+                    aws_facts(role).iam_permissions_boundary_state,
+                    "configured" if case == "configured" else "unknown",
+                )
+                self.assertEqual(
+                    aws_facts(role).iam_permissions_boundary_arn,
+                    boundary_arn if case == "configured" else None,
+                )
 
     def test_exact_symbolic_trail_reference_requires_provenance(self) -> None:
         reference = "aws_cloudtrail.audit.arn"

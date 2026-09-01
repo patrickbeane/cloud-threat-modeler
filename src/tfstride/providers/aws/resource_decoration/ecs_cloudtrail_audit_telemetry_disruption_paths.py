@@ -32,6 +32,7 @@ from tfstride.providers.aws.resource_index import AwsDecorationContext
 from tfstride.providers.coercion import (
     STATE_DISABLED,
     STATE_ENABLED,
+    STATE_NOT_CONFIGURED,
     dedupe,
 )
 from tfstride.resource_helpers import parse_aws_account_id
@@ -254,6 +255,13 @@ def _task_definition_paths(
                 "account or partition does not match the resolved caller "
                 "identity"
             ],
+        )
+
+    boundary_uncertainties = _permissions_boundary_uncertainties(task_role)
+    if boundary_uncertainties:
+        return (
+            [],
+            [f"{task_definition.address}: {uncertainty}" for uncertainty in boundary_uncertainties],
         )
 
     identity_policy_complete = _identity_policy_complete(task_role)
@@ -827,6 +835,28 @@ def _identity_policy_complete(role: NormalizedResource) -> bool:
             for statement in role.policy_statements
         )
     )
+
+
+def _permissions_boundary_uncertainties(role: NormalizedResource) -> list[str]:
+    facts = aws_facts(role)
+    if facts.iam_permissions_boundary_state == STATE_NOT_CONFIGURED:
+        return []
+
+    boundary = facts.iam_permissions_boundary_arn
+    if boundary is not None:
+        return [
+            f"{role.address} has configured permissions boundary {boundary}; "
+            "effective CloudTrail disruption authority is unresolved because "
+            "permissions-boundary policy intersection is not modeled"
+        ]
+
+    details = facts.iam_permissions_boundary_uncertainties
+    if details:
+        return [f"{role.address} permissions-boundary evidence is unresolved: {detail}" for detail in details]
+    return [
+        f"{role.address} permissions-boundary state is unresolved; effective "
+        "CloudTrail disruption authority cannot be established"
+    ]
 
 
 def _identity_policy_resources(
