@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 
 from tests.providers.gcp.test_gcp_cloud_run_logging_sink_audit_telemetry_disruption_paths import (
-    _AUDIT_FILTER,
     _CUSTOM_ROLE_ADDRESS,
     _DESTINATION,
     _IAM_ADDRESS,
@@ -168,12 +167,20 @@ class GcpPublicCloudRunLoggingSinkDisruptionRuleTests(unittest.TestCase):
         mutations = {
             "destination": lambda facts: facts.set(GcpResourceMetadata.LOGGING_SINK_DESTINATION, None),
             "filter": lambda facts: facts.set(GcpResourceMetadata.LOGGING_SINK_FILTER, "severity>=ERROR"),
+            "non-audit protobuf filter": lambda facts: facts.set(
+                GcpResourceMetadata.LOGGING_SINK_FILTER,
+                'protoPayload.@type="type.googleapis.com/google.cloud.storage.SomeEvent"',
+            ),
+            "unary-negative audit filter": lambda facts: facts.set(
+                GcpResourceMetadata.LOGGING_SINK_FILTER,
+                '-logName:"cloudaudit.googleapis.com"',
+            ),
             "active exclusion": lambda facts: facts.set(
                 GcpResourceMetadata.LOGGING_SINK_EXCLUSIONS,
                 [
                     {
-                        "name": "drop-audit",
-                        "filter": _AUDIT_FILTER,
+                        "name": "drop-debug",
+                        "filter": "severity=DEBUG",
                         "filter_state": "configured",
                         "disabled_state": "configured",
                         "disabled": False,

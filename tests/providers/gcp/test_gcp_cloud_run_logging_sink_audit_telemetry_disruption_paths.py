@@ -427,6 +427,27 @@ class GcpCloudRunLoggingSinkAuditTelemetryDisruptionPathTests(unittest.TestCase)
             excluded.cloud_run_logging_sink_audit_telemetry_disruption_paths,
             [],
         )
+        self.assertTrue(excluded.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties)
+
+        for active_exclusion_filter in ("logName:*", "severity=DEBUG"):
+            with self.subTest(active_exclusion=active_exclusion_filter):
+                _inventory, _workload, _sink_target, active_exclusion = _normalize(
+                    _cloud_run(),
+                    _sink(
+                        exclusions=[
+                            {
+                                "name": "active-exclusion",
+                                "filter": active_exclusion_filter,
+                            }
+                        ]
+                    ),
+                    _project_member(role="roles/logging.admin"),
+                )
+                self.assertEqual(
+                    active_exclusion.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+                    [],
+                )
+                self.assertTrue(active_exclusion.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties)
 
         _inventory, _workload, _sink_target, unresolved = _normalize(
             _cloud_run(),
@@ -465,8 +486,41 @@ class GcpCloudRunLoggingSinkAuditTelemetryDisruptionPathTests(unittest.TestCase)
             1,
         )
 
+        explicit_audit_type_filter = 'protoPayload.@type="type.googleapis.com/google.cloud.audit.AuditLog"'
+        _inventory, _workload, _sink_target, explicit_audit_type = _normalize(
+            _cloud_run(),
+            _sink(filter_text=explicit_audit_type_filter),
+            _project_member(role="roles/logging.admin"),
+        )
+        explicit_paths = explicit_audit_type.cloud_run_logging_sink_audit_telemetry_disruption_paths
+        self.assertEqual(len(explicit_paths), 1)
+        self.assertEqual(
+            explicit_paths[0]["audit_telemetry_relevance_evidence"]["matched_audit_security_filter_signals"],
+            ["google.cloud.audit.auditlog"],
+        )
+
+        for non_audit_filter in (
+            'protoPayload.@type="type.googleapis.com/google.cloud.storage.SomeEvent"',
+            'protoPayload.serviceName="example.googleapis.com"',
+            'jsonPayload.message="cloudaudit.googleapis.com"',
+            'jsonPayload.logName="cloudaudit.googleapis.com"',
+            ('logName:"cloudaudit.googleapis.com" AND logName="projects/example/logs/custom"'),
+            ('logName:"cloudaudit.googleapis.com"\nlogName="projects/example/logs/custom"'),
+        ):
+            with self.subTest(filter=non_audit_filter):
+                _inventory, _workload, _sink_target, non_audit = _normalize(
+                    _cloud_run(),
+                    _sink(filter_text=non_audit_filter),
+                    _project_member(role="roles/logging.admin"),
+                )
+                self.assertEqual(
+                    non_audit.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+                    [],
+                )
+
         for operator_filter in (
             'NOT logName:"cloudaudit.googleapis.com"',
+            '-logName:"cloudaudit.googleapis.com"',
             'logName!="cloudaudit.googleapis.com"',
             'logName!~"cloudaudit.googleapis.com"',
         ):
