@@ -10,12 +10,28 @@ from tfstride.providers.gcp.resource_utils import first_non_empty
 
 def normalize_project_iam_custom_role(resource: TerraformResource) -> NormalizedResource:
     values = GcpValues(resource.values)
-    role_id = first_non_empty(values.get(GcpAttr.ROLE_ID), resource.name)
-    project = first_non_empty(values.get(GcpAttr.PROJECT))
-    name = first_non_empty(values.get(GcpAttr.NAME), _project_custom_role_name(project, role_id))
+    role_id = (
+        None
+        if attribute_unknown(resource.unknown_values, GcpAttr.ROLE_ID.key)
+        else first_non_empty(values.get(GcpAttr.ROLE_ID))
+    )
+    project = (
+        None
+        if attribute_unknown(resource.unknown_values, GcpAttr.PROJECT.key)
+        else first_non_empty(values.get(GcpAttr.PROJECT))
+    )
+    configured_name = (
+        None
+        if attribute_unknown(resource.unknown_values, GcpAttr.NAME.key)
+        else first_non_empty(values.get(GcpAttr.NAME))
+    )
+    name = first_non_empty(configured_name, _project_custom_role_name(project, role_id))
+    configured_id = (
+        None if attribute_unknown(resource.unknown_values, GcpAttr.ID.key) else first_non_empty(values.get(GcpAttr.ID))
+    )
     return _normalize_custom_role(
         resource,
-        identifier=first_non_empty(values.get(GcpAttr.ID), name, role_id, resource.address),
+        identifier=first_non_empty(configured_id, name, role_id, resource.address),
         role_id=role_id,
         name=name,
         project=project,
@@ -25,12 +41,37 @@ def normalize_project_iam_custom_role(resource: TerraformResource) -> Normalized
 
 def normalize_organization_iam_custom_role(resource: TerraformResource) -> NormalizedResource:
     values = GcpValues(resource.values)
-    role_id = first_non_empty(values.get(GcpAttr.ROLE_ID), resource.name)
-    organization_id = first_non_empty(values.get(GcpAttr.ORG_ID), values.get(GcpAttr.ORGANIZATION_ID))
-    name = first_non_empty(values.get(GcpAttr.NAME), _organization_custom_role_name(organization_id, role_id))
+    role_id = (
+        None
+        if attribute_unknown(resource.unknown_values, GcpAttr.ROLE_ID.key)
+        else first_non_empty(values.get(GcpAttr.ROLE_ID))
+    )
+    organization_id = (
+        None
+        if (
+            attribute_unknown(resource.unknown_values, GcpAttr.ORG_ID.key)
+            or attribute_unknown(resource.unknown_values, GcpAttr.ORGANIZATION_ID.key)
+        )
+        else first_non_empty(
+            values.get(GcpAttr.ORG_ID),
+            values.get(GcpAttr.ORGANIZATION_ID),
+        )
+    )
+    configured_name = (
+        None
+        if attribute_unknown(resource.unknown_values, GcpAttr.NAME.key)
+        else first_non_empty(values.get(GcpAttr.NAME))
+    )
+    name = first_non_empty(
+        configured_name,
+        _organization_custom_role_name(organization_id, role_id),
+    )
+    configured_id = (
+        None if attribute_unknown(resource.unknown_values, GcpAttr.ID.key) else first_non_empty(values.get(GcpAttr.ID))
+    )
     return _normalize_custom_role(
         resource,
-        identifier=first_non_empty(values.get(GcpAttr.ID), name, role_id, resource.address),
+        identifier=first_non_empty(configured_id, name, role_id, resource.address),
         role_id=role_id,
         name=name,
         project=None,

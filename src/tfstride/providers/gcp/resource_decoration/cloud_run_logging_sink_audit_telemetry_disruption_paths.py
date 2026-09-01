@@ -133,12 +133,19 @@ _ManagementMode = Literal[
 @dataclass(frozen=True, slots=True)
 class _CustomRoleLifecycle:
     resource_address: str
+    canonical_reference: str
     project: str | None
     organization_id: str | None
     stage: str | None
     deleted: bool | None
     permissions: tuple[str, ...]
     permissions_state: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _CustomRoleReferenceIndex:
+    lifecycles: Mapping[str, _CustomRoleLifecycle]
+    ambiguous_references: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,7 +231,7 @@ def _cloud_run_logging_sink_audit_telemetry_disruption_paths(
     targets: Sequence[_LoggingSinkTarget],
     iam_resources: Sequence[NormalizedResource],
     context: GcpDecorationContext,
-    custom_roles: Mapping[str, _CustomRoleLifecycle],
+    custom_roles: _CustomRoleReferenceIndex,
     project_organizations: Mapping[str, str],
 ) -> tuple[list[GcpCloudRunLoggingSinkAuditTelemetryDisruptionPath], list[str]]:
     del context
@@ -662,7 +669,7 @@ def _normalized_filter(filter_text: str) -> str:
 def _iam_manager_ambiguities(
     target: _LoggingSinkTarget,
     iam_resources: Sequence[NormalizedResource],
-    custom_roles: Mapping[str, _CustomRoleLifecycle],
+    custom_roles: _CustomRoleReferenceIndex,
 ) -> tuple[bool, set[str], list[str]]:
     managers: list[_IamManager] = []
     unresolved_managers: list[_IamManager] = []
@@ -793,7 +800,7 @@ def _unconditional_binding_uncertainty(
 def _role_evidence(
     role: str,
     target_project: str,
-    custom_roles: Mapping[str, _CustomRoleLifecycle],
+    custom_roles: _CustomRoleReferenceIndex,
     project_organizations: Mapping[str, str],
 ) -> tuple[GcpLoggingSinkRoleEvidence | None, str | None]:
     role_kind = _BUILT_IN_ROLES.get(role)
@@ -819,9 +826,15 @@ def _role_evidence(
     if not _looks_like_custom_role(role):
         return None, f"custom IAM role {role} is unresolved"
 
-    lifecycle = custom_roles.get(gcp_reference_key(role, GCP_ROLE_REFERENCE_SUFFIXES))
+    role_reference = gcp_reference_key(role, GCP_ROLE_REFERENCE_SUFFIXES)
+    if role_reference in custom_roles.ambiguous_references:
+        return (
+            None,
+            f"custom IAM role reference {role} collides across multiple role definitions",
+        )
+    lifecycle = custom_roles.lifecycles.get(role_reference)
     if lifecycle is None:
-        return None, f"custom IAM role {role} is unresolved"
+        return None, f"custom IAM role {role} exact identity is unresolved"
     if lifecycle.deleted is True:
         return None, None
     if lifecycle.deleted is None:
@@ -959,17 +972,28 @@ def _audit_telemetry_disruption_path(
 
 def _custom_role_lifecycles_by_reference(
     resources: Sequence[NormalizedResource],
-) -> Mapping[str, _CustomRoleLifecycle]:
-    lifecycles: dict[str, _CustomRoleLifecycle] = {}
+) -> _CustomRoleReferenceIndex:
+    candidates: list[
+        tuple[
+            NormalizedResource,
+            _CustomRoleLifecycle,
+            set[str],
+        ]
+    ] = []
+    canonical_addresses: dict[str, set[str]] = {}
     for resource in resources:
         if resource.resource_type not in {
             GcpResourceType.PROJECT_IAM_CUSTOM_ROLE,
             GcpResourceType.ORGANIZATION_IAM_CUSTOM_ROLE,
         }:
             continue
+        canonical_reference = _exact_custom_role_reference(resource)
+        if canonical_reference is None:
+            continue
         facts = gcp_facts(resource)
         lifecycle = _CustomRoleLifecycle(
             resource.address,
+            canonical_reference,
             normalize_gcp_project(facts.project),
             _normalize_organization(facts.organization_id),
             facts.custom_role_stage,
@@ -977,9 +1001,66 @@ def _custom_role_lifecycles_by_reference(
             tuple(sorted(set(facts.custom_role_permissions))),
             facts.custom_role_permissions_state,
         )
-        for reference in custom_role_reference_keys(resource):
-            lifecycles.setdefault(reference, lifecycle)
-    return lifecycles
+        references = custom_role_reference_keys(resource) | {canonical_reference}
+        candidates.append((resource, lifecycle, references))
+        canonical_addresses.setdefault(canonical_reference, set()).add(resource.address)
+
+    colliding_canonical_references = {
+        reference for reference, addresses in canonical_addresses.items() if len(addresses) > 1
+    }
+    lifecycles: dict[str, _CustomRoleLifecycle] = {}
+    ambiguous_references: set[str] = set()
+    for _resource, lifecycle, references in candidates:
+        if lifecycle.canonical_reference in colliding_canonical_references:
+            for reference in references:
+                lifecycles.pop(reference, None)
+                ambiguous_references.add(reference)
+            continue
+        for reference in references:
+            if reference in ambiguous_references:
+                continue
+            existing = lifecycles.get(reference)
+            if existing is not None and existing.resource_address != lifecycle.resource_address:
+                lifecycles.pop(reference, None)
+                ambiguous_references.add(reference)
+                continue
+            lifecycles[reference] = lifecycle
+    return _CustomRoleReferenceIndex(
+        lifecycles,
+        frozenset(ambiguous_references),
+    )
+
+
+def _exact_custom_role_reference(resource: NormalizedResource) -> str | None:
+    facts = gcp_facts(resource)
+    role_id = _known_string(facts.custom_role_id)
+    if role_id is None or "/" in role_id or "${" in role_id or role_id.startswith("google_"):
+        return None
+
+    if resource.resource_type == GcpResourceType.PROJECT_IAM_CUSTOM_ROLE:
+        project = normalize_gcp_project(facts.project)
+        if project is None:
+            return None
+        canonical_reference = f"projects/{project}/roles/{role_id}"
+    elif resource.resource_type == GcpResourceType.ORGANIZATION_IAM_CUSTOM_ROLE:
+        organization = _normalize_organization(facts.organization_id)
+        if organization is None:
+            return None
+        canonical_reference = f"organizations/{organization}/roles/{role_id}"
+    else:
+        return None
+
+    resource_name = _known_string(facts.resource_name)
+    if resource_name is not None and resource_name != canonical_reference:
+        return None
+    identifier = _known_string(resource.identifier)
+    if (
+        identifier is not None
+        and identifier.startswith(("projects/", "organizations/"))
+        and identifier != canonical_reference
+    ):
+        return None
+    return canonical_reference
 
 
 def _project_organizations(
@@ -1014,10 +1095,12 @@ def _custom_role_grant_scope_compatibility(
 
 def _role_reconciliation_key(
     role: str,
-    custom_roles: Mapping[str, _CustomRoleLifecycle],
+    custom_roles: _CustomRoleReferenceIndex,
 ) -> str:
     normalized = gcp_reference_key(role, GCP_ROLE_REFERENCE_SUFFIXES)
-    lifecycle = custom_roles.get(normalized)
+    if normalized in custom_roles.ambiguous_references:
+        return f"ambiguous-custom:{normalized}"
+    lifecycle = custom_roles.lifecycles.get(normalized)
     if lifecycle is not None:
         return f"custom:{lifecycle.resource_address}"
     return f"role:{normalized}"
@@ -1025,7 +1108,7 @@ def _role_reconciliation_key(
 
 def _manager_role_keys(
     bindings: Sequence[Mapping[str, Any]],
-    custom_roles: Mapping[str, _CustomRoleLifecycle],
+    custom_roles: _CustomRoleReferenceIndex,
 ) -> tuple[str, ...]:
     return tuple(
         sorted(

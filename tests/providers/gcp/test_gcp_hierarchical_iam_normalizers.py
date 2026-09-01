@@ -57,6 +57,28 @@ class GcpHierarchicalIamNormalizerTests(GcpNormalizerTestCase):
         )
         self.assertEqual(normalized.get_metadata_field(GcpResourceMetadata.CUSTOM_ROLE_STAGE), "GA")
 
+    def test_unknown_project_custom_role_identity_is_not_fabricated(self) -> None:
+        address = "google_project_iam_custom_role.unknown"
+        normalized = normalize_project_iam_custom_role(
+            _terraform_resource(
+                address,
+                "google_project_iam_custom_role",
+                {
+                    "project": "tfstride-demo",
+                    "permissions": ["logging.sinks.delete"],
+                },
+                unknown_values={
+                    "role_id": True,
+                    "name": True,
+                    "id": True,
+                },
+            )
+        )
+
+        self.assertEqual(normalized.identifier, address)
+        self.assertIsNone(normalized.get_metadata_field(GcpResourceMetadata.CUSTOM_ROLE_ID))
+        self.assertIsNone(normalized.get_metadata_field(GcpResourceMetadata.NAME))
+
     def test_organization_iam_custom_role_normalizer_preserves_permissions(self) -> None:
         normalized = normalize_organization_iam_custom_role(
             _terraform_resource(

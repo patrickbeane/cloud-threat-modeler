@@ -208,26 +208,34 @@ def _project_policy(
 
 def _custom_role(
     *,
+    address: str = _CUSTOM_ROLE_ADDRESS,
     project: str = _PROJECT,
+    role_id: str | None = _CUSTOM_ROLE_ID,
     permissions: list[str] | None = None,
     stage: str | None = "GA",
     deleted: bool | None = False,
+    unknown_role_id: bool = False,
+    unknown_name: bool = False,
     unknown_stage: bool = False,
     unknown_deleted: bool = False,
     unknown_permissions: bool = False,
 ) -> TerraformResource:
-    role_name = f"projects/{project}/roles/{_CUSTOM_ROLE_ID}"
     values: dict[str, object] = {
         "project": project,
-        "role_id": _CUSTOM_ROLE_ID,
-        "name": role_name,
         "permissions": permissions or [_DELETE_SINK],
     }
+    if role_id is not None:
+        values["role_id"] = role_id
+        values["name"] = f"projects/{project}/roles/{role_id}"
     if stage is not None:
         values["stage"] = stage
     if deleted is not None:
         values["deleted"] = deleted
     unknown_values: dict[str, object] = {}
+    if unknown_role_id:
+        unknown_values["role_id"] = True
+    if unknown_name:
+        unknown_values["name"] = True
     if unknown_stage:
         unknown_values["stage"] = True
     if unknown_deleted:
@@ -235,7 +243,7 @@ def _custom_role(
     if unknown_permissions:
         unknown_values["permissions"] = True
     return _terraform_resource(
-        _CUSTOM_ROLE_ADDRESS,
+        address,
         GcpResourceType.PROJECT_IAM_CUSTOM_ROLE,
         values,
         unknown_values=unknown_values,
@@ -774,6 +782,60 @@ class GcpCloudRunLoggingSinkAuditTelemetryDisruptionPathTests(unittest.TestCase)
             [],
         )
         self.assertTrue(incompatible.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties)
+
+    def test_custom_role_identity_is_exact_and_collision_free(self) -> None:
+        unknown_role = _custom_role(
+            role_id=None,
+            unknown_role_id=True,
+            unknown_name=True,
+        )
+        inventory, _workload, _sink_target, unknown = _normalize(
+            _cloud_run(),
+            _sink(),
+            unknown_role,
+            _project_member(role="google_project_iam_custom_role.logging_sink.name"),
+        )
+        normalized_unknown_role = inventory.get_by_address(_CUSTOM_ROLE_ADDRESS)
+        assert normalized_unknown_role is not None
+        self.assertIsNone(gcp_facts(normalized_unknown_role).custom_role_id)
+        self.assertEqual(
+            unknown.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+            [],
+        )
+        self.assertTrue(
+            any(
+                "exact identity is unresolved" in uncertainty
+                for uncertainty in (unknown.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties)
+            )
+        )
+
+        colliding_roles = (
+            _custom_role(),
+            _custom_role(
+                address="google_project_iam_custom_role.logging_sink_duplicate",
+                permissions=["logging.sinks.get"],
+            ),
+        )
+        for role_definitions in (colliding_roles, tuple(reversed(colliding_roles))):
+            with self.subTest(role_order=tuple(role.address for role in role_definitions)):
+                _inventory, _workload, _sink_target, collision = _normalize(
+                    _cloud_run(),
+                    _sink(),
+                    *role_definitions,
+                    _project_member(),
+                )
+                self.assertEqual(
+                    collision.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+                    [],
+                )
+                self.assertTrue(
+                    any(
+                        "collides across multiple role definitions" in uncertainty
+                        for uncertainty in (
+                            collision.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties
+                        )
+                    )
+                )
 
     def test_unknown_conditional_and_incomplete_iam_evidence_fails_closed(
         self,
