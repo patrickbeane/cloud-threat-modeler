@@ -100,6 +100,7 @@ _GCP_SINK_ADDRESS = "google_logging_project_sink.audit"
 
 _AZURE_WORKLOAD_ID = "/subscriptions/sub-0001/resourceGroups/app/providers/Microsoft.Web/sites/orders"
 _AZURE_DIAGNOSTIC_ID = f"{_AZURE_WORKLOAD_ID}/providers/Microsoft.Insights/diagnosticSettings/audit"
+_AZURE_DIAGNOSTIC_STATE_ID = f"{_AZURE_WORKLOAD_ID}|audit"
 _AZURE_DELETE_DIAGNOSTIC = "Microsoft.Insights/DiagnosticSettings/Delete"
 _AZURE_DELETE_LOG_BLOB = "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/delete"
 _AZURE_ROLE_ID = "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/audit-telemetry-control"
@@ -288,7 +289,7 @@ def _azure_diagnostic_setting(
     return azure_resource(
         AzureResourceType.MONITOR_DIAGNOSTIC_SETTING,
         {
-            "id": _AZURE_DIAGNOSTIC_ID,
+            "id": _AZURE_DIAGNOSTIC_STATE_ID,
             "name": "audit",
             "target_resource_id": target_id,
             "log_analytics_workspace_id": (
@@ -833,7 +834,7 @@ class PublicWorkloadAuditTelemetryDisruptionBoundaryTests(unittest.TestCase):
             ],
         )
         diagnostic_facts = azure_facts(diagnostic)
-        self.assertEqual(diagnostic_facts.diagnostic_setting_id, _AZURE_DIAGNOSTIC_ID)
+        self.assertEqual(diagnostic_facts.diagnostic_setting_id, _AZURE_DIAGNOSTIC_STATE_ID)
         self.assertEqual(
             diagnostic_facts.diagnostic_target_resource_id,
             _AZURE_WORKLOAD_ID,

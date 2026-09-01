@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from tfstride.providers.azure.audit_telemetry_disruption_evidence import (
+    AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultManagementPath,
     AzureAppServiceKeyVaultOperationPath,
@@ -401,6 +404,38 @@ class AzureAppServiceFacts(AzureBaseFacts):
     ) -> None:
         self.extend(
             AzureResourceMetadata.APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES,
+            values,
+        )
+
+    @property
+    def app_service_diagnostic_setting_audit_telemetry_disruption_paths(
+        self,
+    ) -> list[AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPath]:
+        return self.get(AzureResourceMetadata.APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATHS)
+
+    @property
+    def app_service_diagnostic_setting_audit_telemetry_disruption_path_uncertainties(
+        self,
+    ) -> list[str]:
+        return self.get(
+            AzureResourceMetadata.APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES
+        )
+
+    def set_app_service_diagnostic_setting_audit_telemetry_disruption_paths(
+        self,
+        values: list[AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPath],
+    ) -> None:
+        self.set(
+            AzureResourceMetadata.APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATHS,
+            values,
+        )
+
+    def extend_app_service_diagnostic_setting_audit_telemetry_disruption_path_uncertainties(
+        self,
+        values: list[str],
+    ) -> None:
+        self.extend(
+            AzureResourceMetadata.APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES,
             values,
         )
 

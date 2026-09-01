@@ -15,6 +15,9 @@ from tfstride.providers.azure.resource_decoration.app_service_cosmosdb_item_dele
 from tfstride.providers.azure.resource_decoration.app_service_cosmosdb_topology_destruction_paths import (
     ModelAppServiceCosmosDbTopologyDestructionPathsStage,
 )
+from tfstride.providers.azure.resource_decoration.app_service_diagnostic_setting_audit_telemetry_disruption_paths import (
+    ModelAppServiceDiagnosticSettingAuditTelemetryDisruptionPathsStage,
+)
 from tfstride.providers.azure.resource_decoration.app_service_key_vault_access_paths import (
     ModelAppServiceKeyVaultAccessPathsStage,
 )
@@ -118,6 +121,7 @@ def default_azure_decoration_stages() -> tuple[AzureDecorationStage, ...]:
         ModelAppServiceCosmosDbAccessPathsStage(),
         ModelAppServiceCosmosDbItemDeletionPathsStage(),
         ModelAppServiceCosmosDbTopologyDestructionPathsStage(),
+        ModelAppServiceDiagnosticSettingAuditTelemetryDisruptionPathsStage(),
         ModelAppServiceKeyVaultAccessPathsStage(),
         ModelAppServiceStorageAccessPathsStage(),
         ModelAppServiceBlobDeletionPathsStage(),

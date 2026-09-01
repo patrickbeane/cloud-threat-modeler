@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from tfstride.providers.azure.audit_telemetry_disruption_evidence import (
+    AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPath,
+)
 from tfstride.providers.azure.key_vault_dependency_evidence import AzureKeyVaultEncryptionDependency
 from tfstride.providers.azure.key_vault_evidence import (
     AzureAppServiceKeyVaultManagementPath,
@@ -457,6 +460,9 @@ class AzureResourceMetadata:
     APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATH_UNCERTAINTIES = StringListMetadataField(
         "app_service_cosmosdb_topology_destruction_path_uncertainties"
     )
+    APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATH_UNCERTAINTIES = StringListMetadataField(
+        "app_service_diagnostic_setting_audit_telemetry_disruption_path_uncertainties"
+    )
     APP_SERVICE_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_access_restrictions")
     APP_SERVICE_SCM_ACCESS_RESTRICTIONS = DictListMetadataField("app_service_scm_access_restrictions")
     APP_SERVICE_SECRET_REFERENCES = DictListMetadataField("app_service_secret_references")
@@ -501,6 +507,9 @@ class AzureResourceMetadata:
     APP_SERVICE_COSMOSDB_TOPOLOGY_DESTRUCTION_PATHS = RecordListMetadataField[
         AzureAppServiceCosmosDbTopologyDestructionPath
     ]("app_service_cosmosdb_topology_destruction_paths")
+    APP_SERVICE_DIAGNOSTIC_SETTING_AUDIT_TELEMETRY_DISRUPTION_PATHS = RecordListMetadataField[
+        AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPath
+    ]("app_service_diagnostic_setting_audit_telemetry_disruption_paths")
     APP_SERVICE_AUTH_SETTINGS = DictMetadataField("app_service_auth_settings")
     APP_SERVICE_AUTH_SETTINGS_V2 = DictMetadataField("app_service_auth_settings_v2")
     CONTAINER_IMAGE_REFERENCES = DictListMetadataField("container_image_references")

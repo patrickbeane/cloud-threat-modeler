@@ -210,6 +210,7 @@ include = [
 
   # Azure audit-telemetry disruption evidence.
   "src/tfstride/providers/azure/audit_telemetry_disruption_evidence.py",
+  "src/tfstride/providers/azure/resource_decoration/app_service_diagnostic_setting_audit_telemetry_disruption_paths.py",
 
   # Azure messaging removal and delivery evidence.
   "src/tfstride/providers/azure/message_removal_evidence.py",

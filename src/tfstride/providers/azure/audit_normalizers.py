@@ -87,7 +87,7 @@ def normalize_monitor_diagnostic_setting(resource: TerraformResource) -> Normali
             AzureResourceMetadata.DIAGNOSTIC_MARKETPLACE_PARTNER_RESOURCE_ID: known_string(
                 values,
                 unknown_values,
-                "marketplace_partner_resource_id",
+                "partner_solution_id",
                 uncertainties,
             ),
             AzureResourceMetadata.DIAGNOSTIC_LOG_RECORDS: log_records,

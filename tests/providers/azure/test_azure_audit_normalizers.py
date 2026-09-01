@@ -42,13 +42,16 @@ class AzureAuditNormalizerTests(unittest.TestCase):
             _resource(
                 AzureResourceType.MONITOR_DIAGNOSTIC_SETTING,
                 {
-                    "id": "/subscriptions/example/providers/Microsoft.Insights/diagnosticSettings/audit",
+                    "id": ("/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/app|audit"),
                     "name": "audit",
                     "target_resource_id": "/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/app",
                     "log_analytics_workspace_id": "/subscriptions/example/resourceGroups/obs/providers/Microsoft.OperationalInsights/workspaces/sec",
                     "storage_account_id": "/subscriptions/example/resourceGroups/obs/providers/Microsoft.Storage/storageAccounts/logs",
                     "eventhub_authorization_rule_id": "/subscriptions/example/eventhubAuthRules/audit",
                     "eventhub_name": "security",
+                    "partner_solution_id": (
+                        "/subscriptions/example/resourceGroups/obs/providers/Microsoft.Datadog/monitors/security"
+                    ),
                     "enabled_log": [{"category": "AuditEvent"}, {"category_group": "allLogs"}],
                     "log": [{"category": "Administrative", "enabled": False}],
                     "metric": [{"category": "AllMetrics", "enabled": True}],
@@ -61,7 +64,7 @@ class AzureAuditNormalizerTests(unittest.TestCase):
         self.assertEqual(normalized.category, ResourceCategory.IAM)
         self.assertEqual(
             normalized.identifier,
-            "/subscriptions/example/providers/Microsoft.Insights/diagnosticSettings/audit",
+            "/subscriptions/example/resourceGroups/app/providers/Microsoft.KeyVault/vaults/app|audit",
         )
         self.assertEqual(facts.diagnostic_setting_id, normalized.identifier)
         self.assertEqual(facts.diagnostic_setting_name, "audit")
@@ -81,6 +84,10 @@ class AzureAuditNormalizerTests(unittest.TestCase):
             facts.diagnostic_eventhub_authorization_rule_id, "/subscriptions/example/eventhubAuthRules/audit"
         )
         self.assertEqual(facts.diagnostic_eventhub_name, "security")
+        self.assertEqual(
+            facts.diagnostic_marketplace_partner_resource_id,
+            "/subscriptions/example/resourceGroups/obs/providers/Microsoft.Datadog/monitors/security",
+        )
         self.assertEqual(facts.diagnostic_enabled_log_categories, ["AuditEvent"])
         self.assertEqual(facts.diagnostic_enabled_log_category_groups, ["allLogs"])
         self.assertEqual(facts.diagnostic_metric_categories, ["AllMetrics"])

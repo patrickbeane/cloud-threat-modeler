@@ -633,6 +633,8 @@ def _arm_id(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().rstrip("/")
+    if "|" in normalized:
+        return None
     lowered = normalized.casefold()
     if lowered == "/" or lowered.startswith("/subscriptions/") or lowered.startswith("/providers/"):
         return normalized

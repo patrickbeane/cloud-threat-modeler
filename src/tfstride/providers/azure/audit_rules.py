@@ -43,6 +43,12 @@ _DIAGNOSTIC_DESTINATION_FIELDS = (
     "eventhub_authorization_rule_id",
     "marketplace_partner_resource_id",
 )
+_DIAGNOSTIC_DESTINATION_UNCERTAINTY_FIELDS = (
+    "log_analytics_workspace_id",
+    "storage_account_id",
+    "eventhub_authorization_rule_id",
+    "partner_solution_id",
+)
 _DIAGNOSTIC_CATEGORY_FIELDS = ("enabled_log", "log", "category", "category_group")
 _AUDIT_SECURITY_CATEGORY_GROUPS = frozenset({"audit", "alllogs"})
 
@@ -260,7 +266,12 @@ def _has_delivery_destination(facts: AzureResourceFacts) -> bool:
 
 
 def _destination_fields_unknown(facts: AzureResourceFacts) -> bool:
-    return bool(_matching_uncertainties(facts.azure_security_posture_uncertainties, _DIAGNOSTIC_DESTINATION_FIELDS))
+    return bool(
+        _matching_uncertainties(
+            facts.azure_security_posture_uncertainties,
+            _DIAGNOSTIC_DESTINATION_UNCERTAINTY_FIELDS,
+        )
+    )
 
 
 def _target_resource_evidence(resource: NormalizedResource, facts: AzureResourceFacts) -> list[str]:
@@ -302,7 +313,12 @@ def _diagnostic_destination_evidence(facts: AzureResourceFacts) -> list[str]:
     if facts.diagnostic_eventhub_name:
         values.append(f"eventhub_name={facts.diagnostic_eventhub_name}")
         values.append("eventhub_name without eventhub_authorization_rule_id is not treated as a log destination")
-    values.extend(_uncertainty_evidence(facts.azure_security_posture_uncertainties, _DIAGNOSTIC_DESTINATION_FIELDS))
+    values.extend(
+        _uncertainty_evidence(
+            facts.azure_security_posture_uncertainties,
+            _DIAGNOSTIC_DESTINATION_UNCERTAINTY_FIELDS,
+        )
+    )
     return values
 
 
