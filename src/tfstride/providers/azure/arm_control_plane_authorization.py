@@ -71,6 +71,11 @@ _BUILT_IN_CONTROL_PLANE_ROLES = (
         ),
     ),
     _BuiltInControlPlaneRole(
+        "Monitoring Contributor",
+        "749f88d5-cbae-40b8-bcfc-e573ddc772fa",
+        ("Microsoft.Insights/DiagnosticSettings/*",),
+    ),
+    _BuiltInControlPlaneRole(
         "Storage Account Contributor",
         "17d1049b-9a84-46fb-8f53-869881c3d3ab",
         (

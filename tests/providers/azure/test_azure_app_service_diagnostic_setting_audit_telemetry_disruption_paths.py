@@ -47,6 +47,12 @@ _ARBITRARY_MONITORED_RESOURCE_ID = (
 )
 _ARBITRARY_DIAGNOSTIC_ID = f"{_ARBITRARY_MONITORED_RESOURCE_ID}/providers/Microsoft.Insights/diagnosticSettings/audit"
 _ARBITRARY_DIAGNOSTIC_STATE_ID = f"{_ARBITRARY_MONITORED_RESOURCE_ID}|audit"
+_OWNER_ROLE_DEFINITION_ID = (
+    "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+)
+_MONITORING_CONTRIBUTOR_ROLE_DEFINITION_ID = (
+    "/subscriptions/sub-0001/providers/Microsoft.Authorization/roleDefinitions/749f88d5-cbae-40b8-bcfc-e573ddc772fa"
+)
 
 
 def _valid_resources(
@@ -105,19 +111,21 @@ def _built_in_assignment(
     *,
     scope: str = _AZURE_WORKLOAD_ID,
     principal_id: str = _SYSTEM_PRINCIPAL_ID,
+    role_definition_name: str | None = "Owner",
+    role_definition_id: str | None = _OWNER_ROLE_DEFINITION_ID,
 ) -> TerraformResource:
+    values: dict[str, object] = {
+        "scope": scope,
+        "principal_id": principal_id,
+        "principal_type": "ServicePrincipal",
+    }
+    if role_definition_name is not None:
+        values["role_definition_name"] = role_definition_name
+    if role_definition_id is not None:
+        values["role_definition_id"] = role_definition_id
     return _resource(
         AzureResourceType.ROLE_ASSIGNMENT,
-        {
-            "scope": scope,
-            "role_definition_name": "Owner",
-            "role_definition_id": (
-                "/subscriptions/sub-0001/providers/Microsoft.Authorization/"
-                "roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
-            ),
-            "principal_id": principal_id,
-            "principal_type": "ServicePrincipal",
-        },
+        values,
         name="diagnostic_owner",
     )
 
@@ -185,6 +193,42 @@ class AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPathTests(unittest
         self.assertEqual(grant["assignment_scope_arm_id"], _AZURE_WORKLOAD_ID)
         self.assertEqual(grant["target_arm_id"], _AZURE_DIAGNOSTIC_ID)
         self.assertEqual(grant["role_evidence"]["role_kind"], "built_in")
+
+    def test_monitoring_contributor_grants_diagnostic_setting_delete(self) -> None:
+        assignments = {
+            "role id": _built_in_assignment(
+                role_definition_name=None,
+                role_definition_id=_MONITORING_CONTRIBUTOR_ROLE_DEFINITION_ID,
+            ),
+            "role name": _built_in_assignment(
+                role_definition_name="Monitoring Contributor",
+                role_definition_id=None,
+            ),
+        }
+        for case, assignment in assignments.items():
+            with self.subTest(case=case):
+                paths = _workload_paths(
+                    [
+                        _azure_workload(),
+                        _azure_diagnostic_setting(),
+                        assignment,
+                    ]
+                )
+
+                self.assertEqual(len(paths), 1)
+                grant = paths[0]["authorization_grant"]
+                self.assertEqual(
+                    grant["matched_actions"],
+                    [_AZURE_DELETE_DIAGNOSTIC],
+                )
+                self.assertEqual(
+                    grant["role_actions"],
+                    ["Microsoft.Insights/DiagnosticSettings/*"],
+                )
+                self.assertEqual(
+                    grant["role_evidence"]["role_kind"],
+                    "built_in",
+                )
 
     def test_attached_user_assigned_identity_correlates_exact_principal(self) -> None:
         workload = _azure_workload(
