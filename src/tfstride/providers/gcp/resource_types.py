@@ -78,6 +78,7 @@ class GcpResourceType:
     KMS_KEY_RING_IAM_BINDING = "google_kms_key_ring_iam_binding"
     KMS_KEY_RING_IAM_MEMBER = "google_kms_key_ring_iam_member"
     KMS_KEY_RING_IAM_POLICY = "google_kms_key_ring_iam_policy"
+    IAM_DENY_POLICY = "google_iam_deny_policy"
     LOGGING_ORGANIZATION_EXCLUSION = "google_logging_organization_exclusion"
     LOGGING_ORGANIZATION_SINK = "google_logging_organization_sink"
     LOGGING_PROJECT_EXCLUSION = "google_logging_project_exclusion"
@@ -440,6 +441,7 @@ GCP_NORMALIZED_RESOURCE_TYPES = frozenset(
         GcpResourceType.KMS_KEY_RING_IAM_BINDING,
         GcpResourceType.KMS_KEY_RING_IAM_MEMBER,
         GcpResourceType.KMS_KEY_RING_IAM_POLICY,
+        GcpResourceType.IAM_DENY_POLICY,
         GcpResourceType.LOGGING_ORGANIZATION_EXCLUSION,
         GcpResourceType.LOGGING_ORGANIZATION_SINK,
         GcpResourceType.LOGGING_PROJECT_EXCLUSION,

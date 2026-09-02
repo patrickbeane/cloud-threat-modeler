@@ -4,11 +4,14 @@ import unittest
 
 from tests.providers.gcp.test_gcp_cloud_run_logging_sink_audit_telemetry_disruption_paths import (
     _CUSTOM_ROLE_ADDRESS,
+    _DENY_DELETE_SINK,
     _DESTINATION,
     _IAM_ADDRESS,
+    _RUNTIME_DENY_PRINCIPAL,
     _SINK_ADDRESS,
     _SINK_RESOURCE_NAME,
     _custom_role,
+    _deny_policy,
     _project_member,
     _sink,
 )
@@ -129,6 +132,37 @@ class GcpPublicCloudRunLoggingSinkDisruptionRuleTests(unittest.TestCase):
         gcp_facts(source).set(GcpResourceMetadata.IAM_BINDINGS, [])
         gcp_facts(source).set(GcpResourceMetadata.IAM_ROLE, None)
         gcp_facts(source).set(GcpResourceMetadata.IAM_MEMBER, None)
+
+        self.assertEqual(_evaluate_inventory(inventory), [])
+
+    def test_new_current_iam_deny_suppresses_stale_candidate(self) -> None:
+        inventory, findings = _evaluate(
+            [
+                *_resources(),
+                _deny_policy(denied_permissions=["logging.googleapis.com/logMetrics.delete"]),
+            ]
+        )
+        self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
+
+        deny_policy = inventory.get_by_address("google_iam_deny_policy.logging_sink")
+        assert deny_policy is not None
+        gcp_facts(deny_policy).set(
+            GcpResourceMetadata.IAM_DENY_POLICY_RULES,
+            [
+                {
+                    "denied_principals": [_RUNTIME_DENY_PRINCIPAL],
+                    "denied_principals_state": "configured",
+                    "exception_principals": [],
+                    "exception_principals_state": "not_configured",
+                    "denied_permissions": [_DENY_DELETE_SINK],
+                    "denied_permissions_state": "configured",
+                    "exception_permissions": [],
+                    "exception_permissions_state": "not_configured",
+                    "condition": None,
+                    "condition_state": "not_configured",
+                }
+            ],
+        )
 
         self.assertEqual(_evaluate_inventory(inventory), [])
 

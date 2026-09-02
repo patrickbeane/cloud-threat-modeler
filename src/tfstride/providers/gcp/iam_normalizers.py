@@ -4,6 +4,7 @@ from tfstride.providers.gcp.iam_custom_role_normalizers import (
     normalize_organization_iam_custom_role,
     normalize_project_iam_custom_role,
 )
+from tfstride.providers.gcp.iam_deny_normalizers import normalize_iam_deny_policy
 from tfstride.providers.gcp.iam_hierarchy_normalizers import (
     normalize_folder_iam_binding,
     normalize_folder_iam_member,
@@ -77,6 +78,7 @@ __all__ = (
     "normalize_kms_key_ring_iam_binding",
     "normalize_kms_key_ring_iam_member",
     "normalize_kms_key_ring_iam_policy",
+    "normalize_iam_deny_policy",
     "normalize_organization_iam_binding",
     "normalize_organization_iam_custom_role",
     "normalize_organization_iam_member",

@@ -29,6 +29,8 @@ _SINK_RESOURCE_NAME = f"projects/{_PROJECT}/sinks/{_SINK_NAME}"
 _DESTINATION = "storage.googleapis.com/tfstride-audit-archive"
 _AUDIT_FILTER = 'logName:"cloudaudit.googleapis.com"'
 _DELETE_SINK = "logging.sinks.delete"
+_DENY_DELETE_SINK = "logging.googleapis.com/sinks.delete"
+_RUNTIME_DENY_PRINCIPAL = f"principal://iam.googleapis.com/projects/-/serviceAccounts/{_SERVICE_ACCOUNT_EMAIL}"
 _CUSTOM_ROLE_ID = "loggingSinkDisruptor"
 _CUSTOM_ROLE_NAME = f"projects/{_PROJECT}/roles/{_CUSTOM_ROLE_ID}"
 _CUSTOM_ROLE_ADDRESS = "google_project_iam_custom_role.logging_sink"
@@ -278,6 +280,62 @@ def _project_resource(
         {
             "project_id": _PROJECT,
             "org_id": organization,
+        },
+    )
+
+
+def _deny_policy(
+    *,
+    parent: str = "cloudresourcemanager.googleapis.com%2Fprojects%2Ftfstride-demo",
+    denied_principals: list[str] | None = None,
+    denied_permissions: list[str] | None = None,
+    exception_principals: list[str] | None = None,
+    exception_permissions: list[str] | None = None,
+    condition: dict[str, str] | None = None,
+    unknown_parent: bool = False,
+    unknown_denied_permissions: bool = False,
+) -> TerraformResource:
+    deny_rule: dict[str, object] = {
+        "denied_principals": denied_principals or [_RUNTIME_DENY_PRINCIPAL],
+        "denied_permissions": denied_permissions or [_DENY_DELETE_SINK],
+        "exception_principals": exception_principals or [],
+        "exception_permissions": exception_permissions or [],
+    }
+    if condition is not None:
+        deny_rule["denial_condition"] = [condition]
+    unknown_values: dict[str, object] = {}
+    if unknown_parent:
+        unknown_values["parent"] = True
+    if unknown_denied_permissions:
+        unknown_values["rules"] = [{"deny_rule": [{"denied_permissions": True}]}]
+    return _terraform_resource(
+        "google_iam_deny_policy.logging_sink",
+        GcpResourceType.IAM_DENY_POLICY,
+        {
+            "parent": parent,
+            "name": "deny-logging-sink-delete",
+            "rules": [{"deny_rule": [deny_rule]}],
+        },
+        unknown_values=unknown_values,
+    )
+
+
+def _principal_access_boundary_policy() -> TerraformResource:
+    return _terraform_resource(
+        "google_iam_principal_access_boundary_policy.runtime",
+        "google_iam_principal_access_boundary_policy",
+        {
+            "parent": "organizations/1234567890/locations/global",
+            "name": "runtime-boundary",
+            "details": [
+                {
+                    "rules": [
+                        {
+                            "resources": ["//cloudresourcemanager.googleapis.com/projects/other"],
+                        }
+                    ]
+                }
+            ],
         },
     )
 
@@ -579,6 +637,106 @@ class GcpCloudRunLoggingSinkAuditTelemetryDisruptionPathTests(unittest.TestCase)
         self.assertEqual(
             non_delete.cloud_run_logging_sink_audit_telemetry_disruption_paths,
             [],
+        )
+
+    def test_in_plan_iam_deny_policy_controls_effective_sink_authority(self) -> None:
+        _inventory, _workload, _sink_target, denied = _normalize(
+            _cloud_run(),
+            _sink(),
+            _project_member(role="roles/logging.admin"),
+            _deny_policy(),
+        )
+        self.assertEqual(
+            denied.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+            [],
+        )
+        self.assertEqual(
+            denied.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties,
+            [],
+        )
+
+        _inventory, _workload, _sink_target, public_denied = _normalize(
+            _cloud_run(),
+            _sink(),
+            _project_member(role="roles/logging.admin"),
+            _deny_policy(denied_principals=["principalSet://goog/public:all"]),
+        )
+        self.assertEqual(
+            public_denied.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+            [],
+        )
+
+        _inventory, _workload, _sink_target, organization_denied = _normalize(
+            _cloud_run(),
+            _sink(),
+            _project_member(role="roles/logging.admin"),
+            _project_resource(),
+            _deny_policy(parent=(f"cloudresourcemanager.googleapis.com%2Forganizations%2F{_ORGANIZATION}")),
+        )
+        self.assertEqual(
+            organization_denied.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+            [],
+        )
+
+        compatible_policies = {
+            "other permission": _deny_policy(denied_permissions=["logging.googleapis.com/logMetrics.delete"]),
+            "unsupported wildcard": _deny_policy(denied_permissions=["logging.googleapis.com/sinks.de*"]),
+            "other principal": _deny_policy(
+                denied_principals=[
+                    "principal://iam.googleapis.com/projects/-/serviceAccounts/other@example.iam.gserviceaccount.com"
+                ]
+            ),
+            "other project": _deny_policy(parent=("cloudresourcemanager.googleapis.com%2Fprojects%2Ftfstride-foreign")),
+            "permission exception": _deny_policy(exception_permissions=[_DENY_DELETE_SINK]),
+            "principal exception": _deny_policy(exception_principals=[_RUNTIME_DENY_PRINCIPAL]),
+        }
+        for case, policy in compatible_policies.items():
+            with self.subTest(case=case):
+                _inventory, _workload, _sink_target, compatible = _normalize(
+                    _cloud_run(),
+                    _sink(),
+                    _project_member(role="roles/logging.admin"),
+                    policy,
+                )
+                self.assertEqual(
+                    len(compatible.cloud_run_logging_sink_audit_telemetry_disruption_paths),
+                    1,
+                )
+
+    def test_unresolved_applicable_iam_deny_policy_fails_closed(self) -> None:
+        policies = {
+            "conditional": _deny_policy(condition={"expression": "resource.matchTag('123/environment', 'prod')"}),
+            "unknown permission": _deny_policy(unknown_denied_permissions=True),
+            "unknown parent": _deny_policy(unknown_parent=True),
+            "unresolved folder inheritance": _deny_policy(
+                parent="cloudresourcemanager.googleapis.com%2Ffolders%2F123456"
+            ),
+        }
+        for case, policy in policies.items():
+            with self.subTest(case=case):
+                _inventory, _workload, _sink_target, facts = _normalize(
+                    _cloud_run(),
+                    _sink(),
+                    _project_member(role="roles/logging.admin"),
+                    policy,
+                )
+                self.assertEqual(
+                    facts.cloud_run_logging_sink_audit_telemetry_disruption_paths,
+                    [],
+                )
+                self.assertTrue(facts.cloud_run_logging_sink_audit_telemetry_disruption_path_uncertainties)
+
+    def test_principal_access_boundary_does_not_suppress_sink_delete(self) -> None:
+        _inventory, _workload, _sink_target, facts = _normalize(
+            _cloud_run(),
+            _sink(),
+            _project_member(role="roles/logging.admin"),
+            _principal_access_boundary_policy(),
+        )
+
+        self.assertEqual(
+            len(facts.cloud_run_logging_sink_audit_telemetry_disruption_paths),
+            1,
         )
 
     def test_project_grant_correlates_only_exact_same_project_sinks(self) -> None:

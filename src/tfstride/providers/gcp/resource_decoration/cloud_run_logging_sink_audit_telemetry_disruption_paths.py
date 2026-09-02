@@ -4,6 +4,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, cast
+from urllib.parse import unquote
 
 from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
@@ -49,6 +50,8 @@ from tfstride.providers.gcp.resource_utils import (
 )
 
 _DELETE_SINK = "logging.sinks.delete"
+_DENY_DELETE_SINK_PERMISSION = "logging.googleapis.com/sinks.delete"
+_PUBLIC_ALL_PRINCIPAL_SET = "principalSet://goog/public:all"
 _SERVICE_ACCOUNT_DOMAIN = ".gserviceaccount.com"
 _ACTIVE_CUSTOM_ROLE_STAGES = frozenset({"ALPHA", "BETA", "DEPRECATED", "EAP", "GA"})
 _SINK_RESOURCE_NAME_PATTERN = re.compile(r"^projects/([^/]+)/sinks/([^/]+)$")
@@ -179,6 +182,7 @@ class ModelCloudRunLoggingSinkAuditTelemetryDisruptionPathsStage:
     ) -> None:
         targets, target_uncertainties = _logging_sink_targets(resources)
         iam_resources = _iam_resources(resources)
+        deny_policies = _iam_deny_policies(resources)
         custom_roles = _custom_role_lifecycles_by_reference(resources)
         project_organizations = _project_organizations(resources)
 
@@ -189,6 +193,7 @@ class ModelCloudRunLoggingSinkAuditTelemetryDisruptionPathsStage:
                 workload,
                 targets,
                 iam_resources,
+                deny_policies,
                 context,
                 custom_roles,
                 project_organizations,
@@ -219,6 +224,7 @@ def current_cloud_run_logging_sink_audit_telemetry_disruption_paths(
         workload,
         (target,),
         _iam_resources(resources),
+        _iam_deny_policies(resources),
         context,
         _custom_role_lifecycles_by_reference(resources),
         _project_organizations(resources),
@@ -230,6 +236,7 @@ def _cloud_run_logging_sink_audit_telemetry_disruption_paths(
     workload: NormalizedResource,
     targets: Sequence[_LoggingSinkTarget],
     iam_resources: Sequence[NormalizedResource],
+    deny_policies: Sequence[NormalizedResource],
     context: GcpDecorationContext,
     custom_roles: _CustomRoleReferenceIndex,
     project_organizations: Mapping[str, str],
@@ -280,6 +287,17 @@ def _cloud_run_logging_sink_audit_telemetry_disruption_paths(
         )
         destination = target.destination
         assert destination is not None
+
+        deny_state, deny_uncertainties = _logging_sink_delete_deny_state(
+            target,
+            service_account_email,
+            deny_policies,
+            project_organizations,
+        )
+        if deny_state != "compatible":
+            if deny_state == "unknown":
+                uncertainties.extend(f"{workload.address}: {uncertainty}" for uncertainty in deny_uncertainties)
+            continue
 
         ambiguous_project, ambiguous_roles, manager_uncertainties = _iam_manager_ambiguities(
             target,
@@ -664,6 +682,190 @@ def _audit_security_filter_signals(filter_text: str) -> list[str]:
 
 def _normalized_filter(filter_text: str) -> str:
     return " ".join(filter_text.lower().replace(chr(39), chr(34)).split())
+
+
+def _logging_sink_delete_deny_state(
+    target: _LoggingSinkTarget,
+    service_account_email: str,
+    deny_policies: Sequence[NormalizedResource],
+    project_organizations: Mapping[str, str],
+) -> tuple[Literal["compatible", "blocked", "unknown"], list[str]]:
+    unknown_messages: list[str] = []
+    for policy in deny_policies:
+        scope_state = _deny_policy_scope_state(
+            policy,
+            target.project,
+            project_organizations,
+        )
+        if scope_state == "incompatible":
+            continue
+
+        rule_state = _deny_policy_rule_state(policy, service_account_email)
+        if rule_state == "compatible":
+            continue
+        if scope_state == "unknown":
+            unknown_messages.append(
+                f"{policy.address} IAM deny-policy applicability to {target.resource_name} is unresolved"
+            )
+            continue
+        if rule_state == "blocked":
+            return "blocked", []
+        unknown_messages.append(
+            f"{policy.address} IAM deny-policy effect on "
+            f"{_DENY_DELETE_SINK_PERMISSION} for {target.resource_name} is unresolved"
+        )
+
+    if unknown_messages:
+        return "unknown", dedupe(unknown_messages)
+    return "compatible", []
+
+
+def _deny_policy_scope_state(
+    policy: NormalizedResource,
+    target_project: str,
+    project_organizations: Mapping[str, str],
+) -> Literal["compatible", "incompatible", "unknown"]:
+    facts = gcp_facts(policy)
+    if facts.iam_deny_policy_parent_state != "configured":
+        return "unknown"
+    parent = _known_string(facts.iam_deny_policy_parent)
+    if parent is None:
+        return "unknown"
+    scope = _deny_policy_parent_scope(parent)
+    if scope is None:
+        return "unknown"
+    scope_type, scope_name = scope
+    if scope_type == "projects":
+        return "compatible" if scope_name == target_project else "incompatible"
+    if scope_type == "organizations":
+        target_organization = project_organizations.get(target_project)
+        if target_organization is None:
+            return "unknown"
+        return "compatible" if scope_name == target_organization else "incompatible"
+    return "unknown"
+
+
+def _deny_policy_parent_scope(
+    value: str,
+) -> tuple[Literal["projects", "folders", "organizations"], str] | None:
+    normalized = unquote(value).strip().lstrip("/")
+    prefix = "cloudresourcemanager.googleapis.com/"
+    if normalized.startswith(prefix):
+        normalized = normalized[len(prefix) :]
+    parts = normalized.split("/")
+    if len(parts) != 2 or parts[0] not in {"projects", "folders", "organizations"} or not parts[1]:
+        return None
+    return cast(
+        tuple[Literal["projects", "folders", "organizations"], str],
+        (parts[0], parts[1]),
+    )
+
+
+def _deny_policy_rule_state(
+    policy: NormalizedResource,
+    service_account_email: str,
+) -> Literal["compatible", "blocked", "unknown"]:
+    facts = gcp_facts(policy)
+    unknown = facts.iam_deny_policy_completeness_state != "complete"
+    for rule in facts.iam_deny_policy_rules:
+        state = _deny_rule_state(rule, service_account_email)
+        if state == "blocked":
+            return "blocked"
+        if state == "unknown":
+            unknown = True
+    return "unknown" if unknown else "compatible"
+
+
+def _deny_rule_state(
+    rule: Mapping[str, Any],
+    service_account_email: str,
+) -> Literal["compatible", "blocked", "unknown"]:
+    denied_permissions = _deny_rule_values(rule, "denied_permissions")
+    denied_permissions_state = _known_string(rule.get("denied_permissions_state"))
+    if denied_permissions_state == "unknown":
+        return "unknown"
+    if denied_permissions is None:
+        return "unknown"
+    if not _deny_permission_matches(denied_permissions):
+        return "compatible"
+
+    exception_permissions = _deny_rule_values(rule, "exception_permissions")
+    exception_permissions_state = _known_string(rule.get("exception_permissions_state"))
+    if exception_permissions_state == "unknown":
+        return "unknown"
+    if exception_permissions is None:
+        return "unknown"
+    if _deny_permission_matches(exception_permissions):
+        return "compatible"
+
+    denied_principals = _deny_rule_values(rule, "denied_principals")
+    denied_principals_state = _known_string(rule.get("denied_principals_state"))
+    if denied_principals_state == "unknown":
+        return "unknown"
+    if denied_principals is None:
+        return "unknown"
+    principal_state = _deny_principal_match(
+        denied_principals,
+        service_account_email,
+    )
+    if principal_state == "not_matched":
+        return "compatible"
+    if principal_state == "unknown":
+        return "unknown"
+
+    exception_principals = _deny_rule_values(rule, "exception_principals")
+    exception_principals_state = _known_string(rule.get("exception_principals_state"))
+    if exception_principals_state == "unknown":
+        return "unknown"
+    if exception_principals is None:
+        return "unknown"
+    exception_state = _deny_principal_match(
+        exception_principals,
+        service_account_email,
+    )
+    if exception_state == "matched":
+        return "compatible"
+    if exception_state == "unknown":
+        return "unknown"
+
+    condition_state = _known_string(rule.get("condition_state"))
+    if condition_state == "not_configured":
+        return "blocked"
+    return "unknown"
+
+
+def _deny_rule_values(
+    rule: Mapping[str, Any],
+    key: str,
+) -> tuple[str, ...] | None:
+    value = rule.get(key)
+    if not isinstance(value, list):
+        return None
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            return None
+        normalized.append(item.strip())
+    return tuple(normalized)
+
+
+def _deny_permission_matches(permissions: Sequence[str]) -> bool:
+    return _DENY_DELETE_SINK_PERMISSION in permissions
+
+
+def _deny_principal_match(
+    principals: Sequence[str],
+    service_account_email: str,
+) -> Literal["matched", "not_matched", "unknown"]:
+    runtime_principal = f"principal://iam.googleapis.com/projects/-/serviceAccounts/{service_account_email}"
+    unknown = False
+    for principal in principals:
+        if principal in {runtime_principal, _PUBLIC_ALL_PRINCIPAL_SET}:
+            return "matched"
+        if principal.startswith("principal://"):
+            continue
+        unknown = True
+    return "unknown" if unknown else "not_matched"
 
 
 def _iam_manager_ambiguities(
@@ -1147,6 +1349,12 @@ def _management_mode(resource: NormalizedResource) -> _ManagementMode:
     if resource.resource_type == GcpResourceType.PROJECT_IAM_BINDING:
         return "authoritative_role_binding"
     return "additive_member"
+
+
+def _iam_deny_policies(
+    resources: Sequence[NormalizedResource],
+) -> tuple[NormalizedResource, ...]:
+    return tuple(resource for resource in resources if resource.resource_type == GcpResourceType.IAM_DENY_POLICY)
 
 
 def _iam_resources(

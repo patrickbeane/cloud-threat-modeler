@@ -22,6 +22,26 @@ class GcpIamFacts(GcpBaseFacts):
         return self.get(GcpResourceMetadata.IAM_SCOPE_REFERENCE_STATE)
 
     @property
+    def iam_deny_policy_parent(self) -> str | None:
+        return self.get(GcpResourceMetadata.IAM_DENY_POLICY_PARENT)
+
+    @property
+    def iam_deny_policy_parent_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.IAM_DENY_POLICY_PARENT_STATE)
+
+    @property
+    def iam_deny_policy_rules(self) -> list[dict[str, Any]]:
+        return self.get(GcpResourceMetadata.IAM_DENY_POLICY_RULES)
+
+    @property
+    def iam_deny_policy_completeness_state(self) -> str | None:
+        return self.get(GcpResourceMetadata.IAM_DENY_POLICY_COMPLETENESS_STATE)
+
+    @property
+    def iam_deny_policy_uncertainties(self) -> list[str]:
+        return self.get(GcpResourceMetadata.IAM_DENY_POLICY_UNCERTAINTIES)
+
+    @property
     def resource_policy_source_addresses(self) -> list[str]:
         return self.get(GcpResourceMetadata.RESOURCE_POLICY_SOURCE_ADDRESSES)
 

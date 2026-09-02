@@ -12,6 +12,7 @@ from tfstride.providers.gcp.iam_normalizers import (
     normalize_folder_iam_binding,
     normalize_folder_iam_member,
     normalize_folder_iam_policy,
+    normalize_iam_deny_policy,
     normalize_organization_iam_binding,
     normalize_organization_iam_custom_role,
     normalize_organization_iam_member,
@@ -25,6 +26,91 @@ from tfstride.providers.gcp.metadata import GcpResourceMetadata
 
 
 class GcpHierarchicalIamNormalizerTests(GcpNormalizerTestCase):
+    def test_iam_deny_policy_normalizer_preserves_provider_native_rules(self) -> None:
+        normalized = normalize_iam_deny_policy(
+            _terraform_resource(
+                "google_iam_deny_policy.logging_sink",
+                "google_iam_deny_policy",
+                {
+                    "parent": ("cloudresourcemanager.googleapis.com%2Fprojects%2Ftfstride-demo"),
+                    "name": "deny-logging-sink-delete",
+                    "rules": [
+                        {
+                            "deny_rule": [
+                                {
+                                    "denied_principals": ["principalSet://goog/public:all"],
+                                    "exception_principals": [],
+                                    "denied_permissions": ["logging.googleapis.com/sinks.delete"],
+                                    "exception_permissions": [],
+                                }
+                            ]
+                        }
+                    ],
+                },
+            )
+        )
+
+        self.assertEqual(normalized.category, ResourceCategory.IAM)
+        self.assertEqual(
+            normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_PARENT),
+            ("cloudresourcemanager.googleapis.com%2Fprojects%2Ftfstride-demo"),
+        )
+        self.assertEqual(
+            normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_PARENT_STATE),
+            "configured",
+        )
+        self.assertEqual(
+            normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_COMPLETENESS_STATE),
+            "complete",
+        )
+        self.assertEqual(
+            normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_RULES),
+            [
+                {
+                    "denied_principals": ["principalSet://goog/public:all"],
+                    "denied_principals_state": "configured",
+                    "exception_principals": [],
+                    "exception_principals_state": "not_configured",
+                    "denied_permissions": ["logging.googleapis.com/sinks.delete"],
+                    "denied_permissions_state": "configured",
+                    "exception_permissions": [],
+                    "exception_permissions_state": "not_configured",
+                    "condition": None,
+                    "condition_state": "not_configured",
+                }
+            ],
+        )
+
+    def test_unknown_iam_deny_rule_is_preserved_as_incomplete(self) -> None:
+        normalized = normalize_iam_deny_policy(
+            _terraform_resource(
+                "google_iam_deny_policy.logging_sink",
+                "google_iam_deny_policy",
+                {
+                    "parent": ("cloudresourcemanager.googleapis.com%2Fprojects%2Ftfstride-demo"),
+                    "rules": [
+                        {
+                            "deny_rule": [
+                                {
+                                    "denied_principals": ["principalSet://goog/public:all"],
+                                    "denied_permissions": [],
+                                }
+                            ]
+                        }
+                    ],
+                },
+                unknown_values={"rules": [{"deny_rule": [{"denied_permissions": True}]}]},
+            )
+        )
+
+        self.assertEqual(
+            normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_COMPLETENESS_STATE),
+            "unknown",
+        )
+        rules = normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_RULES)
+        self.assertEqual(rules[0]["denied_permissions_state"], "unknown")
+        self.assertTrue(normalized.get_metadata_field(GcpResourceMetadata.IAM_DENY_POLICY_UNCERTAINTIES))
+
     def test_project_iam_custom_role_normalizer_preserves_permissions(self) -> None:
         normalized = normalize_project_iam_custom_role(
             _terraform_resource(
