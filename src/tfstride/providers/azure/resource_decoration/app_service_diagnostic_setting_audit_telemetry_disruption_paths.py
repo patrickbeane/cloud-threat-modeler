@@ -56,6 +56,10 @@ _ALL_LOGS_AUDIT_SECURITY_RESOURCE_TYPES = frozenset(
         AzureResourceType.WINDOWS_WEB_APP,
     }
 )
+_AUDIT_SECURITY_CATEGORIES_BY_RESOURCE_TYPE = {
+    AzureResourceType.LINUX_WEB_APP: frozenset({"appserviceauditlogs"}),
+    AzureResourceType.WINDOWS_WEB_APP: frozenset({"appserviceauditlogs"}),
+}
 _DESTINATION_FIELDS = (
     "log_analytics_workspace_id",
     "storage_account_id",
@@ -434,7 +438,17 @@ def _relevance_evidence(
     if uncertainties:
         return None, dedupe(uncertainties)
 
-    matched_category = next((value for value in categories if _is_audit_or_security_category(value)), None)
+    matched_category = next(
+        (
+            value
+            for value in categories
+            if _is_audit_or_security_category(
+                value,
+                target.monitored_resource.resource_type,
+            )
+        ),
+        None,
+    )
     if matched_category is not None:
         return (
             AzureDiagnosticSettingAuditCategoryRelevanceEvidence(
@@ -757,9 +771,15 @@ def _symbolic_resource_address(value: str) -> str | None:
     return address or None
 
 
-def _is_audit_or_security_category(value: str) -> bool:
-    normalized = _normalized_category_token(value)
-    return "audit" in normalized or "security" in normalized
+def _is_audit_or_security_category(
+    value: str,
+    monitored_resource_type: str,
+) -> bool:
+    supported = _AUDIT_SECURITY_CATEGORIES_BY_RESOURCE_TYPE.get(
+        monitored_resource_type,
+        frozenset(),
+    )
+    return value.strip().casefold() in supported
 
 
 def _is_audit_or_security_category_group(

@@ -440,6 +440,18 @@ class AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPathTests(unittest
         self.assertEqual(_workload_paths(_valid_resources(diagnostic=irrelevant)), [])
         self.assertEqual(_workload_paths(_valid_resources(diagnostic=unresolved)), [])
 
+        for category in (
+            "AppServiceAuditLogsArchive",
+            "NonAuditOperationalLogs",
+            "SecurityPostureLogs",
+        ):
+            with self.subTest(unsupported_category=category):
+                diagnostic = _azure_diagnostic_setting(enabled_log=[{"category": category}])
+                self.assertEqual(
+                    _workload_paths(_valid_resources(diagnostic=diagnostic)),
+                    [],
+                )
+
     def test_all_logs_does_not_establish_relevance_for_arbitrary_monitored_resource(self) -> None:
         monitored_resource = _resource(
             AzureResourceType.STORAGE_ACCOUNT,
@@ -480,7 +492,23 @@ class AzureAppServiceDiagnosticSettingAuditTelemetryDisruptionPathTests(unittest
             ]
         )
 
+        app_service_category_diagnostic = _azure_diagnostic_setting(
+            target_id=_ARBITRARY_MONITORED_RESOURCE_ID,
+            enabled_log=[{"category": "AppServiceAuditLogs"}],
+        )
+        app_service_category_diagnostic.values["id"] = _ARBITRARY_DIAGNOSTIC_STATE_ID
+        app_service_category_paths = _workload_paths(
+            [
+                *_valid_resources(
+                    diagnostic=app_service_category_diagnostic,
+                    assignment=_azure_assignment(scope=_ARBITRARY_DIAGNOSTIC_ID),
+                ),
+                monitored_resource,
+            ]
+        )
+
         self.assertEqual(paths, [])
+        self.assertEqual(app_service_category_paths, [])
         self.assertEqual(len(audit_paths), 1)
 
     def test_each_modeled_destination_can_establish_current_delivery(self) -> None:

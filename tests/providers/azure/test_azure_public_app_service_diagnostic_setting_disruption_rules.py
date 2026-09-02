@@ -198,17 +198,35 @@ class AzurePublicAppServiceDiagnosticSettingDisruptionRuleTests(unittest.TestCas
         )
 
     def test_loss_of_audit_relevance_suppresses_candidate(self) -> None:
-        inventory, findings = _evaluate(_valid_resources())
-        self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
+        for category in (
+            "AppServiceHTTPLogs",
+            "AppServiceAuditLogsArchive",
+            "SecurityPostureLogs",
+        ):
+            with self.subTest(category=category):
+                inventory, findings = _evaluate(_valid_resources())
+                self.assertEqual(
+                    [finding.rule_id for finding in findings],
+                    [_RULE_ID],
+                )
 
-        diagnostic = inventory.get_by_address(_DIAGNOSTIC_ADDRESS)
-        assert diagnostic is not None
-        facts = azure_facts(diagnostic)
-        facts.set(AzureResourceMetadata.DIAGNOSTIC_ENABLED_LOG_CATEGORY_GROUPS, [])
-        facts.set(AzureResourceMetadata.DIAGNOSTIC_ENABLED_LOG_CATEGORIES, ["AppServiceHTTPLogs"])
-        facts.set(AzureResourceMetadata.DIAGNOSTIC_LOG_RECORDS, [{"category": "AppServiceHTTPLogs"}])
+                diagnostic = inventory.get_by_address(_DIAGNOSTIC_ADDRESS)
+                assert diagnostic is not None
+                facts = azure_facts(diagnostic)
+                facts.set(
+                    AzureResourceMetadata.DIAGNOSTIC_ENABLED_LOG_CATEGORY_GROUPS,
+                    [],
+                )
+                facts.set(
+                    AzureResourceMetadata.DIAGNOSTIC_ENABLED_LOG_CATEGORIES,
+                    [category],
+                )
+                facts.set(
+                    AzureResourceMetadata.DIAGNOSTIC_LOG_RECORDS,
+                    [{"category": category}],
+                )
 
-        self.assertEqual(_evaluate_inventory(inventory), [])
+                self.assertEqual(_evaluate_inventory(inventory), [])
 
     def test_blocking_or_unresolved_lock_suppresses_candidate(self) -> None:
         cases = {
