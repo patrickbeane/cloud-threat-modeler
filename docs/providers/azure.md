@@ -122,6 +122,7 @@ Azure trust-boundary records currently cover public storage and Key Vault endpoi
 
 ### Audit & detection
 * Diagnostic settings coverage, diagnostic log destination, and audit-category completeness
+* Public App Service managed identities with current `Microsoft.Insights/DiagnosticSettings/Delete` authority over an exact audit-relevant diagnostic-setting ARM target, subject to current destination and management-lock compatibility and reported as prospective Repudiation risk
 * Defender pricing and auto-provisioning posture
 
 ### IAM & identity
@@ -142,6 +143,7 @@ Key Vault key and secret posture, public workload cryptographic-operation paths,
 * AKS support covers public/private API posture, authorized IP restrictions, local account usage, RBAC posture, network policy posture, workload identity/OIDC, KMS, monitoring, Defender, and Azure Policy signals when represented in the plan.
 * App Service support covers modeled platform authentication and strict sensitive app-setting delivery, but does not verify application-level authentication, application code, or routing behavior outside the Terraform plan.
 * Messaging findings establish modeled managed-identity authority, not successful payload retrieval, settlement or topology deletion, replay, or recovery; see [Public Workload Messaging Disclosure and Disruption Paths](../analysis/messaging-paths.md).
+* Diagnostic-setting disruption findings establish current authority over an exact modeled ARM extension-resource target, not a successful operation, historical/source or already-delivered telemetry deletion, destination-resource deletion, disruption of every diagnostic setting on the parent resource or across the subscription/tenant, out-of-plan disruption, or recovery/restoration.
 * Deeper AKS workload/node posture, full Private DNS record correctness, App Service routing/application-level authentication modeling, and broader Azure RBAC hierarchy modeling are not covered yet.
 * Azure observations distinguish restricted network posture, identity authorization posture, private-endpoint uncertainty, and unresolved Azure plan values.
 
