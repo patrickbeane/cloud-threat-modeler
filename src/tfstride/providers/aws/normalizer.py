@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Callable
 from typing import Any
 
 from tfstride.models import NormalizedResource, ResourceInventory, TerraformResource
@@ -95,10 +93,9 @@ from tfstride.providers.aws.network_normalizers import (
 from tfstride.providers.aws.resource_decorator import AwsResourceDecorator
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.base import ProviderNormalizer
+from tfstride.providers.normalization import ResourceNormalizer, normalize_provider_inventory
 from tfstride.resource_helpers import parse_aws_account_id
 from tfstride.resource_metadata import InventoryMetadata
-
-ResourceNormalizer = Callable[[TerraformResource], NormalizedResource]
 
 _AWS_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     "aws_accessanalyzer_analyzer": normalize_accessanalyzer_analyzer,
@@ -186,53 +183,26 @@ class AwsNormalizer(ProviderNormalizer):
         return _is_aws_resource(resource)
 
     def normalize(self, resources: list[TerraformResource]) -> ResourceInventory:
-        aws_resources = [resource for resource in resources if self.owns_resource(resource)]
-        unsupported_resource_types = Counter(
-            resource.resource_type for resource in aws_resources if resource.resource_type not in SUPPORTED_AWS_TYPES
-        )
-        unsupported = sorted(
-            resource.address for resource in aws_resources if resource.resource_type not in SUPPORTED_AWS_TYPES
-        )
-        normalized = [
-            self._normalize_resource(resource)
-            for resource in aws_resources
-            if resource.resource_type in SUPPORTED_AWS_TYPES
-        ]
-        self._resource_decorator.decorate(normalized)
-        for resource in normalized:
-            resource.freeze_decoration_state()
-        primary_account_id = _infer_primary_account_id(normalized)
-        metadata: dict[str, Any] = {}
-        InventoryMetadata.PRIMARY_ACCOUNT_ID.set(metadata, primary_account_id)
-        InventoryMetadata.SUPPORTED_RESOURCE_TYPES.set(metadata, sorted(SUPPORTED_AWS_TYPES))
-        InventoryMetadata.TOTAL_INPUT_RESOURCES.set(metadata, len(resources))
-        InventoryMetadata.PROVIDER_RESOURCE_COUNT.set(metadata, len(aws_resources))
-        InventoryMetadata.NORMALIZED_RESOURCE_COUNT.set(metadata, len(normalized))
-        InventoryMetadata.UNSUPPORTED_RESOURCE_TYPES.set(
-            metadata,
-            dict(sorted(unsupported_resource_types.items())),
-        )
-        return ResourceInventory(
+        return normalize_provider_inventory(
+            resources,
             provider=self.provider,
-            resources=normalized,
-            unsupported_resources=unsupported,
-            metadata=metadata,
+            owns_resource=self.owns_resource,
+            resource_normalizers=self._resource_normalizers,
+            decorate_resources=self._resource_decorator.decorate,
+            enrich_inventory_metadata=_add_primary_account_id_metadata,
         )
-
-    def _normalize_resource(self, resource: TerraformResource) -> NormalizedResource:
-        try:
-            normalizer = self._resource_normalizers[resource.resource_type]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}") from exc
-        normalized = normalizer(resource)
-        normalized.provider_config_key = resource.provider_config_key
-        normalized.reference_resolutions = resource.reference_resolutions
-        return normalized
 
 
 def _is_aws_resource(resource: TerraformResource) -> bool:
     provider_name = str(resource.provider_name).strip().lower()
     return provider_name.endswith("/aws") or resource.resource_type.startswith("aws_")
+
+
+def _add_primary_account_id_metadata(
+    resources: list[NormalizedResource],
+    metadata: dict[str, Any],
+) -> None:
+    InventoryMetadata.PRIMARY_ACCOUNT_ID.set(metadata, _infer_primary_account_id(resources))
 
 
 def _infer_primary_account_id(resources: list[NormalizedResource]) -> str | None:
