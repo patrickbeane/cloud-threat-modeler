@@ -62,6 +62,7 @@ include = [
   "src/tfstride/providers/gcp/plugin.py",
   "src/tfstride/providers/gcp/normalizer.py",
   "src/tfstride/providers/azure/plugin.py",
+  "src/tfstride/providers/azure/normalizer.py",
 
   # AWS secret-management evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/secret_management_evidence.py",

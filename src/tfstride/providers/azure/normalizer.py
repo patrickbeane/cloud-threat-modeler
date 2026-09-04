@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter
-from typing import Any
-
 from tfstride.models import ResourceInventory, TerraformResource
 from tfstride.providers.azure.aks_normalizers import normalize_kubernetes_cluster
 from tfstride.providers.azure.app_service_normalizers import (
@@ -94,9 +91,9 @@ from tfstride.providers.azure.service_bus_normalizers import (
     normalize_servicebus_namespace_network_rule_set,
 )
 from tfstride.providers.base import ProviderNormalizer
-from tfstride.resource_metadata import InventoryMetadata
+from tfstride.providers.normalization import ResourceNormalizer, normalize_provider_inventory
 
-_AZURE_RESOURCE_NORMALIZERS = {
+_AZURE_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     AzureResourceType.STORAGE_ACCOUNT: normalize_storage_account,
     AzureResourceType.STORAGE_ACCOUNT_NETWORK_RULES: normalize_storage_account_network_rules,
     AzureResourceType.STORAGE_CONTAINER: normalize_storage_container,
@@ -179,42 +176,12 @@ class AzureNormalizer(ProviderNormalizer):
         return _is_azure_resource(resource)
 
     def normalize(self, resources: list[TerraformResource]) -> ResourceInventory:
-        azure_resources = [resource for resource in resources if self.owns_resource(resource)]
-        unsupported_resource_types = Counter(
-            resource.resource_type
-            for resource in azure_resources
-            if resource.resource_type not in SUPPORTED_AZURE_TYPES
-        )
-        unsupported = sorted(
-            resource.address for resource in azure_resources if resource.resource_type not in SUPPORTED_AZURE_TYPES
-        )
-        normalized = []
-        for resource in azure_resources:
-            if resource.resource_type not in SUPPORTED_AZURE_TYPES:
-                continue
-            normalized_resource = self._resource_normalizers[resource.resource_type](resource)
-            normalized_resource.provider_config_key = resource.provider_config_key
-            normalized_resource.reference_resolutions = resource.reference_resolutions
-            normalized.append(normalized_resource)
-        self._resource_decorator.decorate(normalized)
-        for resource in normalized:
-            resource.freeze_decoration_state()
-
-        metadata: dict[str, Any] = {}
-        InventoryMetadata.SUPPORTED_RESOURCE_TYPES.set(metadata, sorted(SUPPORTED_AZURE_TYPES))
-        InventoryMetadata.TOTAL_INPUT_RESOURCES.set(metadata, len(resources))
-        InventoryMetadata.PROVIDER_RESOURCE_COUNT.set(metadata, len(azure_resources))
-        InventoryMetadata.NORMALIZED_RESOURCE_COUNT.set(metadata, len(normalized))
-        InventoryMetadata.UNSUPPORTED_RESOURCE_TYPES.set(
-            metadata,
-            dict(sorted(unsupported_resource_types.items())),
-        )
-
-        return ResourceInventory(
+        return normalize_provider_inventory(
+            resources,
             provider=self.provider,
-            resources=normalized,
-            unsupported_resources=unsupported,
-            metadata=metadata,
+            owns_resource=self.owns_resource,
+            resource_normalizers=self._resource_normalizers,
+            decorate_resources=self._resource_decorator.decorate,
         )
 
 
