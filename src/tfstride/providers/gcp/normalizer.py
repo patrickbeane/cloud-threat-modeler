@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Callable
-from typing import Any
-
-from tfstride.models import NormalizedResource, ResourceInventory, TerraformResource
+from tfstride.models import ResourceInventory, TerraformResource
 from tfstride.providers.base import ProviderNormalizer
 from tfstride.providers.gcp.artifact_registry_normalizers import normalize_artifact_registry_repository
 from tfstride.providers.gcp.audit_normalizers import (
@@ -141,9 +137,7 @@ from tfstride.providers.gcp.serverless_normalizers import (
     normalize_cloudfunctions_function_iam_policy,
 )
 from tfstride.providers.gcp.storage_normalizers import normalize_storage_bucket
-from tfstride.resource_metadata import InventoryMetadata
-
-ResourceNormalizer = Callable[[TerraformResource], NormalizedResource]
+from tfstride.providers.normalization import ResourceNormalizer, normalize_provider_inventory
 
 _GCP_RESOURCE_NORMALIZERS: dict[str, ResourceNormalizer] = {
     GcpResourceType.ARTIFACT_REGISTRY_REPOSITORY: normalize_artifact_registry_repository,
@@ -283,48 +277,13 @@ class GcpNormalizer(ProviderNormalizer):
         return _is_gcp_resource(resource)
 
     def normalize(self, resources: list[TerraformResource]) -> ResourceInventory:
-        gcp_resources = [resource for resource in resources if self.owns_resource(resource)]
-        unsupported_resource_types = Counter(
-            resource.resource_type for resource in gcp_resources if resource.resource_type not in SUPPORTED_GCP_TYPES
-        )
-        unsupported = sorted(
-            resource.address for resource in gcp_resources if resource.resource_type not in SUPPORTED_GCP_TYPES
-        )
-        normalized = [
-            self._normalize_resource(resource)
-            for resource in gcp_resources
-            if resource.resource_type in SUPPORTED_GCP_TYPES
-        ]
-        self._resource_decorator.decorate(normalized)
-        for resource in normalized:
-            resource.freeze_decoration_state()
-
-        metadata: dict[str, Any] = {}
-        InventoryMetadata.SUPPORTED_RESOURCE_TYPES.set(metadata, sorted(SUPPORTED_GCP_TYPES))
-        InventoryMetadata.TOTAL_INPUT_RESOURCES.set(metadata, len(resources))
-        InventoryMetadata.PROVIDER_RESOURCE_COUNT.set(metadata, len(gcp_resources))
-        InventoryMetadata.NORMALIZED_RESOURCE_COUNT.set(metadata, len(normalized))
-        InventoryMetadata.UNSUPPORTED_RESOURCE_TYPES.set(
-            metadata,
-            dict(sorted(unsupported_resource_types.items())),
-        )
-
-        return ResourceInventory(
+        return normalize_provider_inventory(
+            resources,
             provider=self.provider,
-            resources=normalized,
-            unsupported_resources=unsupported,
-            metadata=metadata,
+            owns_resource=self.owns_resource,
+            resource_normalizers=self._resource_normalizers,
+            decorate_resources=self._resource_decorator.decorate,
         )
-
-    def _normalize_resource(self, resource: TerraformResource) -> NormalizedResource:
-        try:
-            normalizer = self._resource_normalizers[resource.resource_type]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported resource type reached normalizer: {resource.resource_type}") from exc
-        normalized = normalizer(resource)
-        normalized.provider_config_key = resource.provider_config_key
-        normalized.reference_resolutions = resource.reference_resolutions
-        return normalized
 
 
 def _is_gcp_resource(resource: TerraformResource) -> bool:
