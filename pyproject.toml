@@ -63,6 +63,7 @@ include = [
   "src/tfstride/providers/aws/normalizer.py",
   "src/tfstride/providers/gcp/plugin.py",
   "src/tfstride/providers/gcp/normalizer.py",
+  "src/tfstride/providers/gcp/resource_decorator.py",
   "src/tfstride/providers/azure/plugin.py",
   "src/tfstride/providers/azure/normalizer.py",
 
