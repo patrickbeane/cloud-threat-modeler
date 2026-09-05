@@ -38,6 +38,7 @@ include = [
   "src/tfstride/providers/base.py",
   "src/tfstride/providers/plugin.py",
   "src/tfstride/providers/contracts.py",
+  "src/tfstride/providers/decoration.py",
   "src/tfstride/providers/metadata_ownership.py",
   "src/tfstride/providers/normalization.py",
   "src/tfstride/providers/resource_reference_index.py",
