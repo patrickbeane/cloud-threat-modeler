@@ -56,6 +56,35 @@ def _foreign_provider_cases() -> tuple[tuple[str, Any, type, str, type], ...]:
     )
 
 
+def _provider_facade_cases() -> tuple[
+    tuple[str, Any, OptionalStringMetadataField, str, StringListMetadataField],
+    ...,
+]:
+    return (
+        (
+            "aws",
+            aws_facts,
+            AwsResourceMetadata.TASK_ROLE_ARN,
+            "arn:aws:iam::111122223333:role/task",
+            AwsResourceMetadata.UNRESOLVED_ROLE_REFERENCES,
+        ),
+        (
+            "gcp",
+            gcp_facts,
+            GcpResourceMetadata.SERVICE_ACCOUNT_EMAIL,
+            "app@tfstride.iam.gserviceaccount.com",
+            GcpResourceMetadata.RESOURCE_POLICY_SOURCE_ADDRESSES,
+        ),
+        (
+            "azure",
+            azure_facts,
+            AzureResourceMetadata.STORAGE_ACCOUNT_ID,
+            "/subscriptions/example/storageAccounts/app",
+            AzureResourceMetadata.STORAGE_POSTURE_UNCERTAINTIES,
+        ),
+    )
+
+
 def _sample_metadata_value(field: MetadataField[Any]) -> Any:
     if isinstance(field, BoolMetadataField):
         return True
@@ -79,6 +108,68 @@ def _sample_metadata_value(field: MetadataField[Any]) -> Any:
 
 
 class ProviderMetadataOwnershipTests(unittest.TestCase):
+    def test_provider_facts_facades_retain_resource_and_one_argument_constructor(self) -> None:
+        for provider, facts_factory, _scalar_field, _scalar_value, _list_field in _provider_facade_cases():
+            with self.subTest(provider=provider):
+                resource = _resource(provider)
+                facts = facts_factory(resource)
+
+                self.assertIs(facts.resource, resource)
+                self.assertIs(type(facts)(resource).resource, resource)
+
+    def test_provider_facts_get_preserves_typed_missing_defaults(self) -> None:
+        for provider, facts_factory, scalar_field, _scalar_value, list_field in _provider_facade_cases():
+            with self.subTest(provider=provider):
+                resource = _resource(provider)
+                facts = facts_factory(resource)
+
+                self.assertIsNone(facts.get(scalar_field))
+                self.assertEqual(facts.get(list_field), [])
+                self.assertEqual(resource.metadata_snapshot(), {})
+
+    def test_provider_facts_owned_writes_preserve_string_list_semantics(self) -> None:
+        for provider, facts_factory, scalar_field, scalar_value, list_field in _provider_facade_cases():
+            with self.subTest(provider=provider):
+                resource = _resource(provider)
+                facts = facts_factory(resource)
+
+                facts.set(scalar_field, scalar_value)
+                facts.append(list_field, "first")
+                facts.append(list_field, None)
+                facts.extend(list_field, ["second", "first", None, "third", "second"])
+
+                self.assertEqual(facts.get(scalar_field), scalar_value)
+                self.assertEqual(facts.get(list_field), ["first", "second", "third"])
+
+    def test_gcp_and_azure_optional_boole_distinguish_missing_from_false(self) -> None:
+        cases = (
+            (
+                "gcp",
+                gcp_facts,
+                GcpResourceMetadata.CLOUD_RUN_INVOKER_IAM_DISABLED,
+                "cloud_run_invoker_iam_disabled",
+            ),
+            (
+                "azure",
+                azure_facts,
+                AzureResourceMetadata.PUBLIC_NETWORK_ACCESS_ENABLED,
+                "public_network_access_enabled",
+            ),
+        )
+
+        for provider, facts_factory, field, property_name in cases:
+            with self.subTest(provider=provider):
+                resource = _resource(provider)
+                facts = facts_factory(resource)
+
+                self.assertIsNone(facts.optional_bool(field))
+                self.assertIsNone(getattr(facts, property_name))
+
+                facts.set(field, False)
+
+                self.assertIs(facts.optional_bool(field), False)
+                self.assertIs(getattr(facts, property_name), False)
+
     def test_metadata_ownership_contract_is_generated_from_metadata_namespaces(self) -> None:
         contract = DEFAULT_RESOURCE_METADATA_OWNERSHIP_CONTRACT
         shared_fields = _metadata_fields_by_name(ResourceMetadata)
@@ -193,18 +284,21 @@ class ProviderMetadataOwnershipTests(unittest.TestCase):
     def test_provider_facts_reject_all_foreign_provider_owned_metadata_fields(self) -> None:
         contract = DEFAULT_RESOURCE_METADATA_OWNERSHIP_CONTRACT
         for provider, facts_factory, own_namespace, foreign_provider, foreign_namespace in _foreign_provider_cases():
-            facts = facts_factory(_resource(provider))
+            resource = _resource(provider)
+            facts = facts_factory(resource)
             own_namespace_name = own_namespace.__name__
             foreign_fields = _metadata_fields_by_name(foreign_namespace)
 
             for field_name in sorted(contract.provider_owned_fields[foreign_provider]):
                 field = foreign_fields[field_name]
                 with self.subTest(provider=provider, foreign_provider=foreign_provider, field_name=field_name):
+                    metadata_before = resource.metadata_snapshot()
                     with self.assertRaisesRegex(
                         ProviderMetadataOwnershipError,
                         f"use a field from {own_namespace_name}",
                     ):
                         facts.set(field, _sample_metadata_value(field))
+                    self.assertEqual(resource.metadata_snapshot(), metadata_before)
 
     def test_provider_facts_reject_foreign_string_list_append_writes(self) -> None:
         contract = DEFAULT_RESOURCE_METADATA_OWNERSHIP_CONTRACT
@@ -219,12 +313,13 @@ class ProviderMetadataOwnershipTests(unittest.TestCase):
                 resource = _resource(provider)
                 facts = facts_factory(resource)
                 with self.subTest(provider=provider, foreign_provider=foreign_provider, field_name=field_name):
+                    metadata_before = resource.metadata_snapshot()
                     with self.assertRaisesRegex(
                         ProviderMetadataOwnershipError,
                         f"use a field from {own_namespace_name}",
                     ):
                         facts.append(field, "sample")
-                    self.assertNotIn(field.key, resource.metadata)
+                    self.assertEqual(resource.metadata_snapshot(), metadata_before)
 
     def test_provider_facts_reject_foreign_string_list_extend_writes(self) -> None:
         contract = DEFAULT_RESOURCE_METADATA_OWNERSHIP_CONTRACT
@@ -239,12 +334,13 @@ class ProviderMetadataOwnershipTests(unittest.TestCase):
                 resource = _resource(provider)
                 facts = facts_factory(resource)
                 with self.subTest(provider=provider, foreign_provider=foreign_provider, field_name=field_name):
+                    metadata_before = resource.metadata_snapshot()
                     with self.assertRaisesRegex(
                         ProviderMetadataOwnershipError,
                         f"use a field from {own_namespace_name}",
                     ):
                         facts.extend(field, ["sample"])
-                    self.assertNotIn(field.key, resource.metadata)
+                    self.assertEqual(resource.metadata_snapshot(), metadata_before)
 
     def test_normalized_resource_accepts_direct_shared_and_matching_provider_metadata_writes(self) -> None:
         resource = _resource("aws")
