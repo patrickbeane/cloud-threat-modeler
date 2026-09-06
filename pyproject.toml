@@ -70,6 +70,9 @@ include = [
   "src/tfstride/providers/azure/normalizer.py",
   "src/tfstride/providers/azure/resource_decorator.py",
 
+  # AWS resource facts base.
+  "src/tfstride/providers/aws/resource_facts/base.py",
+
   # AWS secret-management evidence, authorization, and workload paths.
   "src/tfstride/providers/aws/secret_management_evidence.py",
   "src/tfstride/providers/aws/resource_decoration/secrets_manager_operation_authorization.py",
