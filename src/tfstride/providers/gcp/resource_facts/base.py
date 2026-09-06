@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import ClassVar
 
-from tfstride.models import NormalizedResource
 from tfstride.providers.coercion import dedupe
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.metadata_ownership import ProviderMetadataWriteValidator
-from tfstride.resource_metadata import MetadataField, StringListMetadataField
+from tfstride.providers.resource_facts import ProviderResourceFacts
+from tfstride.resource_metadata import MetadataField
 
-_MetadataValue = TypeVar("_MetadataValue")
 _GCP_METADATA_WRITE_VALIDATOR = ProviderMetadataWriteValidator.build(
     provider="gcp",
     namespace=GcpResourceMetadata,
@@ -60,30 +58,15 @@ _IAM_TARGET_REFERENCE_FIELDS = (
 
 
 @dataclass(frozen=True, slots=True)
-class GcpBaseFacts:
+class GcpBaseFacts(ProviderResourceFacts):
     """GCP-owned view over normalized metadata and relationship posture."""
 
-    resource: NormalizedResource
-
-    def get(self, field: MetadataField[_MetadataValue]) -> _MetadataValue:
-        return self.resource.get_metadata_field(field)
-
-    def set(self, field: MetadataField[_MetadataValue], value: _MetadataValue) -> None:
-        _GCP_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.set_metadata_field(field, value)
+    _metadata_write_validator: ClassVar[ProviderMetadataWriteValidator] = _GCP_METADATA_WRITE_VALIDATOR
 
     def optional_bool(self, field: MetadataField[bool]) -> bool | None:
         if not self.resource.has_metadata_value(field):
             return None
         return self.get(field)
-
-    def append(self, field: StringListMetadataField, value: str | None) -> None:
-        _GCP_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.append_metadata_field(field, value)
-
-    def extend(self, field: StringListMetadataField, values: Sequence[str | None]) -> None:
-        _GCP_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.extend_metadata_field(field, values)
 
     @property
     def project(self) -> str | None:
