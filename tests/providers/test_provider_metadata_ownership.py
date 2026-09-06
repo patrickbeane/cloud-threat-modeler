@@ -141,7 +141,33 @@ class ProviderMetadataOwnershipTests(unittest.TestCase):
                 self.assertEqual(facts.get(scalar_field), scalar_value)
                 self.assertEqual(facts.get(list_field), ["first", "second", "third"])
 
-    def test_gcp_and_azure_optional_boole_distinguish_missing_from_false(self) -> None:
+    def test_provider_facts_preserve_normalized_resource_provider_validation(self) -> None:
+        mismatched_resource_providers = {
+            "aws": "gcp",
+            "gcp": "azure",
+            "azure": "aws",
+        }
+
+        for provider, facts_factory, scalar_field, scalar_value, list_field in _provider_facade_cases():
+            for operation in ("set", "append", "extend"):
+                with self.subTest(provider=provider, operation=operation):
+                    resource = _resource(mismatched_resource_providers[provider])
+                    facts = facts_factory(resource)
+                    metadata_before = resource.metadata_snapshot()
+
+                    with self.assertRaisesRegex(ProviderMetadataOwnershipError, f"owned by {provider}"):
+                        if operation == "set":
+                            facts.set(scalar_field, scalar_value)
+                        elif operation == "append":
+                            facts.append(list_field, "blocked")
+                        else:
+                            facts.extend(list_field, ["blocked"])
+
+                    self.assertEqual(resource.metadata_snapshot(), metadata_before)
+
+    def test_optional_bool_remains_gcp_and_azure_local_and_distinguishes_missing_from_false(self) -> None:
+        self.assertFalse(hasattr(aws_facts(_resource("aws")), "optional_bool"))
+
         cases = (
             (
                 "gcp",
