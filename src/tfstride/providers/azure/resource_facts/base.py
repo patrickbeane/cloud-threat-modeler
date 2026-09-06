@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import ClassVar
 
-from tfstride.models import NormalizedResource
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.public_network import PUBLIC_NETWORK_FALLBACK_UNKNOWN
 from tfstride.providers.metadata_ownership import ProviderMetadataWriteValidator
-from tfstride.resource_metadata import MetadataField, StringListMetadataField
+from tfstride.providers.resource_facts import ProviderResourceFacts
+from tfstride.resource_metadata import MetadataField
 
-_MetadataValue = TypeVar("_MetadataValue")
 _AZURE_METADATA_WRITE_VALIDATOR = ProviderMetadataWriteValidator.build(
     provider="azure",
     namespace=AzureResourceMetadata,
@@ -18,30 +17,15 @@ _AZURE_METADATA_WRITE_VALIDATOR = ProviderMetadataWriteValidator.build(
 
 
 @dataclass(frozen=True, slots=True)
-class AzureBaseFacts:
+class AzureBaseFacts(ProviderResourceFacts):
     """Azure-owned view over normalized metadata and relationship posture."""
 
-    resource: NormalizedResource
-
-    def get(self, field: MetadataField[_MetadataValue]) -> _MetadataValue:
-        return self.resource.get_metadata_field(field)
-
-    def set(self, field: MetadataField[_MetadataValue], value: _MetadataValue) -> None:
-        _AZURE_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.set_metadata_field(field, value)
+    _metadata_write_validator: ClassVar[ProviderMetadataWriteValidator] = _AZURE_METADATA_WRITE_VALIDATOR
 
     def optional_bool(self, field: MetadataField[bool]) -> bool | None:
         if not self.resource.has_metadata_value(field):
             return None
         return self.get(field)
-
-    def append(self, field: StringListMetadataField, value: str | None) -> None:
-        _AZURE_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.append_metadata_field(field, value)
-
-    def extend(self, field: StringListMetadataField, values: Sequence[str | None]) -> None:
-        _AZURE_METADATA_WRITE_VALIDATOR.validate(field)
-        self.resource.extend_metadata_field(field, values)
 
     @property
     def name(self) -> str | None:
