@@ -41,6 +41,7 @@ include = [
   "src/tfstride/providers/decoration.py",
   "src/tfstride/providers/metadata_ownership.py",
   "src/tfstride/providers/normalization.py",
+  "src/tfstride/providers/resource_facts.py",
   "src/tfstride/providers/resource_reference_index.py",
   "src/tfstride/resource_metadata.py",
 

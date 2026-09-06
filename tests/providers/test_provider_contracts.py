@@ -55,6 +55,7 @@ def _provider_resource_fact_facade_paths(provider: str) -> set[str]:
 
 _NORMALIZED_RESOURCE_WRITE_FACADES = frozenset(
     {
+        "providers/resource_facts.py",
         "providers/aws/resource_mutations.py",
         "providers/gcp/resource_mutations.py",
     }
