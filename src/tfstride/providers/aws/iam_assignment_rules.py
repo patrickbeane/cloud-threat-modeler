@@ -1,36 +1,13 @@
 from __future__ import annotations
 
 from tfstride.analysis.finding_factory import FindingFactory
-from tfstride.analysis.finding_helpers import build_severity_reasoning, collect_evidence, evidence_item
+from tfstride.analysis.finding_helpers import collect_evidence, evidence_item
+from tfstride.analysis.privileged_assignment_evaluator import evaluate_privileged_assignment
 from tfstride.analysis.rule_definitions import RuleEvaluationContext
-from tfstride.identity import PrivilegeCategory, PrivilegeConfidence, PrivilegedAccessGrant
+from tfstride.identity import PrivilegedAccessGrant
 from tfstride.models import Finding, NormalizedResource
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.coercion import dedupe_strings
-
-_HIGH_IMPACT_CATEGORIES = frozenset(
-    {
-        PrivilegeCategory.FULL_ADMIN,
-        PrivilegeCategory.IAM_ADMIN,
-        PrivilegeCategory.POLICY_ADMIN,
-        PrivilegeCategory.ROLE_ASSIGNMENT,
-        PrivilegeCategory.PRIVILEGE_ESCALATION,
-    }
-)
-_DATA_ACCESS_CATEGORIES = frozenset(
-    {
-        PrivilegeCategory.DATA_ADMIN,
-        PrivilegeCategory.SECRETS_ADMIN,
-        PrivilegeCategory.KEY_ADMIN,
-    }
-)
-_CONTROL_PLANE_CATEGORIES = frozenset(
-    {
-        PrivilegeCategory.COMPUTE_ADMIN,
-        PrivilegeCategory.NETWORK_ADMIN,
-        PrivilegeCategory.AUDIT_ADMIN,
-    }
-)
 
 
 class AwsIamAssignmentRuleDetectors:
@@ -51,61 +28,34 @@ class AwsIamAssignmentRuleDetectors:
             grants = facts.privileged_access_grants
             if not grants:
                 continue
-            severity_reasoning = _severity_for_grants(grants)
+            assignment_evaluation = evaluate_privileged_assignment(grants)
+            common_evidence = assignment_evaluation.evidence
             findings.append(
                 self._finding_factory.build(
                     rule_id=rule_id,
-                    severity=severity_reasoning.severity,
+                    severity=assignment_evaluation.severity_reasoning.severity,
                     affected_resources=_affected_resources(role),
                     trust_boundary_id=None,
                     rationale=(
                         f"{role.display_name} has deterministic privileged IAM assignment posture: "
-                        f"{_grant_summary(grants)}. If this role is attached to a workload or assumable by a "
+                        f"{assignment_evaluation.summary}. If this role is attached to a workload or assumable by a "
                         "control-plane principal, those privileges increase blast radius."
                     ),
                     evidence=collect_evidence(
                         evidence_item("iam_role", _role_evidence(role)),
                         evidence_item("privileged_access", _grant_evidence(grants)),
-                        evidence_item("privilege_categories", _category_evidence(grants)),
-                        evidence_item("permission_patterns", _permission_pattern_evidence(grants)),
-                        evidence_item("grant_scopes", _scope_evidence(grants)),
-                        evidence_item("grant_confidence", _confidence_evidence(grants)),
+                        evidence_item("privilege_categories", list(common_evidence.privilege_categories)),
+                        evidence_item("permission_patterns", list(common_evidence.permission_patterns)),
+                        evidence_item("grant_scopes", list(common_evidence.grant_scopes)),
+                        evidence_item("grant_confidence", list(common_evidence.grant_confidence)),
                         evidence_item("attached_policies", _attached_policy_evidence(role)),
                         evidence_item("inline_policy_sources", _inline_policy_evidence(role)),
                         evidence_item("unresolved_assignments", facts.iam_assignment_posture_uncertainties),
                     ),
-                    severity_reasoning=severity_reasoning,
+                    severity_reasoning=assignment_evaluation.severity_reasoning,
                 )
             )
         return findings
-
-
-def _severity_for_grants(grants: tuple[PrivilegedAccessGrant, ...]):
-    categories = _grant_categories(grants)
-    high_impact = bool(categories & _HIGH_IMPACT_CATEGORIES)
-    data_access = bool(categories & _DATA_ACCESS_CATEGORIES)
-    broad_scope = any(grant.has_broad_scope for grant in grants)
-    high_confidence = any(grant.confidence == PrivilegeConfidence.HIGH for grant in grants)
-    return build_severity_reasoning(
-        internet_exposure=False,
-        privilege_breadth=3 if high_impact and broad_scope and high_confidence else 2,
-        data_sensitivity=2 if data_access else 0,
-        lateral_movement=2 if high_impact else 1 if categories & _CONTROL_PLANE_CATEGORIES else 0,
-        blast_radius=3 if broad_scope else 1,
-    )
-
-
-def _grant_summary(grants: tuple[PrivilegedAccessGrant, ...]) -> str:
-    categories = ", ".join(
-        category.value for category in sorted(_grant_categories(grants), key=lambda item: item.value)
-    )
-    if not categories:
-        return "unknown privileged access"
-    return categories
-
-
-def _grant_categories(grants: tuple[PrivilegedAccessGrant, ...]) -> set[PrivilegeCategory]:
-    return {category for grant in grants for category in grant.privilege_categories}
 
 
 def _role_evidence(role: NormalizedResource) -> list[str]:
@@ -129,29 +79,6 @@ def _grant_evidence(grants: tuple[PrivilegedAccessGrant, ...]) -> list[str]:
             f"confidence={grant.confidence.value}"
         )
     return values
-
-
-def _category_evidence(grants: tuple[PrivilegedAccessGrant, ...]) -> list[str]:
-    return sorted(category.value for category in _grant_categories(grants))
-
-
-def _permission_pattern_evidence(grants: tuple[PrivilegedAccessGrant, ...]) -> list[str]:
-    return dedupe_strings(pattern for grant in grants for pattern in grant.permission_patterns)
-
-
-def _scope_evidence(grants: tuple[PrivilegedAccessGrant, ...]) -> list[str]:
-    values: list[str] = []
-    for grant in grants:
-        scope = grant.assignment_scope
-        value = f"scope_kind={scope.scope_kind.value}"
-        if scope.value:
-            value = f"{value}; scope_value={scope.value}"
-        values.append(value)
-    return dedupe_strings(values)
-
-
-def _confidence_evidence(grants: tuple[PrivilegedAccessGrant, ...]) -> list[str]:
-    return dedupe_strings(grant.confidence.value for grant in grants)
 
 
 def _attached_policy_evidence(role: NormalizedResource) -> list[str]:
