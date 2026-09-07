@@ -49,6 +49,7 @@ include = [
   "src/tfstride/analysis/indexes.py",
   "src/tfstride/analysis/boundaries/types.py",
   "src/tfstride/analysis/rule_definitions.py",
+  "src/tfstride/analysis/privileged_assignment_evaluator.py",
 
   # Terraform plan configuration-reference resolution.
   "src/tfstride/input/configuration_references.py",
