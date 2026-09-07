@@ -10,7 +10,7 @@ from tests.providers.azure.test_azure_iam_assignment_rules import _storage_accou
 from tests.providers.gcp.rule_support.data import _secret_manager_secret_iam_member as _gcp_secret_iam_member
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
-from tfstride.models import TerraformResource
+from tfstride.models import Finding, TerraformResource
 from tfstride.providers.aws.normalizer import AwsNormalizer
 from tfstride.providers.aws.rules import AWS_RULE_GROUP_IDS
 from tfstride.providers.azure.normalizer import AzureNormalizer
@@ -36,6 +36,19 @@ def _finding_ids(findings) -> frozenset[str]:
 
 def _evidence_by_key(finding) -> dict[str, list[str]]:
     return {item.key: item.values for item in finding.evidence}
+
+
+def _severity_vector(finding: Finding) -> tuple[int, int, int, int, int, int]:
+    reasoning = finding.severity_reasoning
+    assert reasoning is not None
+    return (
+        reasoning.internet_exposure,
+        reasoning.privilege_breadth,
+        reasoning.data_sensitivity,
+        reasoning.lateral_movement,
+        reasoning.blast_radius,
+        reasoning.final_score,
+    )
 
 
 def _evaluate_aws(resources: list[TerraformResource], rule_ids=ALL_PRIVILEGED_ASSIGNMENT_RULE_IDS):
@@ -90,6 +103,17 @@ class PrivilegedIdentityAssignmentPostureParityTests(unittest.TestCase):
         self.assertEqual(_finding_ids(gcp_findings), GCP_PRIVILEGED_ASSIGNMENT_RULE_IDS)
         self.assertEqual(_finding_ids(azure_findings), AZURE_PRIVILEGED_ASSIGNMENT_RULE_IDS)
         self.assertEqual(
+            [
+                (finding.severity.value, _severity_vector(finding))
+                for finding in (aws_findings[0], gcp_findings[0], azure_findings[0])
+            ],
+            [
+                ("high", (0, 3, 0, 2, 3, 8)),
+                ("medium", (0, 2, 2, 0, 1, 5)),
+                ("high", (0, 3, 0, 2, 3, 8)),
+            ],
+        )
+        self.assertEqual(
             _evidence_by_key(aws_findings[0])["privilege_categories"],
             ["iam-admin", "privilege-escalation", "role-assignment"],
         )
@@ -137,6 +161,17 @@ class PrivilegedIdentityAssignmentPostureParityTests(unittest.TestCase):
         )
         self.assertEqual(_evidence_by_key(gcp_findings[0])["privilege_categories"], ["secrets-admin"])
         self.assertEqual(_evidence_by_key(azure_findings[0])["privilege_categories"], ["data-admin"])
+        self.assertEqual(
+            [
+                (finding.severity.value, _severity_vector(finding))
+                for finding in (aws_findings[0], gcp_findings[0], azure_findings[0])
+            ],
+            [
+                ("high", (0, 2, 2, 0, 3, 7)),
+                ("medium", (0, 2, 2, 0, 1, 5)),
+                ("medium", (0, 2, 2, 0, 1, 5)),
+            ],
+        )
 
     def test_non_privileged_assignment_posture_stays_quiet_across_providers(self) -> None:
         aws_findings = _evaluate_aws(
