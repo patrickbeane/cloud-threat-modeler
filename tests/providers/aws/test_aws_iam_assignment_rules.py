@@ -6,7 +6,7 @@ from typing import Any
 
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
-from tfstride.models import TerraformResource
+from tfstride.models import Finding, TerraformResource
 from tfstride.providers.aws.normalizer import AwsNormalizer
 
 _RULE_ID = "aws-iam-privileged-role-assignment"
@@ -82,6 +82,19 @@ def _evidence_by_key(finding):
     return {item.key: item.values for item in finding.evidence}
 
 
+def _severity_vector(finding: Finding) -> tuple[int, int, int, int, int, int]:
+    reasoning = finding.severity_reasoning
+    assert reasoning is not None
+    return (
+        reasoning.internet_exposure,
+        reasoning.privilege_breadth,
+        reasoning.data_sensitivity,
+        reasoning.lateral_movement,
+        reasoning.blast_radius,
+        reasoning.final_score,
+    )
+
+
 class AwsIamAssignmentRuleTests(unittest.TestCase):
     def test_attached_policy_with_privileged_iam_actions_is_detected(self) -> None:
         findings = _findings(
@@ -95,7 +108,20 @@ class AwsIamAssignmentRuleTests(unittest.TestCase):
         self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
         finding = findings[0]
         self.assertEqual(finding.severity.value, "high")
+        self.assertEqual(_severity_vector(finding), (0, 3, 0, 2, 3, 8))
         self.assertEqual(finding.affected_resources, ["aws_iam_role.app", "aws_iam_policy.admin"])
+        self.assertEqual(
+            [item.key for item in finding.evidence],
+            [
+                "iam_role",
+                "privileged_access",
+                "privilege_categories",
+                "permission_patterns",
+                "grant_scopes",
+                "grant_confidence",
+                "attached_policies",
+            ],
+        )
         evidence = _evidence_by_key(finding)
         self.assertEqual(
             evidence["iam_role"],
@@ -105,6 +131,10 @@ class AwsIamAssignmentRuleTests(unittest.TestCase):
                 f"arn={_ROLE_ARN}",
                 "identifier=app-role",
             ],
+        )
+        self.assertEqual(
+            evidence["privileged_access"],
+            ["grant_1=categories=[iam-admin, role-assignment, privilege-escalation]; scope=account; confidence=high"],
         )
         self.assertEqual(
             evidence["privilege_categories"],
@@ -139,7 +169,27 @@ class AwsIamAssignmentRuleTests(unittest.TestCase):
         )
 
         self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
-        evidence = _evidence_by_key(findings[0])
+        finding = findings[0]
+        self.assertEqual(finding.severity.value, "high")
+        self.assertEqual(_severity_vector(finding), (0, 3, 0, 2, 3, 8))
+        self.assertEqual(finding.affected_resources, ["aws_iam_role.app"])
+        self.assertEqual(
+            [item.key for item in finding.evidence],
+            [
+                "iam_role",
+                "privileged_access",
+                "privilege_categories",
+                "permission_patterns",
+                "grant_scopes",
+                "grant_confidence",
+                "inline_policy_sources",
+            ],
+        )
+        evidence = _evidence_by_key(finding)
+        self.assertEqual(
+            evidence["privileged_access"],
+            ["grant_1=categories=[full-admin]; scope=account; confidence=high"],
+        )
         self.assertEqual(evidence["privilege_categories"], ["full-admin"])
         self.assertEqual(evidence["permission_patterns"], ["*"])
         self.assertEqual(evidence["inline_policy_sources"], ["inline_policy_name=inline-admin"])

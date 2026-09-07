@@ -4,7 +4,7 @@ import unittest
 
 from tfstride.analysis.rule_registry import RulePolicy
 from tfstride.analysis.stride_rules import StrideRuleEngine
-from tfstride.models import TerraformResource
+from tfstride.models import Finding, TerraformResource
 from tfstride.providers.azure.normalizer import AzureNormalizer
 from tfstride.providers.azure.resource_types import AzureResourceType
 
@@ -124,6 +124,19 @@ def _evidence_by_key(finding):
     return {item.key: item.values for item in finding.evidence}
 
 
+def _severity_vector(finding: Finding) -> tuple[int, int, int, int, int, int]:
+    reasoning = finding.severity_reasoning
+    assert reasoning is not None
+    return (
+        reasoning.internet_exposure,
+        reasoning.privilege_breadth,
+        reasoning.data_sensitivity,
+        reasoning.lateral_movement,
+        reasoning.blast_radius,
+        reasoning.final_score,
+    )
+
+
 class AzureIamAssignmentRuleTests(unittest.TestCase):
     def test_subscription_owner_assignment_to_service_principal_is_detected(self) -> None:
         findings = _findings([_role_assignment()])
@@ -131,8 +144,29 @@ class AzureIamAssignmentRuleTests(unittest.TestCase):
         self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
         finding = findings[0]
         self.assertEqual(finding.severity.value, "high")
+        self.assertEqual(_severity_vector(finding), (0, 3, 0, 2, 3, 8))
         self.assertEqual(finding.affected_resources, ["azurerm_role_assignment.assignment"])
+        self.assertEqual(
+            [item.key for item in finding.evidence],
+            [
+                "role_assignment",
+                "privileged_access",
+                "privilege_categories",
+                "permission_patterns",
+                "grant_principals",
+                "grant_scopes",
+                "grant_confidence",
+                "assignment_facts",
+            ],
+        )
         evidence = _evidence_by_key(finding)
+        self.assertEqual(
+            evidence["privileged_access"],
+            [
+                "grant_1=principal=external-principal-id; categories=[full-admin, iam-admin, policy-admin]; "
+                "scope=subscription; confidence=high"
+            ],
+        )
         self.assertEqual(
             evidence["role_assignment"],
             [
@@ -172,6 +206,7 @@ class AzureIamAssignmentRuleTests(unittest.TestCase):
         self.assertEqual([finding.rule_id for finding in findings], [_RULE_ID])
         finding = findings[0]
         self.assertEqual(finding.severity.value, "medium")
+        self.assertEqual(_severity_vector(finding), (0, 2, 2, 0, 1, 5))
         self.assertEqual(
             finding.affected_resources,
             ["azurerm_role_assignment.assignment", "azurerm_storage_account.logs"],
@@ -279,6 +314,11 @@ class AzureIamAssignmentRuleTests(unittest.TestCase):
                 )
             ]
         )
+
+        self.assertEqual(findings, [])
+
+    def test_unresolved_principal_does_not_overclaim_privilege(self) -> None:
+        findings = _findings([_role_assignment(principal_id=None)])
 
         self.assertEqual(findings, [])
 
