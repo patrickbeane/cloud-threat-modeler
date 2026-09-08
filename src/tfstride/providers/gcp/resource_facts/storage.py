@@ -4,6 +4,7 @@ from typing import Any
 
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts.base import GcpBaseFacts
+from tfstride.storage import StorageVersioningPosture, StorageVersioningState
 
 
 class GcpStorageFacts(GcpBaseFacts):
@@ -28,6 +29,21 @@ class GcpStorageFacts(GcpBaseFacts):
     @property
     def gcs_versioning_uncertainties(self) -> list[str]:
         return self.get(GcpResourceMetadata.GCS_VERSIONING_UNCERTAINTIES)
+
+    @property
+    def gcs_versioning_posture(self) -> StorageVersioningPosture:
+        enabled = self.versioning_enabled
+        state: StorageVersioningState
+        if enabled is True:
+            state = "enabled"
+        elif enabled is False:
+            state = "disabled"
+        else:
+            state = "unknown"
+        return StorageVersioningPosture(
+            state=state,
+            uncertainties=tuple(self.gcs_versioning_uncertainties),
+        )
 
     @property
     def gcs_soft_delete_retention_duration_seconds(self) -> int | None:

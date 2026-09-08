@@ -15,6 +15,7 @@ from tfstride.providers.gcp.org_policy_guardrails import (
 )
 from tfstride.providers.gcp.org_policy_severity import guardrail_adjusted_severity_reasoning
 from tfstride.providers.gcp.resource_facts import GcpResourceFacts, gcp_facts
+from tfstride.storage import StorageVersioningState
 
 _GCS_MIN_RETENTION_PERIOD_DAYS = 7
 _GCS_MIN_RETENTION_PERIOD_SECONDS = _GCS_MIN_RETENTION_PERIOD_DAYS * 24 * 60 * 60
@@ -182,7 +183,8 @@ class GcpStorageRuleDetectors:
             bucket_facts = gcp_facts(bucket)
             if bucket.data_sensitivity != "sensitive":
                 continue
-            if bucket_facts.versioning_enabled is True:
+            versioning_posture = bucket_facts.gcs_versioning_posture
+            if not versioning_posture.requires_attention:
                 continue
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=False,
@@ -206,7 +208,7 @@ class GcpStorageRuleDetectors:
                         evidence_item(
                             "data_protection_posture",
                             [
-                                f"versioning.enabled is {_bool_status(bucket_facts.versioning_enabled)}",
+                                f"versioning.enabled is {_gcs_versioning_evidence_status(versioning_posture.state)}",
                                 f"data_sensitivity is {bucket.data_sensitivity}",
                             ],
                         ),
@@ -309,6 +311,12 @@ class GcpStorageRuleDetectors:
                 )
             )
         return findings
+
+
+def _gcs_versioning_evidence_status(state: StorageVersioningState) -> str:
+    if state in ("enabled", "disabled"):
+        return str(state == "enabled").lower()
+    return "unset"
 
 
 def _bool_status(value: bool | None) -> str:

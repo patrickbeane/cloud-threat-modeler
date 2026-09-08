@@ -18,6 +18,7 @@ from tfstride.providers.gcp.data_normalizers import (
 from tfstride.providers.gcp.metadata import GcpResourceMetadata
 from tfstride.providers.gcp.resource_facts import gcp_facts
 from tfstride.providers.gcp.storage_normalizers import normalize_storage_bucket
+from tfstride.storage import StorageVersioningPosture
 
 
 class GcpDataNormalizerTests(GcpNormalizerTestCase):
@@ -35,6 +36,50 @@ class GcpDataNormalizerTests(GcpNormalizerTestCase):
         self.assertEqual(normalized.get_metadata_field(GcpResourceMetadata.GCS_ENCRYPTION_CONFIGURATION), {})
         self.assertTrue(normalized.storage_encrypted)
         self.assertEqual(normalized.metadata_snapshot()["location"], "US")
+
+    def test_storage_bucket_facts_adapt_versioning_to_shared_posture(self) -> None:
+        cases = (
+            (
+                "enabled",
+                {"name": "tfstride-logs", "versioning": [{"enabled": True}]},
+                None,
+                StorageVersioningPosture("enabled"),
+            ),
+            (
+                "disabled",
+                {"name": "tfstride-logs", "versioning": [{"enabled": False}]},
+                None,
+                StorageVersioningPosture("disabled"),
+            ),
+            (
+                "missing",
+                {"name": "tfstride-logs"},
+                None,
+                StorageVersioningPosture("disabled"),
+            ),
+            (
+                "unresolved",
+                {"name": "tfstride-logs", "versioning": [{"enabled": True}]},
+                {"versioning": [{"enabled": True}]},
+                StorageVersioningPosture(
+                    "unknown",
+                    uncertainties=("versioning.enabled is unknown after planning",),
+                ),
+            ),
+        )
+
+        for label, values, unknown_values, expected in cases:
+            with self.subTest(label=label):
+                normalized = normalize_storage_bucket(
+                    _terraform_resource(
+                        "google_storage_bucket.logs",
+                        "google_storage_bucket",
+                        values,
+                        unknown_values=unknown_values,
+                    )
+                )
+
+                self.assertEqual(gcp_facts(normalized).gcs_versioning_posture, expected)
 
     def test_storage_bucket_normalizer_preserves_retention_policy(self) -> None:
         normalized = normalize_storage_bucket(
