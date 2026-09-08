@@ -10,6 +10,7 @@ from tfstride.providers.azure.data_normalizers import (
 )
 from tfstride.providers.azure.resource_facts import azure_facts
 from tfstride.providers.azure.resource_types import AzureResourceType
+from tfstride.storage import StorageVersioningPosture
 
 
 def _resource(
@@ -104,6 +105,10 @@ class AzureStorageNormalizerTests(unittest.TestCase):
             "azurerm_user_assigned_identity.storage.id",
         )
         self.assertTrue(facts.storage_blob_versioning_enabled)
+        self.assertEqual(
+            facts.storage_blob_versioning_posture,
+            StorageVersioningPosture("enabled"),
+        )
         self.assertTrue(facts.storage_blob_permanent_delete_enabled)
         self.assertFalse(facts.storage_hierarchical_namespace_enabled)
         self.assertEqual(facts.storage_blob_delete_retention_days, 30)
@@ -128,6 +133,10 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertIsNone(facts.storage_customer_managed_key_id)
         self.assertIsNone(facts.storage_customer_managed_key_identity_id)
         self.assertFalse(facts.storage_blob_versioning_enabled)
+        self.assertEqual(
+            facts.storage_blob_versioning_posture,
+            StorageVersioningPosture("disabled"),
+        )
         self.assertFalse(facts.storage_blob_permanent_delete_enabled)
         self.assertFalse(facts.storage_hierarchical_namespace_enabled)
         self.assertIsNone(facts.storage_blob_delete_retention_days)
@@ -215,6 +224,13 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertIsNone(facts.storage_customer_managed_key_id)
         self.assertIsNone(facts.storage_customer_managed_key_identity_id)
         self.assertIsNone(facts.storage_blob_versioning_enabled)
+        self.assertEqual(
+            facts.storage_blob_versioning_posture,
+            StorageVersioningPosture(
+                "unknown",
+                uncertainties=("blob_properties.versioning_enabled is unknown after planning",),
+            ),
+        )
         self.assertIsNone(facts.storage_blob_permanent_delete_enabled)
         self.assertIsNone(facts.storage_hierarchical_namespace_enabled)
         self.assertIsNone(facts.storage_blob_delete_retention_days)
@@ -242,6 +258,10 @@ class AzureStorageNormalizerTests(unittest.TestCase):
         self.assertTrue(facts.allow_nested_items_to_be_public)
         self.assertTrue(facts.shared_access_key_enabled)
         self.assertFalse(facts.storage_blob_permanent_delete_enabled)
+        self.assertEqual(
+            facts.storage_blob_versioning_posture,
+            StorageVersioningPosture("unknown"),
+        )
         self.assertEqual(facts.min_tls_version, "TLS1_2")
         self.assertIsNone(facts.public_network_access_enabled)
         self.assertEqual(facts.public_network_fallback_state, "unknown")

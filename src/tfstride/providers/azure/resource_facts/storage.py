@@ -4,6 +4,9 @@ from collections.abc import Sequence
 
 from tfstride.providers.azure.metadata import AzureResourceMetadata
 from tfstride.providers.azure.resource_facts.base import AzureBaseFacts
+from tfstride.storage import StorageVersioningPosture, StorageVersioningState
+
+_BLOB_VERSIONING_FIELD_PATH = "blob_properties.versioning_enabled"
 
 
 class AzureStorageFacts(AzureBaseFacts):
@@ -72,6 +75,25 @@ class AzureStorageFacts(AzureBaseFacts):
     @property
     def storage_blob_versioning_enabled(self) -> bool | None:
         return self.optional_bool(AzureResourceMetadata.STORAGE_BLOB_VERSIONING_ENABLED)
+
+    @property
+    def storage_blob_versioning_posture(self) -> StorageVersioningPosture:
+        enabled = self.storage_blob_versioning_enabled
+        state: StorageVersioningState
+        if enabled is True:
+            state = "enabled"
+        elif enabled is False:
+            state = "disabled"
+        else:
+            state = "unknown"
+        return StorageVersioningPosture(
+            state=state,
+            uncertainties=tuple(
+                uncertainty
+                for uncertainty in self.storage_posture_uncertainties
+                if _BLOB_VERSIONING_FIELD_PATH in uncertainty
+            ),
+        )
 
     @property
     def storage_blob_permanent_delete_enabled(self) -> bool | None:

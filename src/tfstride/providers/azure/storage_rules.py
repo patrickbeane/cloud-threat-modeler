@@ -308,14 +308,16 @@ class AzureStorageRuleDetectors:
         for account in context.inventory.by_type(AzureResourceType.STORAGE_ACCOUNT):
             facts = azure_facts(account)
             enabled = facts.storage_blob_versioning_enabled
-            if enabled is True:
+            versioning_posture = facts.storage_blob_versioning_posture
+            if not versioning_posture.requires_attention:
                 continue
+            unknown = versioning_posture.state == "unknown"
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=False,
                 privilege_breadth=0,
-                data_sensitivity=1 if enabled is None else 2,
+                data_sensitivity=1 if unknown else 2,
                 lateral_movement=0,
-                blast_radius=0 if enabled is None else 1,
+                blast_radius=0 if unknown else 1,
             )
             findings.append(
                 self._finding_factory.build(
@@ -336,7 +338,7 @@ class AzureStorageRuleDetectors:
                         ),
                         evidence_item(
                             "posture_uncertainty",
-                            _storage_uncertainty_evidence(facts, "blob_properties.versioning_enabled"),
+                            list(versioning_posture.uncertainties),
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
