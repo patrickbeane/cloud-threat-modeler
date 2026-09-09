@@ -48,6 +48,9 @@ include = [
   # Shared storage posture contracts.
   "src/tfstride/storage/versioning.py",
 
+  # Shared managed-key lifecycle contracts.
+  "src/tfstride/key_management/lifecycle.py",
+
   # Shared analysis contracts.
   "src/tfstride/analysis/indexes.py",
   "src/tfstride/analysis/boundaries/types.py",
