@@ -36,6 +36,7 @@ from tfstride.providers.aws.resource_decoration.security_groups import (
 )
 from tfstride.providers.aws.resource_facts import aws_facts
 from tfstride.providers.aws.resource_index import AwsDecorationContext, AwsResourceIndexBuilder
+from tfstride.storage import StorageVersioningPosture
 
 
 def _resource(
@@ -784,6 +785,7 @@ class AwsResourceDecorationStageTests(unittest.TestCase):
         bucket_facts = aws_facts(bucket)
         self.assertEqual(bucket_facts.s3_versioning_status, "Enabled")
         self.assertTrue(bucket_facts.s3_versioning_enabled)
+        self.assertEqual(bucket_facts.s3_versioning_posture, StorageVersioningPosture("enabled"))
         self.assertEqual(bucket_facts.s3_versioning_source_address, "aws_s3_bucket_versioning.logs")
         self.assertEqual(bucket_facts.s3_versioning_configuration, {"status": "Enabled"})
         self.assertEqual(bucket_facts.s3_encryption_algorithm, "aws:kms")
@@ -803,6 +805,44 @@ class AwsResourceDecorationStageTests(unittest.TestCase):
                 "aws_s3_bucket_server_side_encryption_configuration.logs: "
                 "rule.bucket_key_enabled is unknown after planning"
             ],
+        )
+
+    def test_s3_posture_stage_preserves_unknown_versioning_source_and_uncertainty(self) -> None:
+        bucket = _resource(
+            "aws_s3_bucket.logs",
+            "aws_s3_bucket",
+            ResourceCategory.DATA,
+            identifier="logs",
+            arn="arn:aws:s3:::logs",
+            metadata={"bucket": "logs"},
+        )
+        versioning = _resource(
+            "aws_s3_bucket_versioning.logs",
+            "aws_s3_bucket_versioning",
+            ResourceCategory.DATA,
+            metadata={
+                "bucket": "logs",
+                "s3_versioning_configuration": {},
+                "s3_posture_uncertainties": ["versioning_configuration.status is unknown after planning"],
+            },
+        )
+        resources = [bucket, versioning]
+
+        ApplyS3PostureResourcesStage().apply(resources, _context(resources))
+
+        bucket_facts = aws_facts(bucket)
+        self.assertEqual(
+            bucket_facts.s3_versioning_posture,
+            StorageVersioningPosture(
+                "unknown",
+                uncertainties=(
+                    "aws_s3_bucket_versioning.logs: versioning_configuration.status is unknown after planning",
+                ),
+            ),
+        )
+        self.assertEqual(
+            bucket_facts.s3_versioning_source_address,
+            "aws_s3_bucket_versioning.logs",
         )
 
     def test_s3_posture_stage_applies_object_lock_and_lifecycle_to_bucket(self) -> None:

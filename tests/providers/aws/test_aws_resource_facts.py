@@ -7,6 +7,7 @@ from tests.helpers.paths import SOURCE_ROOT
 from tfstride.models import NormalizedResource, ResourceCategory
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts import AwsResourceFacts, aws_facts
+from tfstride.storage import StorageVersioningPosture
 
 
 def _resource(metadata: dict[str, object] | None = None) -> NormalizedResource:
@@ -659,6 +660,7 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertEqual(resource.public_exposure_reasons, ["service is internet-facing"])
         self.assertEqual(facts.s3_versioning_status, "Suspended")
         self.assertFalse(facts.s3_versioning_enabled)
+        self.assertEqual(facts.s3_versioning_posture, StorageVersioningPosture("disabled"))
         self.assertEqual(facts.s3_versioning_source_address, "aws_s3_bucket_versioning.logs")
         self.assertEqual(facts.s3_versioning_configuration, {"status": "Suspended"})
         self.assertEqual(facts.s3_encryption_algorithm, "AES256")
@@ -691,6 +693,7 @@ class AwsResourceFactsTests(unittest.TestCase):
         self.assertIsNone(facts.s3_versioning_status)
         self.assertIsNone(facts.s3_versioning_enabled)
         self.assertIsNone(facts.s3_versioning_source_address)
+        self.assertEqual(facts.s3_versioning_posture, StorageVersioningPosture("not_observed"))
         self.assertEqual(facts.s3_versioning_configuration, {})
         self.assertIsNone(facts.s3_encryption_algorithm)
         self.assertIsNone(facts.s3_kms_master_key_id)

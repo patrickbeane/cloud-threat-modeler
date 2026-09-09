@@ -5,9 +5,12 @@ from typing import Any
 
 from tfstride.providers.aws.metadata import AwsResourceMetadata
 from tfstride.providers.aws.resource_facts.base import AwsBaseFacts, _bool_from_state
+from tfstride.storage import StorageVersioningPosture, StorageVersioningState
 
 _S3_BUCKET_KEY_ENABLED = "enabled"
 _S3_BUCKET_KEY_DISABLED = "disabled"
+_S3_VERSIONING_CONFIGURATION_PATH = "versioning_configuration"
+_S3_VERSIONING_STATUS_PATH = "versioning_configuration.status"
 
 
 class AwsStorageFacts(AwsBaseFacts):
@@ -60,6 +63,29 @@ class AwsStorageFacts(AwsBaseFacts):
     @property
     def s3_versioning_source_address(self) -> str | None:
         return self.get(AwsResourceMetadata.S3_VERSIONING_SOURCE_ADDRESS)
+
+    @property
+    def s3_versioning_posture(self) -> StorageVersioningPosture:
+        posture_uncertainties = self.s3_posture_uncertainties
+        uncertainties = tuple(
+            uncertainty for uncertainty in posture_uncertainties if _S3_VERSIONING_STATUS_PATH in uncertainty
+        )
+        enabled = self.s3_versioning_enabled
+        state: StorageVersioningState
+        if enabled is True:
+            state = "enabled"
+        elif enabled is False:
+            state = "disabled"
+        elif self.s3_versioning_source_address or any(
+            _S3_VERSIONING_CONFIGURATION_PATH in uncertainty for uncertainty in posture_uncertainties
+        ):
+            state = "unknown"
+        else:
+            state = "not_observed"
+        return StorageVersioningPosture(
+            state=state,
+            uncertainties=uncertainties,
+        )
 
     @property
     def s3_versioning_configuration(self) -> dict[str, Any]:

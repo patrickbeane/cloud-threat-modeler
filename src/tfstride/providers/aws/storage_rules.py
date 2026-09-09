@@ -13,6 +13,7 @@ from tfstride.analysis.rule_definitions import RuleEvaluationContext
 from tfstride.models import Finding
 from tfstride.providers.aws.resource_facts import AwsResourceFacts, aws_facts
 from tfstride.providers.coercion import STATE_CONFIGURED, STATE_DISABLED, STATE_UNKNOWN, as_optional_int
+from tfstride.storage import StorageVersioningState
 
 _AWS_S3_BUCKET = "aws_s3_bucket"
 _KMS_ENCRYPTION_ALGORITHMS = frozenset({"aws:kms", "aws:kms:dsse"})
@@ -86,10 +87,10 @@ class AwsS3PostureRuleDetectors:
         findings: list[Finding] = []
         for bucket in context.inventory.by_type(_AWS_S3_BUCKET):
             facts = aws_facts(bucket)
-            state = _s3_versioning_state(facts)
-            if state in {STATE_CONFIGURED, _STATE_NOT_MODELED}:
+            versioning_posture = facts.s3_versioning_posture
+            if not versioning_posture.requires_attention:
                 continue
-            unknown = state == STATE_UNKNOWN
+            unknown = versioning_posture.state == "unknown"
             severity_reasoning = build_severity_reasoning(
                 internet_exposure=False,
                 privilege_breadth=0,
@@ -110,10 +111,13 @@ class AwsS3PostureRuleDetectors:
                     ),
                     evidence=collect_evidence(
                         evidence_item("target_resource", _s3_target_evidence(bucket)),
-                        evidence_item("versioning_posture", _s3_versioning_evidence(facts, state)),
+                        evidence_item(
+                            "versioning_posture",
+                            _s3_versioning_evidence(facts, versioning_posture.state),
+                        ),
                         evidence_item(
                             "posture_uncertainty",
-                            _s3_uncertainty_evidence(facts, "versioning_configuration.status"),
+                            list(versioning_posture.uncertainties),
                         ),
                     ),
                     severity_reasoning=severity_reasoning,
@@ -212,16 +216,6 @@ def _s3_customer_managed_encryption_state(facts: AwsResourceFacts) -> str:
     if algorithm == "AES256":
         return _STATE_PROVIDER_MANAGED_SSE_S3
     return _STATE_NON_KMS_ALGORITHM
-
-
-def _s3_versioning_state(facts: AwsResourceFacts) -> str:
-    if facts.s3_versioning_enabled is True:
-        return STATE_CONFIGURED
-    if facts.s3_versioning_enabled is False:
-        return STATE_DISABLED
-    if facts.s3_versioning_source_address or _s3_uncertainty_evidence(facts, "versioning_configuration"):
-        return STATE_UNKNOWN
-    return _STATE_NOT_MODELED
 
 
 def _s3_object_lock_retention_state(facts: AwsResourceFacts) -> str:
@@ -326,7 +320,7 @@ def _s3_encryption_evidence(facts: AwsResourceFacts, state: str) -> list[str]:
     return values
 
 
-def _s3_versioning_evidence(facts: AwsResourceFacts, state: str) -> list[str]:
+def _s3_versioning_evidence(facts: AwsResourceFacts, state: StorageVersioningState) -> list[str]:
     values = [f"s3_versioning_state={state}"]
     if facts.s3_versioning_status:
         values.append(f"versioning_configuration.status={facts.s3_versioning_status}")
